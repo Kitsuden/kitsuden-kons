@@ -1,0 +1,119 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-booking",
+  "name": "Booking System",
+  "description": "Room and resource reservation system with availability tracking, amenities management and conflict detection.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "CalendarDays",
+  "mount": {
+    "path": "/api/booking",
+    "router": "bookingModuleRoutes"
+  },
+  "tables": [
+    {
+      "name": "booking_reservations",
+      "label": "Reservations",
+      "icon": "CalendarCheck",
+      "searchableFields": [
+        "user_id"
+      ],
+      "filterableFields": [
+        "status",
+        "room_id"
+      ]
+    },
+    {
+      "name": "booking_rooms",
+      "label": "Rooms",
+      "icon": "DoorOpen",
+      "searchableFields": [
+        "name"
+      ],
+      "filterableFields": [
+        "capacity"
+      ]
+    },
+    {
+      "name": "booking_amenities",
+      "label": "Amenities",
+      "icon": "Sparkles",
+      "searchableFields": [
+        "name"
+      ]
+    },
+    {
+      "name": "booking_room_amenities",
+      "label": "Room Amenities",
+      "icon": "Link",
+      "searchableFields": [],
+      "filterableFields": [
+        "room_id",
+        "amenity_id"
+      ]
+    },
+    {
+      "name": "booking_notes",
+      "label": "Booking Notes",
+      "icon": "StickyNote",
+      "searchableFields": [
+        "note"
+      ],
+      "filterableFields": [
+        "booking_id"
+      ]
+    },
+    {
+      "name": "booking_blackout_dates",
+      "label": "Blackout Dates",
+      "icon": "CalendarX",
+      "searchableFields": [],
+      "filterableFields": [
+        "room_id"
+      ]
+    }
+  ],
+  "admin": {
+    "category": "data",
+    "defaultView": "grid-reservations",
+    "views": [
+      {
+        "id": "grid-reservations",
+        "type": "grid",
+        "title": "Reservations",
+        "table": "booking_reservations"
+      },
+      {
+        "id": "grid-rooms",
+        "type": "grid",
+        "title": "Rooms",
+        "table": "booking_rooms"
+      },
+      {
+        "id": "grid-amenities",
+        "type": "grid",
+        "title": "Amenities",
+        "table": "booking_amenities"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "category": "business"
+}

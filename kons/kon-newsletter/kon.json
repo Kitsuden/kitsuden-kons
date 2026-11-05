@@ -1,0 +1,80 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-newsletter",
+  "name": "Newsletter",
+  "description": "Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "common",
+  "maturity": "beta",
+  "icon": "Mail",
+  "category": "content",
+  "core": false,
+  "defaultEnabled": false,
+  "mount": {
+    "path": "/api/newsletter",
+    "router": "newsletterRoutes"
+  },
+  "entryPoint": "./index.ts",
+  "schema": {
+    "entry": "./newsletter.schema.ts",
+    "strategy": "drizzle"
+  },
+  "tables": [
+    "nl_newsletters",
+    "nl_members",
+    "nl_subscriptions",
+    "nl_suppressions",
+    "nl_segments",
+    "nl_campaigns",
+    "nl_deliveries",
+    "nl_events"
+  ],
+  "mails": [
+    "newsletter.confirm",
+    "newsletter.welcome"
+  ],
+  "dependencies": {
+    "kons": [],
+    "optionalKons": [
+      "kon-blog",
+      "kon-payments"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.9.0"
+  },
+  "admin": {
+    "category": "content",
+    "defaultView": "dashboard",
+    "views": [
+      {
+        "id": "dashboard",
+        "type": "custom",
+        "title": "Newsletter"
+      },
+      {
+        "id": "members",
+        "type": "grid",
+        "title": "Members",
+        "table": "nl_members"
+      },
+      {
+        "id": "campaigns",
+        "type": "grid",
+        "title": "Campaigns",
+        "table": "nl_campaigns"
+      },
+      {
+        "id": "suppressions",
+        "type": "grid",
+        "title": "Suppressions",
+        "table": "nl_suppressions"
+      }
+    ]
+  }
+}

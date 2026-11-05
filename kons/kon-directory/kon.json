@@ -1,0 +1,138 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-directory",
+  "name": "Employee Directory",
+  "description": "Employee profiles, departments, positions, and organizational hierarchy.",
+  "version": "1.0.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Contact",
+  "mount": {
+    "path": "/api/directory"
+  },
+  "tables": [
+    {
+      "name": "directory_employees",
+      "label": "Employees",
+      "icon": "User",
+      "searchableFields": [
+        "firstName",
+        "lastName",
+        "email",
+        "displayName"
+      ],
+      "filterableFields": [
+        "departmentId",
+        "positionId",
+        "status",
+        "location"
+      ]
+    },
+    {
+      "name": "directory_departments",
+      "label": "Departments",
+      "icon": "Building",
+      "searchableFields": [
+        "name"
+      ],
+      "filterableFields": [
+        "organizationId",
+        "parentDepartmentId"
+      ]
+    },
+    {
+      "name": "directory_positions",
+      "label": "Positions",
+      "icon": "Briefcase",
+      "searchableFields": [
+        "title"
+      ],
+      "filterableFields": [
+        "departmentId",
+        "isManagement"
+      ]
+    },
+    {
+      "name": "directory_organizations",
+      "label": "Organizations",
+      "icon": "Building2",
+      "searchableFields": [
+        "name"
+      ],
+      "filterableFields": [
+        "country",
+        "isActive"
+      ]
+    },
+    {
+      "name": "directory_employee_documents",
+      "label": "Employee Documents",
+      "icon": "FileText",
+      "searchableFields": [
+        "name"
+      ],
+      "filterableFields": [
+        "type",
+        "employeeId"
+      ]
+    },
+    {
+      "name": "directory_org_chart_cache",
+      "label": "Org Chart Cache",
+      "icon": "Network",
+      "searchableFields": [],
+      "filterableFields": [
+        "organizationId"
+      ]
+    }
+  ],
+  "admin": {
+    "category": "enterprise",
+    "defaultView": "grid-employees",
+    "apiBase": "/api/directory",
+    "views": [
+      {
+        "id": "grid-employees",
+        "type": "grid",
+        "title": "Employees",
+        "table": "directory_employees"
+      },
+      {
+        "id": "grid-departments",
+        "type": "grid",
+        "title": "Departments",
+        "table": "directory_departments"
+      },
+      {
+        "id": "grid-positions",
+        "type": "grid",
+        "title": "Positions",
+        "table": "directory_positions"
+      },
+      {
+        "id": "grid-organizations",
+        "type": "grid",
+        "title": "Organizations",
+        "table": "directory_organizations"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "category": "business"
+}

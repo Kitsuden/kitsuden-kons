@@ -1,0 +1,378 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-conta",
+  "name": "Accounting",
+  "description": "General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a business that bills clients runs through it: invoices, payments, work billed as quantity times rate, recurring fees, success fees, client funds, bank reconciliation, period close and an audit trail.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Landmark",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "conta_currencies",
+      "label": "Currencies",
+      "icon": "Coins",
+      "description": "Currency table for multi-currency support"
+    },
+    {
+      "name": "conta_accounts",
+      "label": "Accounts",
+      "icon": "BookOpen",
+      "description": "Hierarchical chart of accounts",
+      "searchableFields": [
+        "code",
+        "name"
+      ],
+      "filterableFields": [
+        "type",
+        "isActive",
+        "isClientFundsAccount"
+      ]
+    },
+    {
+      "name": "conta_counterparties",
+      "label": "Counterparties",
+      "icon": "Users",
+      "description": "Clients, suppliers, banks and other counterparties",
+      "searchableFields": [
+        "name",
+        "taxId",
+        "externalRef"
+      ],
+      "filterableFields": [
+        "type"
+      ]
+    },
+    {
+      "name": "conta_projects",
+      "label": "Projects",
+      "icon": "Briefcase",
+      "description": "Work billed to a client: a job, a case, an engagement",
+      "searchableFields": [
+        "name",
+        "number",
+        "externalRef"
+      ],
+      "filterableFields": [
+        "status",
+        "clientId",
+        "billingType",
+        "category"
+      ]
+    },
+    {
+      "name": "conta_journal_templates",
+      "label": "Templates",
+      "icon": "FileStack",
+      "description": "Journal templates for business events",
+      "searchableFields": [
+        "name",
+        "templateType"
+      ],
+      "filterableFields": [
+        "templateType",
+        "isActive"
+      ]
+    },
+    {
+      "name": "conta_journals",
+      "label": "Journals",
+      "icon": "FileText",
+      "description": "Journal entry headers",
+      "searchableFields": [
+        "description",
+        "reference"
+      ],
+      "filterableFields": [
+        "status",
+        "journalType",
+        "date"
+      ]
+    },
+    {
+      "name": "conta_ledger_entries",
+      "label": "Ledger lines",
+      "icon": "Scale",
+      "description": "Double-entry lines of the General Ledger",
+      "searchableFields": [
+        "description"
+      ],
+      "filterableFields": [
+        "accountId",
+        "projectId",
+        "currency"
+      ]
+    },
+    {
+      "name": "conta_disbursements",
+      "label": "Reimbursable Expenses",
+      "icon": "Receipt",
+      "description": "Disbursements and recoverable client expenses",
+      "searchableFields": [
+        "description"
+      ],
+      "filterableFields": [
+        "status",
+        "projectId",
+        "invoiceId"
+      ]
+    },
+    {
+      "name": "conta_permissions",
+      "label": "Accounting permissions",
+      "icon": "Users",
+      "description": "Accounting role per user (accountant: reads and writes; viewer: read only)"
+    },
+    {
+      "name": "conta_settings",
+      "label": "Accounting settings",
+      "icon": "FileStack",
+      "description": "Currency, tax rate, numbering, closed date and account codes (one row)"
+    },
+    {
+      "name": "conta_number_sequences",
+      "label": "Document numbers",
+      "icon": "FileText",
+      "description": "Gapless counters per document kind and year"
+    },
+    {
+      "name": "conta_resources",
+      "label": "Resources",
+      "icon": "Users",
+      "description": "People or things billed per unit, with billing and cost rates",
+      "searchableFields": [
+        "name"
+      ],
+      "filterableFields": [
+        "isActive",
+        "unit"
+      ]
+    },
+    {
+      "name": "conta_work_entries",
+      "label": "Work entries",
+      "icon": "Clock",
+      "description": "Work on projects, billed as quantity times rate, or waiting as work in progress",
+      "searchableFields": [
+        "description"
+      ],
+      "filterableFields": [
+        "projectId",
+        "resourceId",
+        "invoiceId",
+        "unit"
+      ]
+    },
+    {
+      "name": "conta_invoices",
+      "label": "Invoices",
+      "icon": "Receipt",
+      "description": "Invoices, from draft to paid or void",
+      "searchableFields": [
+        "number",
+        "concept"
+      ],
+      "filterableFields": [
+        "status",
+        "clientId",
+        "projectId",
+        "feeType"
+      ]
+    },
+    {
+      "name": "conta_invoice_lines",
+      "label": "Invoice lines",
+      "icon": "FileText",
+      "description": "Fee and expense lines of each invoice",
+      "searchableFields": [
+        "description"
+      ],
+      "filterableFields": [
+        "invoiceId",
+        "kind"
+      ]
+    },
+    {
+      "name": "conta_invoice_payments",
+      "label": "Payments",
+      "icon": "Coins",
+      "description": "Full and partial payments, each with its journal",
+      "searchableFields": [
+        "reference"
+      ],
+      "filterableFields": [
+        "invoiceId",
+        "source"
+      ]
+    },
+    {
+      "name": "conta_invoice_reminders",
+      "label": "Payment reminders",
+      "icon": "FileText",
+      "description": "Reminders recorded on each invoice",
+      "filterableFields": [
+        "invoiceId",
+        "channel"
+      ]
+    },
+    {
+      "name": "conta_recurring_fees",
+      "label": "Recurring fees",
+      "icon": "FileStack",
+      "description": "Fees billed every period and when each is billed next",
+      "searchableFields": [
+        "concept"
+      ],
+      "filterableFields": [
+        "clientId",
+        "isActive",
+        "frequency"
+      ]
+    },
+    {
+      "name": "conta_success_fees",
+      "label": "Success fees",
+      "icon": "Scale",
+      "description": "Fees that depend on a result, with their expected amount",
+      "searchableFields": [
+        "stage"
+      ],
+      "filterableFields": [
+        "clientId",
+        "status"
+      ]
+    },
+    {
+      "name": "conta_bank_lines",
+      "label": "Bank statement",
+      "icon": "Landmark",
+      "description": "Statement lines and how each was reconciled",
+      "searchableFields": [
+        "description",
+        "reference"
+      ],
+      "filterableFields": [
+        "accountId",
+        "matchKind"
+      ]
+    },
+    {
+      "name": "conta_audit_log",
+      "label": "Audit trail",
+      "icon": "FileText",
+      "description": "Every accounting action, append-only",
+      "searchableFields": [
+        "summary",
+        "action"
+      ],
+      "filterableFields": [
+        "action",
+        "entityType",
+        "actorId"
+      ]
+    }
+  ],
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "admin": {
+    "category": "data",
+    "defaultView": "accounts",
+    "views": [
+      {
+        "id": "accounts",
+        "type": "grid",
+        "title": "Accounts",
+        "table": "conta_accounts"
+      },
+      {
+        "id": "journals",
+        "type": "grid",
+        "title": "Journals",
+        "table": "conta_journals"
+      },
+      {
+        "id": "ledger",
+        "type": "grid",
+        "title": "Ledger lines",
+        "table": "conta_ledger_entries"
+      },
+      {
+        "id": "projects",
+        "type": "grid",
+        "title": "Projects",
+        "table": "conta_projects"
+      },
+      {
+        "id": "templates",
+        "type": "grid",
+        "title": "Templates",
+        "table": "conta_journal_templates"
+      },
+      {
+        "id": "invoices",
+        "type": "grid",
+        "title": "Invoices",
+        "table": "conta_invoices"
+      },
+      {
+        "id": "work-entries",
+        "type": "grid",
+        "title": "Work entries",
+        "table": "conta_work_entries"
+      },
+      {
+        "id": "recurring-fees",
+        "type": "grid",
+        "title": "Recurring fees",
+        "table": "conta_recurring_fees"
+      },
+      {
+        "id": "bank-lines",
+        "type": "grid",
+        "title": "Bank statement",
+        "table": "conta_bank_lines"
+      },
+      {
+        "id": "audit",
+        "type": "grid",
+        "title": "Audit trail",
+        "table": "conta_audit_log"
+      },
+      {
+        "id": "journal-form",
+        "type": "custom",
+        "title": "New Journal Entry"
+      },
+      {
+        "id": "reports",
+        "type": "custom",
+        "title": "Reports"
+      },
+      {
+        "id": "disbursement-form",
+        "type": "custom",
+        "title": "Reimbursable Expenses"
+      },
+      {
+        "id": "template-form",
+        "type": "custom",
+        "title": "New Template"
+      }
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/conta"
+  },
+  "category": "business"
+}

@@ -1,0 +1,301 @@
+{
+  "$comment": "Example preset: a law firm built on the generic CRM and kon-conta. Nothing in the kons' code knows about law firms; this file is all of it. Copy it to make another business.",
+  "id": "law-firm",
+  "name": "Law firm",
+  "description": "Numbered matters with practice area, fee type, court and priority; hearings and deadlines as activity kinds; client KYC; engagement letter and payment reminder; partner, operations and assistant profiles. Money in kon-conta, billed by the hour, fixed, monthly retainer or contingency.",
+  "entity": {
+    "name": "matter",
+    "singular": "Matter",
+    "plural": "Matters"
+  },
+  "contactFields": [
+    {
+      "key": "taxId",
+      "label": "National or tax ID",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "nationality",
+      "label": "Nationality",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "occupation",
+      "label": "Occupation or economic activity",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "pep",
+      "label": "Politically exposed person",
+      "type": "select",
+      "options": [
+        "no",
+        "yes"
+      ]
+    },
+    {
+      "key": "beneficialOwner",
+      "label": "Beneficial owner",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "sourceOfFunds",
+      "label": "Source of funds",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "kycStatus",
+      "label": "KYC status",
+      "type": "select",
+      "options": [
+        "pending",
+        "in-review",
+        "approved",
+        "rejected"
+      ]
+    },
+    {
+      "key": "riskLevel",
+      "label": "Risk level",
+      "type": "select",
+      "options": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    {
+      "key": "kycReviewedAt",
+      "label": "KYC reviewed on",
+      "type": "date"
+    }
+  ],
+  "companyFields": [
+    {
+      "key": "taxId",
+      "label": "Tax ID",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "legalRepresentative",
+      "label": "Legal representative",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "beneficialOwner",
+      "label": "Beneficial owner",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "kycStatus",
+      "label": "KYC status",
+      "type": "select",
+      "options": [
+        "pending",
+        "in-review",
+        "approved",
+        "rejected"
+      ]
+    },
+    {
+      "key": "riskLevel",
+      "label": "Risk level",
+      "type": "select",
+      "options": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  ],
+  "dealFields": [
+    {
+      "key": "matterNumber",
+      "label": "Matter number",
+      "type": "text",
+      "portal": true
+    },
+    {
+      "key": "practiceArea",
+      "label": "Practice area",
+      "type": "select",
+      "options": [
+        "labor",
+        "family",
+        "criminal",
+        "civil",
+        "commercial",
+        "tax",
+        "regulatory"
+      ],
+      "portal": true
+    },
+    {
+      "key": "feeType",
+      "label": "Fee type",
+      "type": "select",
+      "options": [
+        "time",
+        "fixed",
+        "recurring",
+        "success"
+      ],
+      "required": true
+    },
+    {
+      "key": "court",
+      "label": "Court or authority",
+      "type": "text",
+      "portal": true
+    },
+    {
+      "key": "opposingParty",
+      "label": "Opposing party",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "priority",
+      "label": "Priority",
+      "type": "select",
+      "options": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    }
+  ],
+  "numbering": {
+    "field": "matterNumber",
+    "prefix": "M-",
+    "padding": 4
+  },
+  "activityKinds": [
+    {
+      "key": "hearing",
+      "label": "Hearing",
+      "type": "meeting",
+      "defaultDurationMinutes": 120
+    },
+    {
+      "key": "deadline",
+      "label": "Deadline",
+      "type": "task"
+    },
+    {
+      "key": "client-meeting",
+      "label": "Client meeting",
+      "type": "meeting",
+      "defaultDurationMinutes": 60
+    }
+  ],
+  "dealContactRoles": [
+    "client",
+    "opposing-party",
+    "witness",
+    "expert"
+  ],
+  "pipeline": "Matters",
+  "stages": [
+    {
+      "name": "New",
+      "probability": 10
+    },
+    {
+      "name": "In progress",
+      "probability": 50
+    },
+    {
+      "name": "Resolution",
+      "probability": 80
+    },
+    {
+      "name": "Closed",
+      "probability": 100
+    }
+  ],
+  "templates": [
+    {
+      "name": "Engagement letter",
+      "description": "Example to review with a lawyer before use.",
+      "body": "{{date.today}}\n\nDear {{contact.firstName}} {{contact.lastName}},\n\nThis letter confirms that we will act for you in the matter \"{{deal.title}}\", number {{custom.matterNumber}}, under the following fee arrangement: {{custom.feeType}}. Agreed fees: {{ask.fees}}.\n\n{{ask.scope}}\n\nSincerely,\n{{ask.signatory}}\n"
+    },
+    {
+      "name": "Payment reminder",
+      "description": "Example to review with a lawyer before use.",
+      "body": "{{date.today}}\n\nDear {{contact.firstName}} {{contact.lastName}},\n\nOur records show a balance of {{ask.balance}} on invoice {{ask.invoice}} for the matter \"{{deal.title}}\". Please settle it within {{ask.days}} days.\n\nSincerely,\n{{ask.signatory}}\n"
+    }
+  ],
+  "profiles": [
+    {
+      "profile": "partner",
+      "records": "all",
+      "money": true,
+      "sensitive": true,
+      "notes": true
+    },
+    {
+      "profile": "operations",
+      "records": "assigned",
+      "money": true,
+      "sensitive": false,
+      "notes": true
+    },
+    {
+      "profile": "assistant",
+      "records": "assigned",
+      "money": false,
+      "sensitive": false,
+      "notes": true
+    }
+  ],
+  "conta": {
+    "labels": {
+      "project": {
+        "singular": "Matter",
+        "plural": "Matters"
+      },
+      "resource": {
+        "singular": "Lawyer",
+        "plural": "Lawyers"
+      },
+      "clientFunds": {
+        "singular": "Trust account",
+        "plural": "Trust accounts"
+      },
+      "recurringFee": {
+        "singular": "Retainer",
+        "plural": "Retainers"
+      },
+      "successFee": {
+        "singular": "Contingency fee",
+        "plural": "Contingency fees"
+      }
+    },
+    "billingTypes": [
+      "time",
+      "fixed",
+      "recurring",
+      "success"
+    ],
+    "projectFields": {
+      "billingType": "feeType",
+      "category": "practiceArea"
+    },
+    "clientTaxIdField": "taxId"
+  },
+  "nextSteps": [
+    "Add each lawyer as a resource in kon-conta with an hourly rate and cost.",
+    "Grant each person a profile with grant-access.",
+    "Review every document template with a lawyer before using it."
+  ]
+}

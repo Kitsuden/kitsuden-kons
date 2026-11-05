@@ -1,0 +1,96 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-members",
+  "name": "Members",
+  "description": "Paid memberships: tiers, members and content access control",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "essential",
+  "maturity": "stable",
+  "icon": "Users",
+  "tables": [
+    {
+      "name": "members",
+      "label": "Members",
+      "icon": "Users",
+      "description": "Subscribed readers. They are NOT CMS users.",
+      "searchableFields": [
+        "email",
+        "name"
+      ],
+      "filterableFields": [
+        "status",
+        "newsletterSubscribed"
+      ]
+    },
+    {
+      "name": "member_tiers",
+      "label": "Plans",
+      "icon": "Layers",
+      "description": "Membership levels and their prices",
+      "searchableFields": [
+        "name",
+        "slug"
+      ],
+      "filterableFields": [
+        "active",
+        "visible"
+      ]
+    },
+    {
+      "name": "member_access",
+      "label": "Access",
+      "icon": "KeyRound",
+      "description": "Access grants and their origin",
+      "filterableFields": [
+        "source"
+      ]
+    },
+    {
+      "name": "member_signins",
+      "label": "Sign-in links",
+      "icon": "LogIn"
+    },
+    {
+      "name": "member_sessions",
+      "label": "Sessions",
+      "icon": "Clock"
+    }
+  ],
+  "schema": {
+    "entry": "./members.schema.ts",
+    "strategy": "drizzle"
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ],
+    "optionalKons": [
+      "kon-payments"
+    ]
+  },
+  "admin": {
+    "category": "content",
+    "defaultView": "grid",
+    "views": [
+      {
+        "id": "grid",
+        "type": "grid",
+        "title": "Members",
+        "table": "members"
+      },
+      {
+        "id": "tiers",
+        "type": "grid",
+        "title": "Plans",
+        "table": "member_tiers"
+      }
+    ]
+  },
+  "mount": {
+    "path": "/api/members"
+  },
+  "category": "core"
+}

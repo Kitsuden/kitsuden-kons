@@ -1,0 +1,15 @@
+{
+  "previousChecksums": {
+    "0001_autobattler.sql": [
+      "40470329ad8d2b70",
+      "aee2d9f909f16a90"
+    ],
+    "0002_comp_card.sql": [
+      "129ef9fd674da3c7",
+      "8cedd01916d63a10"
+    ]
+  },
+  "renamed": {
+    "0002_comp_card.sql": "0002_ficha_de_comp.sql"
+  }
+}

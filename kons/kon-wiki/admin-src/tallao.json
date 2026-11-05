@@ -1,0 +1,21 @@
+{
+  "components": [
+    "alert",
+    "button",
+    "card",
+    "card-content",
+    "card-header",
+    "card-title",
+    "field",
+    "input",
+    "select",
+    "table",
+    "table-body",
+    "table-cell",
+    "table-head",
+    "table-header",
+    "table-row",
+    "textarea",
+    "theme-scope"
+  ]
+}

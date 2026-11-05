@@ -1,0 +1,67 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-formulas",
+  "name": "Formulas",
+  "description": "Game formula engine: safe allowlist evaluator, derived stat systems with dependency resolution",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Sigma",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "formula_systems",
+      "label": "Systems",
+      "icon": "Sigma"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "systems",
+    "views": [
+      {
+        "id": "systems",
+        "type": "grid",
+        "title": "Systems",
+        "table": "formula_systems",
+        "icon": "Sigma"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/formulas"
+  },
+  "manifest": 1,
+  "license": "MIT",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-formulas"
+  },
+  "permissions": {
+    "scopes": [
+      "kon:formulas:evaluate-system",
+      "kon:formulas:save-system",
+      "kon:formulas:list-systems",
+      "kon:formulas:get-system"
+    ],
+    "hosts": [],
+    "sensitive": [
+      "save-system"
+    ]
+  },
+  "category": "gaming"
+}

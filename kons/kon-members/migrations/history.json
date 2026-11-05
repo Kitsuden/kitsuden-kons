@@ -1,0 +1,27 @@
+{
+  "previousChecksums": {
+    "0001_members.sql": [
+      "9c2b8e80164d7ed5",
+      "aebf0d51b6231a9d"
+    ],
+    "0002_personal_data_rls.sql": [
+      "7ac1f34ccb60b89e",
+      "471f4d347285e4b2"
+    ],
+    "0003_system_without_user.sql": [
+      "ea515ee97b20ac29",
+      "a91a028f5f68e7d1"
+    ],
+    "0004_effective_staff.sql": [
+      "225c27346aa0ad1c",
+      "765668b2c7f358c9",
+      "f3450cca0e433210",
+      "6bc4ca28cd58718f"
+    ]
+  },
+  "renamed": {
+    "0002_personal_data_rls.sql": "0002_rls_datos_personales.sql",
+    "0003_system_without_user.sql": "0003_sistema_sin_usuario.sql",
+    "0004_effective_staff.sql": "0004_staff_efectivo.sql"
+  }
+}

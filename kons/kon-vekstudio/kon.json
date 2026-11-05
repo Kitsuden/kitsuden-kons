@@ -1,0 +1,74 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-vekstudio",
+  "name": "VekStudio",
+  "description": "Bridge to the vekocr OCR stack: enqueues documents in konusagi (Go/Python gateway + RabbitMQ + worker), queries statuses/results in real time (SSE) and links each job to KITSUDEN records. Exposes the full gateway contract under /api/ocr/gateway so that vekstudio works unchanged.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "experimental",
+  "icon": "ScanText",
+  "mount": {
+    "path": "/api/ocr"
+  },
+  "tables": [
+    {
+      "name": "ocr_documents",
+      "label": "OCR Documents",
+      "icon": "FileScan",
+      "description": "Documents sent to OCR: konusagi job_id, status, confidence and optional link to any KITSUDEN record",
+      "searchableFields": [
+        "filename",
+        "jobId"
+      ],
+      "filterableFields": [
+        "state",
+        "engine",
+        "entityType",
+        "createdBy"
+      ]
+    }
+  ],
+  "admin": {
+    "category": "content",
+    "hasCustomView": false,
+    "defaultView": "documents",
+    "apiBase": "/api/ocr",
+    "views": [
+      {
+        "id": "documents",
+        "type": "grid",
+        "title": "OCR Documents",
+        "icon": "ScanText",
+        "table": "ocr_documents"
+      }
+    ]
+  },
+  "features": {
+    "proxy": {
+      "upstream": "konusagi gateway",
+      "env": "VEKDOCS_GATEWAY_URL (default http://gateway_api:8001; fallbacks VEKOCR_GATEWAY_URL, HARUOCR_GATEWAY_URL)",
+      "paths": [
+        "jobs",
+        "corrections",
+        "training",
+        "models",
+        "health",
+        "events"
+      ]
+    },
+    "sse": {
+      "enabled": true,
+      "path": "/api/ocr/gateway/events"
+    }
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "category": "documents"
+}

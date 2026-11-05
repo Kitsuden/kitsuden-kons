@@ -1,0 +1,20 @@
+{
+  "previousChecksums": {
+    "0001_builder.sql": [
+      "7bcc541542efbbcf",
+      "89055e17f745ef7e"
+    ],
+    "0002_public_builds.sql": [
+      "fbc12a067e28a08c",
+      "bb1b0a12a3d0c775"
+    ],
+    "0003_public_read_rls.sql": [
+      "e6ba9f35f05cfeaa",
+      "7b47768470da6868"
+    ]
+  },
+  "renamed": {
+    "0002_public_builds.sql": "0002_builds_publicas.sql",
+    "0003_public_read_rls.sql": "0003_lectura_publica_rls.sql"
+  }
+}

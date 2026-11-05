@@ -1,0 +1,47 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-collection",
+  "name": "Collection",
+  "description": "What each reader already has: marks the records of an index that they have obtained and keeps count",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "CircleCheckBig",
+  "kitsuden": ">=0.9.0",
+  "mount": {
+    "path": "/api/collection"
+  },
+  "tables": [
+    {
+      "name": "collection_marks",
+      "label": "Collection",
+      "icon": "CircleCheckBig"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "views": [
+      {
+        "id": "grid-collection-marks",
+        "type": "grid",
+        "title": "Collection marks",
+        "table": "collection_marks",
+        "singularName": "mark",
+        "icon": "CircleCheckBig"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "category": "gaming"
+}

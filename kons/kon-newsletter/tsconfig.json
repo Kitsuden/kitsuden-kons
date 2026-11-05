@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.kons.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "*.ts",
+    "transports/**/*.ts",
+    "feedback/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts"
+  ]
+}

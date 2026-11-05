@@ -1,0 +1,32 @@
+{
+  "previousChecksums": {
+    "0000_initial.sql": [
+      "6d1629b45b1b4cbb",
+      "093172df46335a56"
+    ],
+    "0001_permissions_and_rls.sql": [
+      "bdea749a85992e25",
+      "bb57f3e8d4ac9d52"
+    ],
+    "0002_system_without_user.sql": [
+      "d9f3ac7e18d10b77",
+      "03da93baea7bb222"
+    ],
+    "0003_agents_with_scope.sql": [
+      "000ed6d1d61d16c3",
+      "f1f1653069f7f67c"
+    ],
+    "0004_common_agent_rule.sql": [
+      "4bfd9030c0e620a9",
+      "658421c11b67350c",
+      "162ee506e4d5f5a8",
+      "abde87cf87503d76"
+    ]
+  },
+  "renamed": {
+    "0001_permissions_and_rls.sql": "0001_permisos_y_rls.sql",
+    "0002_system_without_user.sql": "0002_sistema_sin_usuario.sql",
+    "0003_agents_with_scope.sql": "0003_agentes_con_scope.sql",
+    "0004_common_agent_rule.sql": "0004_regla_comun_de_agentes.sql"
+  }
+}

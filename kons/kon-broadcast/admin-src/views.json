@@ -1,0 +1,5 @@
+[
+  { "entry": "Scoreboard.svelte", "out": "scoreboard.js" },
+  { "entry": "ClassificationsView.svelte", "out": "classifications.js" },
+  { "entry": "LiveControl.svelte", "out": "live-control.js" }
+]

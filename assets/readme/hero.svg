@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 690" width="1200" height="690" role="img" aria-labelledby="t d">
+<title id="t">kitsuden-kons</title>
+<desc id="d">The 30 kons for Kitsuden, grouped by category: core, business, content and community, gaming, documents and OCR. Each tile is one kon, colored by category; solid means stable, outlined beta, dashed experimental.</desc>
+<style>.s{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif}.m{font-family:ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace}</style>
+<rect x="1" y="1" width="1198" height="688" rx="28" fill="#0f1520" stroke="#2a3446" stroke-width="2"/>
+<text class="s" x="56" y="104" font-size="58" font-weight="800" fill="#f1f5f9">kitsuden<tspan fill="#ff8a4c">-kons</tspan></text>
+<text class="s" x="56" y="150" font-size="24" fill="#a8b3c4">Optional modules for Kitsuden, the backend for AI agents.</text>
+<text class="s" x="56" y="184" font-size="24" fill="#a8b3c4">30 kons: install only the ones you need.</text>
+<rect x="800" y="66" width="344" height="56" rx="14" fill="#161e2c" stroke="#2a3446" stroke-width="2"/>
+<text class="m" x="822" y="101" font-size="21" fill="#f1f5f9"><tspan fill="#ff8a4c">$</tspan> kitsuden kon add blog</text>
+<line x1="56" y1="578" x2="1144" y2="578" stroke="#2a3446" stroke-width="2"/>
+<rect x="56.0" y="222" width="208.0" height="46" rx="12" fill="#ff8a4c"/>
+<text class="s" x="160.0" y="252" font-size="20" font-weight="600" text-anchor="middle" fill="#0f1520">blog</text>
+<rect x="276.0" y="222" width="208.0" height="46" rx="12" fill="#ff8a4c"/>
+<text class="s" x="380.0" y="252" font-size="20" font-weight="600" text-anchor="middle" fill="#0f1520">members</text>
+<rect x="497.0" y="223" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="600.0" y="252" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">academy-lms</text>
+<rect x="717.0" y="223" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="820.0" y="252" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">agile</text>
+<rect x="937.0" y="223" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="1040.0" y="252" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">booking</text>
+<rect x="57.0" y="281" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="160.0" y="310" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">conta</text>
+<rect x="277.0" y="281" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="380.0" y="310" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">crm</text>
+<rect x="497.0" y="281" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="600.0" y="310" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">directory</text>
+<rect x="717.0" y="281" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="820.0" y="310" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">dms</text>
+<rect x="937.0" y="281" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="1040.0" y="310" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">ecommerce</text>
+<rect x="57.0" y="339" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#60a5fa" stroke-width="2" stroke-dasharray="7 6"/>
+<text class="s" x="160.0" y="368" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">payments</text>
+<rect x="277.0" y="339" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#a78bfa" stroke-width="2"/>
+<text class="s" x="380.0" y="368" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">analytics</text>
+<rect x="497.0" y="339" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#a78bfa" stroke-width="2"/>
+<text class="s" x="600.0" y="368" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">comments</text>
+<rect x="717.0" y="339" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#a78bfa" stroke-width="2"/>
+<text class="s" x="820.0" y="368" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">newsletter</text>
+<rect x="937.0" y="339" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#a78bfa" stroke-width="2"/>
+<text class="s" x="1040.0" y="368" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">wiki</text>
+<rect x="57.0" y="397" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#a78bfa" stroke-width="2" stroke-dasharray="7 6"/>
+<text class="s" x="160.0" y="426" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">chat</text>
+<rect x="277.0" y="397" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="380.0" y="426" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">autobattler</text>
+<rect x="497.0" y="397" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="600.0" y="426" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">broadcast</text>
+<rect x="717.0" y="397" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="820.0" y="426" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">cardsim</text>
+<rect x="937.0" y="397" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="1040.0" y="426" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">character-builder</text>
+<rect x="57.0" y="455" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="160.0" y="484" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">collection</text>
+<rect x="277.0" y="455" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="380.0" y="484" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">esports</text>
+<rect x="497.0" y="455" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="600.0" y="484" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">formulas</text>
+<rect x="717.0" y="455" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="820.0" y="484" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">games</text>
+<rect x="937.0" y="455" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="1040.0" y="484" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">maps</text>
+<rect x="57.0" y="513" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="160.0" y="542" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">streamers</text>
+<rect x="277.0" y="513" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="380.0" y="542" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">tierlist</text>
+<rect x="497.0" y="513" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#f472b6" stroke-width="2" stroke-dasharray="7 6"/>
+<text class="s" x="600.0" y="542" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">ingest</text>
+<rect x="717.0" y="513" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#f472b6" stroke-width="2" stroke-dasharray="7 6"/>
+<text class="s" x="820.0" y="542" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">ocr-training</text>
+<rect x="937.0" y="513" width="206.0" height="44" rx="12" fill="#161e2c" stroke="#f472b6" stroke-width="2" stroke-dasharray="7 6"/>
+<text class="s" x="1040.0" y="542" font-size="20" font-weight="600" text-anchor="middle" fill="#f1f5f9">vekstudio</text>
+<circle cx="64" cy="599" r="8" fill="#ff8a4c"/>
+<text class="s" x="80" y="606" font-size="20" fill="#f1f5f9">Core <tspan fill="#a8b3c4">2</tspan></text>
+<circle cx="184" cy="599" r="8" fill="#60a5fa"/>
+<text class="s" x="200" y="606" font-size="20" fill="#f1f5f9">Business <tspan fill="#a8b3c4">9</tspan></text>
+<circle cx="346" cy="599" r="8" fill="#a78bfa"/>
+<text class="s" x="362" y="606" font-size="20" fill="#f1f5f9">Content and community <tspan fill="#a8b3c4">5</tspan></text>
+<circle cx="643" cy="599" r="8" fill="#34d399"/>
+<text class="s" x="659" y="606" font-size="20" fill="#f1f5f9">Gaming <tspan fill="#a8b3c4">11</tspan></text>
+<circle cx="794" cy="599" r="8" fill="#f472b6"/>
+<text class="s" x="810" y="606" font-size="20" fill="#f1f5f9">Documents and OCR <tspan fill="#a8b3c4">3</tspan></text>
+<text class="s" x="56" y="650" font-size="20" fill="#a8b3c4">Maturity</text>
+<rect x="156" y="632" width="36" height="24" rx="6" fill="#a8b3c4"/>
+<text class="s" x="202" y="650" font-size="20" fill="#f1f5f9">stable</text>
+<rect x="301" y="633" width="34" height="22" rx="6" fill="none" stroke="#a8b3c4" stroke-width="2"/>
+<text class="s" x="346" y="650" font-size="20" fill="#f1f5f9">beta</text>
+<rect x="423" y="633" width="34" height="22" rx="6" fill="none" stroke="#a8b3c4" stroke-width="2" stroke-dasharray="6 5"/>
+<text class="s" x="468" y="650" font-size="20" fill="#f1f5f9">experimental</text>
+<text class="m" x="1144" y="650" font-size="20" text-anchor="end" fill="#a8b3c4">MIT · v0.9.0-beta</text>
+</svg>

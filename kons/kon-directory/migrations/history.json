@@ -1,0 +1,32 @@
+{
+  "previousChecksums": {
+    "0000_base_schema.sql": [
+      "02d91274137367af",
+      "fbad0f8ee8687fa4"
+    ],
+    "0001_rename_tables.sql": [
+      "5be0a7482d5021b0",
+      "f6a66f8048e28ff3"
+    ],
+    "0002_entry_security.sql": [
+      "0a2a455eeb1dc22a",
+      "960b51d4c7ec056b"
+    ],
+    "0003_system_without_user.sql": [
+      "54b15355758ce003",
+      "17c27004b92b6fc8"
+    ],
+    "0004_effective_admin.sql": [
+      "c120e3669be3a983",
+      "5eba94ffdf8ee892",
+      "e1a660ace836e1c6",
+      "ba11fa1035a55fd3"
+    ]
+  },
+  "renamed": {
+    "0000_base_schema.sql": "0000_esquema_base.sql",
+    "0002_entry_security.sql": "0002_seguridad_fichas.sql",
+    "0003_system_without_user.sql": "0003_sistema_sin_usuario.sql",
+    "0004_effective_admin.sql": "0004_admin_efectivo.sql"
+  }
+}

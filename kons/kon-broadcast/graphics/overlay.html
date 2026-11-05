@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Broadcast — Overlay</title>
+    <!--
+      Broadcast graphic for OBS.
+
+      Paste this URL into a Browser Source at 1920×1080:
+        /api/kons/kon-broadcast/graphics/overlay.html?match=<id>
+
+      It is the equivalent of the `graphics/` of a NodeCG bundle. Differences:
+      state arrives over a channel WITH PERMISSIONS instead of a global replicant,
+      and each message carries a monotonic revision, so a reconnection with
+      reordered messages cannot make the scoreboard go backwards live.
+
+      Transparent background on purpose: OBS composites on top of the gameplay.
+    -->
+    <style>
+      :root {
+        --a: #00d2a8;
+        --b: #ff5c72;
+        --ink: #ffffff;
+        --shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent; /* essential in a Browser Source */
+        overflow: hidden;
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Nothing is painted until the first state arrives: an overlay that
+         flickers with default values looks worse than one that appears late. */
+      body:not([data-ready]) .layer {
+        opacity: 0;
+      }
+
+      .layer {
+        position: absolute;
+        inset: 0;
+        transition: opacity 0.25s ease;
+      }
+      .layer[hidden] {
+        display: none;
+      }
+
+      /* ── Scoreboard ─────────────────────────────────────────────────────── */
+      .scoreboard {
+        position: absolute;
+        top: 32px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: stretch;
+        gap: 2px;
+        filter: drop-shadow(var(--shadow));
+      }
+
+      .side {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 22px;
+        min-width: 360px;
+        background: rgba(10, 14, 22, 0.94);
+        border-top: 4px solid var(--accent);
+      }
+      .side.b {
+        flex-direction: row-reverse;
+        text-align: right;
+      }
+
+      .tag {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .sponsor {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        opacity: 0.65;
+      }
+      .name {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 320px;
+      }
+
+      .flag {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .vs-flag {
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .chars {
+        display: flex;
+        gap: 6px;
+      }
+      .char {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 3px 8px;
+        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      /*
+        With a portrait the chip stops being a label and becomes a square:
+        without removing the padding, the image comes out distorted inside it.
+      */
+      .char.has-art,
+      .vs-char.has-art {
+        padding: 0;
+        overflow: hidden;
+        width: 38px;
+        height: 38px;
+      }
+
+      .vs-char.has-art {
+        width: 96px;
+        height: 96px;
+      }
+
+      .char-img,
+      .vs-char-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .score {
+        font-size: 44px;
+        font-weight: 900;
+        line-height: 1;
+        min-width: 52px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Set result ────────────────────────────────────────────────────── */
+
+      .result {
+        display: grid;
+        place-items: center;
+        background: rgba(4, 6, 10, 0.9);
+      }
+
+      .result-box {
+        text-align: center;
+      }
+
+      .result-label {
+        font-size: 12px;
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+        opacity: 0.55;
+        margin-bottom: 14px;
+      }
+
+      .result-name {
+        font-size: 76px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.01em;
+      }
+
+      /*
+        The score goes BELOW and smaller than the name: who wins is the
+        news; how close it was, the detail.
+      */
+      .result-score {
+        font-family: ui-monospace, monospace;
+        font-size: 34px;
+        font-weight: 400;
+        margin-top: 18px;
+        opacity: 0.75;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .result-chars {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 26px;
+      }
+
+      /* ── Roster: doubles and crew battle ───────────────────────────────── */
+
+      .roster {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 12px;
+      }
+
+      .pair-member,
+      .crew-member {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+      }
+
+      .crew-member[data-out="1"] {
+        opacity: 0.4;
+        text-decoration: line-through;
+      }
+
+      /* The one playing NOW is the only thing highlighted in the roster. */
+      .crew-member[data-active="1"] .crew-name {
+        font-weight: 800;
+        color: var(--accent, var(--ink));
+      }
+
+      .crew-stocks {
+        letter-spacing: 2px;
+        font-size: 10px;
+      }
+
+      /* ── Top banner ────────────────────────────────────────────────────── */
+
+      .ticker-bar {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: 900px;
+        padding: 7px 26px;
+        background: rgba(6, 8, 12, 0.88);
+        border-radius: 0 0 6px 6px;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      .ticker-text {
+        display: inline-block;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /*
+        It only scrolls when it does NOT fit: a short message that moves forces
+        the eye to chase it, and almost all tournament notices fit.
+      */
+      .ticker-text[data-scroll="1"] {
+        animation: ticker-scroll 12s linear infinite;
+      }
+
+      @keyframes ticker-scroll {
+        0%,
+        10% {
+          transform: translateX(0);
+        }
+        90%,
+        100% {
+          transform: translateX(var(--ticker-shift, -40%));
+        }
+      }
+
+      /* Losers indicator: in FGC it is bracket information, not decoration. */
+      .losers {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        color: #ffb020;
+      }
+      .side:not([data-losers="true"]) .losers {
+        visibility: hidden;
+      }
+
+      .middle {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 2px;
+        padding: 10px 20px;
+        background: rgba(4, 7, 12, 0.96);
+      }
+      .round {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .ft {
+        font-size: 11px;
+        opacity: 0.6;
+        letter-spacing: 0.08em;
+      }
+
+      /* ── Versus ─────────────────────────────────────────────────────────── */
+      .versus {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        background: rgba(4, 7, 12, 0.9);
+      }
+      .vs-side {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 40px;
+      }
+      .vs-name {
+        font-size: 68px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        text-shadow: var(--shadow);
+      }
+      .vs-sponsor {
+        font-size: 20px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        opacity: 0.7;
+      }
+      .vs-chars {
+        display: flex;
+        gap: 10px;
+      }
+      .vs-char {
+        font-size: 16px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 8px 16px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .vs-mark {
+        font-size: 92px;
+        font-weight: 900;
+        font-style: italic;
+        opacity: 0.85;
+      }
+      .vs-event {
+        position: absolute;
+        top: 56px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 22px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        opacity: 0.75;
+      }
+
+      /* ── K.O. ───────────────────────────────────────────────────────────── */
+      .ko {
+        display: grid;
+        place-items: center;
+      }
+      .ko-text {
+        font-size: 200px;
+        font-weight: 900;
+        font-style: italic;
+        letter-spacing: -0.04em;
+        text-shadow: 0 8px 40px rgba(0, 0, 0, 0.8);
+        animation: ko-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+      }
+      @keyframes ko-in {
+        from {
+          transform: scale(0.4) rotate(-8deg);
+          opacity: 0;
+        }
+      }
+
+      /* ── Casters ────────────────────────────────────────────────────────── */
+      .casters {
+        position: absolute;
+        left: 60px;
+        bottom: 60px;
+        display: flex;
+        gap: 14px;
+      }
+      .caster {
+        padding: 12px 22px;
+        background: rgba(10, 14, 22, 0.94);
+        border-left: 4px solid var(--a);
+        filter: drop-shadow(var(--shadow));
+      }
+      .caster-name {
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+      .caster-handle {
+        font-size: 14px;
+        opacity: 0.65;
+      }
+
+      /* ── Connection state ───────────────────────────────────────────────── */
+      /* Only visible when the bridge is lost: live you need to know
+         instantly, but without covering anything. */
+      .conn {
+        position: absolute;
+        top: 8px;
+        right: 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 4px 10px;
+        border-radius: 3px;
+        background: rgba(220, 38, 38, 0.9);
+      }
+      .conn[hidden] {
+        display: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .layer,
+        .ko-text {
+          transition: none;
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="conn" data-conn hidden>No connection</div>
+
+    <!-- Scoreboard -->
+    <div class="layer" data-layer="scoreboard">
+      <div class="scoreboard">
+        <div class="side a" data-side="a" style="--accent: var(--a)">
+          <div class="tag">
+            <span class="flag" data-flag-a></span>
+            <span class="sponsor" data-sponsor-a></span>
+            <span class="name" data-name-a></span>
+            <span class="losers">Losers</span>
+          </div>
+          <div class="chars" data-chars-a></div>
+          <div class="roster" data-roster-a hidden></div>
+          <div class="score" data-score-a>0</div>
+        </div>
+
+        <div class="middle">
+          <span class="round" data-round></span>
+          <span class="ft" data-ft></span>
+        </div>
+
+        <div class="side b" data-side="b" style="--accent: var(--b)">
+          <div class="tag">
+            <span class="flag" data-flag-b></span>
+            <span class="sponsor" data-sponsor-b></span>
+            <span class="name" data-name-b></span>
+            <span class="losers">Losers</span>
+          </div>
+          <div class="chars" data-chars-b></div>
+          <div class="roster" data-roster-b hidden></div>
+          <div class="score" data-score-b>0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Versus -->
+    <div class="layer versus" data-layer="versus" hidden>
+      <div class="vs-event" data-vs-event></div>
+      <div class="vs-side">
+        <span class="vs-flag" data-vs-flag-a></span>
+        <span class="vs-sponsor" data-vs-sponsor-a></span>
+        <span class="vs-name" data-vs-name-a style="color: var(--a)"></span>
+        <div class="vs-chars" data-vs-chars-a></div>
+      </div>
+      <div class="vs-mark">VS</div>
+      <div class="vs-side">
+        <span class="vs-flag" data-vs-flag-b></span>
+        <span class="vs-sponsor" data-vs-sponsor-b></span>
+        <span class="vs-name" data-vs-name-b style="color: var(--b)"></span>
+        <div class="vs-chars" data-vs-chars-b></div>
+      </div>
+    </div>
+
+    <!-- K.O. -->
+    <div class="layer ko" data-layer="ko" hidden>
+      <div class="ko-text">K.O.</div>
+    </div>
+
+    <!-- Set result -->
+    <div class="layer result" data-layer="result" hidden>
+      <div class="result-box">
+        <div class="result-label">Wins the set</div>
+        <div class="result-name" data-result-name></div>
+        <div class="result-score" data-result-score></div>
+        <div class="result-chars" data-result-chars></div>
+      </div>
+    </div>
+
+    <!-- Top banner -->
+    <div class="layer" data-layer="ticker" hidden>
+      <div class="ticker-bar">
+        <span class="ticker-text" data-ticker></span>
+      </div>
+    </div>
+
+    <!-- Casters -->
+    <div class="layer" data-layer="casters" hidden>
+      <div class="casters" data-casters></div>
+    </div>
+
+    <script type="module" src="./overlay.js"></script>
+  </body>
+</html>

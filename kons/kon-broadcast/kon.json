@@ -1,0 +1,140 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-broadcast",
+  "name": "Broadcast",
+  "description": "Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games, draft with Fearless and live telemetry. Multi-game through profiles.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Tv",
+  "tables": [
+    {
+      "name": "broadcast_matches",
+      "label": "Sets",
+      "icon": "Swords",
+      "description": "Authoritative state of each set that feeds the OBS overlay",
+      "searchableFields": [
+        "eventTitle",
+        "round"
+      ],
+      "filterableFields": [
+        "status",
+        "live"
+      ]
+    },
+    {
+      "name": "broadcast_games",
+      "label": "Games",
+      "icon": "Gamepad2",
+      "description": "Each game of a best-of-N match: draft, result and telemetry. Only used by profiles that declare it.",
+      "searchableFields": [
+        "patch"
+      ],
+      "filterableFields": [
+        "status",
+        "winner"
+      ]
+    },
+    {
+      "name": "broadcast_champions",
+      "label": "Roster",
+      "icon": "Users",
+      "description": "Local champion roster for duo selection",
+      "searchableFields": [
+        "name",
+        "slug"
+      ],
+      "filterableFields": [
+        "season"
+      ]
+    }
+  ],
+  "graphics": [
+    {
+      "id": "overlay",
+      "title": "Main overlay",
+      "src": "./graphics/overlay.html",
+      "description": "OBS Browser Source at 1920x1080, transparent background. Requires ?match=<id>"
+    },
+    {
+      "id": "overlay-live",
+      "title": "Live overlay (draft and telemetry)",
+      "src": "./graphics/overlay-live.html",
+      "description": "OBS Browser Source at 1920x1080, transparent background. Requires ?game=<id>. Needs the «games» section."
+    }
+  ],
+  "schema": {
+    "entry": "./broadcast.schema.ts",
+    "strategy": "drizzle"
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "admin": {
+    "category": "content",
+    "defaultView": "grid",
+    "views": [
+      {
+        "id": "grid",
+        "type": "grid",
+        "title": "Sets",
+        "table": "broadcast_matches"
+      },
+      {
+        "id": "roster",
+        "type": "grid",
+        "title": "Roster",
+        "table": "broadcast_champions"
+      },
+      {
+        "id": "scoreboard",
+        "type": "element",
+        "title": "Scoreboard panel",
+        "element": "broadcast-scoreboard",
+        "src": "./admin/scoreboard.js"
+      },
+      {
+        "id": "classifications",
+        "type": "element",
+        "title": "Classifications",
+        "element": "broadcast-classifications",
+        "src": "./admin/classifications.js"
+      },
+      {
+        "id": "live",
+        "type": "element",
+        "title": "Live booth",
+        "element": "broadcast-live-control",
+        "src": "./admin/live-control.js"
+      },
+      {
+        "id": "games",
+        "type": "grid",
+        "title": "Games",
+        "table": "broadcast_games"
+      }
+    ]
+  },
+  "konConfigSchema": {
+    "gameProfile": "Deployment's default game profile (`1v1`, `2xko`, `lol`…).",
+    "enableGames": "Store each game separately. Off by default.",
+    "enableDraft": "Turn-based selection with bans and Fearless. Implies enableGames.",
+    "enableLive": "Live telemetry ingest. Implies enableGames.",
+    "enableStandings": "Accumulated standings. On by default.",
+    "enableCatalog": "Character catalog. On by default."
+  },
+  "optionalDependencies": {
+    "kons": [
+      "kon-esports"
+    ]
+  },
+  "mount": {
+    "path": "/api/broadcast"
+  },
+  "category": "gaming"
+}

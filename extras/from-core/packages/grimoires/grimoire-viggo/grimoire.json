@@ -1,0 +1,28 @@
+{
+  "id": "grimoire-viggo",
+  "name": "Viggo",
+  "description": "End-to-end tournament production: bracket, live broadcast, registration and stations. Designed for FGC and 1v1; works for any competition.",
+  "version": "1.0.0",
+  "type": "grimoire",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "industry": "esports",
+  "keywords": ["tournaments", "fgc", "broadcast", "overlay", "obs", "brackets"],
+  "kons": ["kon-esports", "kon-broadcast"],
+  "optional_kons": ["kon-booking", "kon-members", "kon-payments", "kon-streamers"],
+  "config": {
+    "theme": {
+      "css_entry": "variables.css",
+      "primary_color": "#00d2a8",
+      "accent_color": "#ff5c72"
+    }
+  },
+  "konConfig": {
+    "kon-broadcast": {
+      "gameProfile": "1v1"
+    },
+    "kon-esports": {
+      "defaultFormat": "double_elimination"
+    }
+  },
+  "seed": null
+}

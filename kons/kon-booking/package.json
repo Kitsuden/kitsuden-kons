@@ -1,0 +1,69 @@
+{
+  "name": "@kitsuden/kon-booking",
+  "version": "1.0.1",
+  "description": "Room and resource booking system for Kitsuden",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "booking.context.ts",
+    "booking.db.ts",
+    "booking.policy.ts",
+    "booking.routes.ts",
+    "booking.schema.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ],
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    },
+    "./schema": {
+      "import": "./booking.schema.ts",
+      "types": "./booking.schema.ts"
+    },
+    "./routes": {
+      "import": "./booking.routes.ts",
+      "types": "./booking.routes.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "booking",
+    "reservations",
+    "rooms"
+  ],
+  "license": "MIT",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-booking"
+  },
+  "kitsuden": {
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  }
+}

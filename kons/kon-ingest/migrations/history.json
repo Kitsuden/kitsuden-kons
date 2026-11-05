@@ -1,0 +1,18 @@
+{
+  "previousChecksums": {
+    "0000_models.sql": [
+      "928f2ca4cd829e60",
+      "3d1ad5610a0be7de",
+      "180ad67f91406e23",
+      "61404260abaa8da2"
+    ],
+    "0001_english_names.sql": [
+      "6f2c1ab122aa48cf",
+      "87b2f9cdd6782a7d"
+    ],
+    "0002_english_rls.sql": [
+      "b6109913b4a43ced",
+      "5dae2fa96f64cab8"
+    ]
+  }
+}

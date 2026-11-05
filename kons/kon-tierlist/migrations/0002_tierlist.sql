@@ -1,0 +1,13 @@
+-- 0002 — Tier lists: "manual" flag
+-- ============================================================================
+-- Idempotent.
+--
+-- "The team orders it, not the loader". With TRUE, the content loader
+-- (upsertTierLists) does NOT overwrite the template: it keeps the cards and the
+-- placement made by hand in the panel. It is the editorial override over the
+-- computed tier list, and it is reversible: back to FALSE, the next load
+-- brings the computed one back.
+--
+-- PERSONAL lists (kind = 'personal') do not use it: nobody reloads them
+-- from a content plan, so they have nothing to protect.
+ALTER TABLE tier_lists ADD COLUMN IF NOT EXISTS manual BOOLEAN NOT NULL DEFAULT false;

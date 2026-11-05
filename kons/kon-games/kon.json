@@ -1,0 +1,157 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-games",
+  "name": "Games",
+  "description": "Full game catalog with metadata, screenshots, specs, platforms, tags, and collections. Cover art, screenshots and platform icons come from the core media library (/api/media).",
+  "version": "2.1.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Gamepad2",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "games",
+      "label": "Games",
+      "icon": "Gamepad2",
+      "description": "Game catalog with metadata",
+      "searchableFields": [
+        "title",
+        "description"
+      ],
+      "filterableFields": [
+        "genre",
+        "platform",
+        "rating"
+      ]
+    },
+    {
+      "name": "platforms",
+      "label": "Platforms",
+      "icon": "Monitor",
+      "description": "Gaming platforms (PC, PlayStation, Xbox, Nintendo, etc.)"
+    },
+    {
+      "name": "tags",
+      "label": "Tags",
+      "icon": "Tag",
+      "description": "Taxonomy system with categorized tags (genre, feature, topic, series)"
+    },
+    {
+      "name": "game_collections",
+      "label": "Collections",
+      "icon": "Library",
+      "description": "Curated groupings of games for editorial organization"
+    },
+    {
+      "name": "game_collection_entries",
+      "label": "Collection Entries",
+      "icon": "Link",
+      "description": "Which games each collection holds, in order"
+    },
+    {
+      "name": "games_to_platforms",
+      "label": "Platform Links",
+      "icon": "Link",
+      "readonly": true
+    },
+    {
+      "name": "games_to_tags",
+      "label": "Tag Links",
+      "icon": "Link",
+      "readonly": true
+    }
+  ],
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "admin": {
+    "category": "content",
+    "defaultView": "grid",
+    "views": [
+      {
+        "id": "grid",
+        "type": "grid",
+        "title": "All Games",
+        "table": "games"
+      },
+      {
+        "id": "kanban",
+        "type": "kanban",
+        "title": "By Status",
+        "table": "games",
+        "groupBy": "status"
+      },
+      {
+        "id": "collections",
+        "type": "custom",
+        "title": "Collections",
+        "icon": "Library"
+      }
+    ]
+  },
+  "media": {
+    "coverArt": {
+      "field": "coverArtId",
+      "focalPoint": "coverFocalPoint",
+      "transforms": {
+        "hero": {
+          "preset": "hero",
+          "width": 1920,
+          "height": 1080,
+          "crop": true
+        },
+        "card": {
+          "preset": "card",
+          "width": 600,
+          "height": 800,
+          "crop": true
+        },
+        "thumbnail": {
+          "preset": "thumbnail",
+          "width": 300,
+          "height": 400,
+          "crop": true
+        }
+      }
+    },
+    "screenshots": {
+      "field": "screenshots",
+      "transforms": {
+        "gallery": {
+          "preset": "gallery",
+          "width": 1200,
+          "height": 675
+        },
+        "thumbnail": {
+          "preset": "thumbnail",
+          "width": 300,
+          "height": 169
+        }
+      }
+    },
+    "platformIcons": {
+      "field": "iconId",
+      "transforms": {
+        "thumbnail": {
+          "preset": "thumbnail",
+          "width": 64,
+          "height": 64,
+          "crop": true
+        }
+      }
+    }
+  },
+  "schema": {
+    "entry": "./games.schema.ts",
+    "strategy": "drizzle"
+  },
+  "mount": {
+    "path": "/api/games"
+  },
+  "category": "gaming"
+}

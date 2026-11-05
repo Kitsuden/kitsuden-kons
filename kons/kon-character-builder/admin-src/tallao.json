@@ -1,0 +1,17 @@
+{
+  "components": [
+    "alert",
+    "badge",
+    "button",
+    "card",
+    "card-content",
+    "card-header",
+    "card-title",
+    "checkbox",
+    "field",
+    "input",
+    "key-value-editor",
+    "select",
+    "theme-scope"
+  ]
+}

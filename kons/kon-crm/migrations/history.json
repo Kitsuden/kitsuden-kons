@@ -1,0 +1,33 @@
+{
+  "previousChecksums": {
+    "0000_initial.sql": [
+      "111959e9b28abf11",
+      "c0fa879fb419355a"
+    ],
+    "0001_crm_builder_phase1.sql": [
+      "e670e7ae02920363",
+      "c2dae6581023f1db"
+    ],
+    "0002_media_integration.sql": [
+      "432c256f198f4f7a",
+      "c51b6b2a9a550d63"
+    ],
+    "0003_lost_reason.sql": [
+      "c8bb5f4098306703",
+      "287e8d783065c082"
+    ],
+    "0004_team_rls.sql": [
+      "ba3d6bddb4bbb84c",
+      "f777ae574a4c93f3"
+    ],
+    "0005_system_without_user.sql": [
+      "4135758d847225b3",
+      "21d838ea549040c3"
+    ]
+  },
+  "renamed": {
+    "0001_crm_builder_phase1.sql": "0001_crm_builder_fase1.sql",
+    "0004_team_rls.sql": "0004_rls_equipo.sql",
+    "0005_system_without_user.sql": "0005_sistema_sin_usuario.sql"
+  }
+}

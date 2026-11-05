@@ -1,0 +1,20 @@
+{
+  "previousChecksums": {
+    "0001_broadcast.sql": [
+      "7fb05162938706d9",
+      "333afb6d7e05e5c1"
+    ],
+    "0002_moba_unification.sql": [
+      "d0fbd50de078ab23",
+      "5156e28962fcede4"
+    ],
+    "0003_games_and_production.sql": [
+      "a87d4fbe58fa3735",
+      "701c346948a6ca8c"
+    ]
+  },
+  "renamed": {
+    "0002_moba_unification.sql": "0002_unificacion_moba.sql",
+    "0003_games_and_production.sql": "0003_partidas_y_produccion.sql"
+  }
+}

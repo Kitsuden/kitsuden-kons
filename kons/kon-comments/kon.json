@@ -1,0 +1,95 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-comments",
+  "name": "Comments",
+  "description": "Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the thread",
+  "version": "1.0.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "common",
+  "maturity": "beta",
+  "icon": "MessageSquare",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "comments",
+      "label": "Comments",
+      "icon": "MessageSquare"
+    },
+    {
+      "name": "comment_votes",
+      "label": "Votes",
+      "icon": "ThumbsUp",
+      "readonly": true
+    }
+  ],
+  "admin": {
+    "category": "content",
+    "defaultView": "moderation",
+    "views": [
+      {
+        "id": "moderation",
+        "type": "element",
+        "title": "Moderation",
+        "element": "comments-moderation",
+        "src": "admin/moderation.js",
+        "icon": "MessageSquare"
+      },
+      {
+        "id": "grid-comments",
+        "type": "grid",
+        "title": "All comments",
+        "table": "comments",
+        "singularName": "comment",
+        "icon": "MessageSquare"
+      },
+      {
+        "id": "grid-comment-votes",
+        "type": "grid",
+        "title": "Votes",
+        "table": "comment_votes",
+        "singularName": "vote",
+        "icon": "ThumbsUp"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/comments"
+  },
+  "manifest": 1,
+  "license": "MIT",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-comments"
+  },
+  "permissions": {
+    "scopes": [
+      "kon:comments:delete-comment",
+      "kon:comments:moderation-queue",
+      "kon:comments:create-comment",
+      "kon:comments:update-comment",
+      "kon:comments:moderate-comment",
+      "kon:comments:moderate-in-bulk",
+      "kon:comments:get-thread",
+      "kon:comments:vote-comment"
+    ],
+    "hosts": [],
+    "sensitive": [
+      "delete-comment",
+      "moderate-in-bulk"
+    ]
+  },
+  "category": "content"
+}

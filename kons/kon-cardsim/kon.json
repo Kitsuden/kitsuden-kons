@@ -1,0 +1,158 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-cardsim",
+  "name": "CardSim",
+  "description": "Card simulator builder: data-defined games, validated decks, rooms with a clock and deterministic sessions with replay; also a deck showcase and a hand generator over card datasets",
+  "version": "2.3.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Layers",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "cardsim_games",
+      "label": "Games",
+      "icon": "Layers"
+    },
+    {
+      "name": "cardsim_cards",
+      "label": "Cards",
+      "icon": "CreditCard"
+    },
+    {
+      "name": "cardsim_decks",
+      "label": "Decks",
+      "icon": "Package"
+    },
+    {
+      "name": "cardsim_sessions",
+      "label": "Sessions",
+      "icon": "Play"
+    },
+    {
+      "name": "cardsim_matches",
+      "label": "Matches",
+      "icon": "Swords"
+    },
+    {
+      "name": "cardsim_ratings",
+      "label": "Standings",
+      "icon": "Trophy"
+    },
+    {
+      "name": "cardsim_queue",
+      "label": "Queue",
+      "icon": "Clock"
+    },
+    {
+      "name": "deckshow_entries",
+      "label": "Published decks",
+      "icon": "Library"
+    },
+    {
+      "name": "deckshow_likes",
+      "label": "Likes",
+      "icon": "ThumbsUp"
+    },
+    {
+      "name": "handlab_datasets",
+      "label": "Card datasets",
+      "icon": "Database"
+    },
+    {
+      "name": "handlab_cards",
+      "label": "Cards",
+      "icon": "CreditCard"
+    },
+    {
+      "name": "handlab_decks",
+      "label": "Decks",
+      "icon": "Package"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "games",
+    "views": [
+      {
+        "id": "games",
+        "type": "grid",
+        "title": "Games",
+        "table": "cardsim_games",
+        "icon": "Layers"
+      },
+      {
+        "id": "cards",
+        "type": "grid",
+        "title": "Cards",
+        "table": "cardsim_cards",
+        "icon": "CreditCard"
+      },
+      {
+        "id": "sessions",
+        "type": "grid",
+        "title": "Sessions",
+        "table": "cardsim_sessions",
+        "icon": "Play"
+      },
+      {
+        "id": "matches",
+        "type": "grid",
+        "title": "Matches",
+        "table": "cardsim_matches",
+        "icon": "Swords"
+      },
+      {
+        "id": "ratings",
+        "type": "grid",
+        "title": "Standings",
+        "table": "cardsim_ratings",
+        "icon": "Trophy"
+      },
+      {
+        "id": "entries",
+        "type": "grid",
+        "title": "Published decks",
+        "table": "deckshow_entries",
+        "icon": "Library"
+      },
+      {
+        "id": "datasets",
+        "type": "grid",
+        "title": "Datasets",
+        "table": "handlab_datasets",
+        "icon": "Database"
+      },
+      {
+        "id": "hands-cards",
+        "type": "grid",
+        "title": "Cards",
+        "table": "handlab_cards",
+        "icon": "CreditCard"
+      },
+      {
+        "id": "decks",
+        "type": "grid",
+        "title": "Decks",
+        "table": "handlab_decks",
+        "icon": "Package"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/cardsim"
+  },
+  "category": "gaming"
+}

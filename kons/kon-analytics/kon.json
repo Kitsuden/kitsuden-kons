@@ -1,0 +1,40 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-analytics",
+  "name": "Analytics",
+  "description": "Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "common",
+  "maturity": "beta",
+  "icon": "BarChart3",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    "analytics_views"
+  ],
+  "dependencies": {
+    "kons": [],
+    "core": []
+  },
+  "schema": {
+    "entry": "./analytics.schema.ts",
+    "strategy": "drizzle"
+  },
+  "mount": {
+    "path": "/api/analytics"
+  },
+  "category": "content",
+  "admin": {
+    "category": "content",
+    "defaultView": "analytics-views",
+    "views": [
+      {
+        "id": "analytics-views",
+        "type": "grid",
+        "title": "Views",
+        "table": "analytics_views"
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "components": [
+    "alert",
+    "badge",
+    "button",
+    "card",
+    "card-content",
+    "card-header",
+    "card-title",
+    "checkbox",
+    "confirm-dialog",
+    "dialog",
+    "field",
+    "input",
+    "select",
+    "stat",
+    "table",
+    "table-body",
+    "table-cell",
+    "table-head",
+    "table-header",
+    "table-row",
+    "tabs",
+    "textarea",
+    "theme-scope"
+  ]
+}

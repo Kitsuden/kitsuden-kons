@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "models": {
+    "document": {
+      "name": "document",
+      "table": "ingest_documents",
+      "kon": "ingest",
+      "access": {
+        "read": "owner",
+        "write": "owner"
+      },
+      "columns": [
+        {
+          "key": "title",
+          "column": "title",
+          "type": "varchar(300)",
+          "nullable": false,
+          "defaultValue": null,
+          "check": null,
+          "unique": false,
+          "index": false
+        },
+        {
+          "key": "mimeType",
+          "column": "mime_type",
+          "type": "varchar(120)",
+          "nullable": false,
+          "defaultValue": null,
+          "check": null,
+          "unique": false,
+          "index": false
+        },
+        {
+          "key": "status",
+          "column": "status",
+          "type": "text",
+          "nullable": false,
+          "defaultValue": "'pending'",
+          "check": "\"status\" IN ('pending', 'processing', 'done', 'failed')",
+          "unique": false,
+          "index": false
+        },
+        {
+          "key": "error",
+          "column": "error",
+          "type": "text",
+          "nullable": true,
+          "defaultValue": null,
+          "check": "char_length(\"error\") <= 2000",
+          "unique": false,
+          "index": false
+        },
+        {
+          "key": "chunks",
+          "column": "chunks",
+          "type": "integer",
+          "nullable": false,
+          "defaultValue": "0",
+          "check": "\"chunks\" >= 0",
+          "unique": false,
+          "index": false
+        },
+        {
+          "key": "content",
+          "column": "content",
+          "type": "text",
+          "nullable": true,
+          "defaultValue": null,
+          "check": null,
+          "unique": false,
+          "index": false
+        }
+      ]
+    },
+    "chunk": {
+      "name": "chunk",
+      "table": "ingest_chunks",
+      "kon": "ingest",
+      "access": {
+        "read": "owner",
+        "write": "owner"
+      },
+      "columns": [
+        {
+          "key": "documentId",
+          "column": "document_id",
+          "type": "varchar(36)",
+          "nullable": false,
+          "defaultValue": null,
+          "check": null,
+          "unique": false,
+          "index": true
+        },
+        {
+          "key": "position",
+          "column": "position",
+          "type": "integer",
+          "nullable": false,
+          "defaultValue": null,
+          "check": "\"position\" >= 0",
+          "unique": false,
+          "index": false
+        },
+        {
+          "key": "text",
+          "column": "text",
+          "type": "text",
+          "nullable": false,
+          "defaultValue": null,
+          "check": null,
+          "unique": false,
+          "index": false
+        }
+      ],
+      "semantics": {
+        "fields": [
+          "text"
+        ],
+        "dimensions": 1536
+      }
+    }
+  }
+}

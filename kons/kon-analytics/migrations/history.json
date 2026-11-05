@@ -1,0 +1,11 @@
+{
+  "previousChecksums": {
+    "0000_analytics.sql": [
+      "4e1ac5d17e8b45e5",
+      "bdd0c5de91524d18"
+    ]
+  },
+  "renamed": {
+    "0000_analytics.sql": "0000_analitica.sql"
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-character-builder",
+  "name": "Character Builder",
+  "description": "Character builder engine: per-game definitions, validation, final stats and shareable build codes",
+  "version": "1.1.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Hammer",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "builder_definitions",
+      "label": "Builders",
+      "icon": "Hammer"
+    },
+    {
+      "name": "builder_builds",
+      "label": "Builds",
+      "icon": "Save"
+    },
+    {
+      "name": "builder_build_votes",
+      "label": "Votes",
+      "icon": "ThumbsUp"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "definition",
+    "views": [
+      {
+        "id": "definition",
+        "type": "element",
+        "title": "Definition",
+        "element": "builder-definition-editor",
+        "src": "admin/definition-editor.js",
+        "icon": "Hammer"
+      },
+      {
+        "id": "grid-builder-definitions",
+        "type": "grid",
+        "title": "All definitions",
+        "table": "builder_definitions",
+        "singularName": "definition",
+        "icon": "Hammer"
+      },
+      {
+        "id": "grid-builder-builds",
+        "type": "grid",
+        "title": "Saved builds",
+        "table": "builder_builds",
+        "singularName": "build",
+        "icon": "Save"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [
+      "kon-formulas"
+    ],
+    "core": [
+      "auth"
+    ],
+    "versions": {
+      "kon-formulas": "^1.0.0"
+    }
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/builder"
+  },
+  "manifest": 1,
+  "license": "MIT",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-character-builder"
+  },
+  "permissions": {
+    "scopes": [
+      "kon:character-builder:open-build-code",
+      "kon:character-builder:delete-build",
+      "kon:character-builder:compute-build",
+      "kon:character-builder:update-build",
+      "kon:character-builder:save-build",
+      "kon:character-builder:list-builds",
+      "kon:character-builder:list-definitions",
+      "kon:character-builder:list-my-builds",
+      "kon:character-builder:publish-definition",
+      "kon:character-builder:validate-definition",
+      "kon:character-builder:get-build",
+      "kon:character-builder:get-definition",
+      "kon:character-builder:vote-build"
+    ],
+    "hosts": [],
+    "sensitive": [
+      "delete-build",
+      "publish-definition"
+    ]
+  },
+  "category": "gaming"
+}

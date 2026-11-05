@@ -1,0 +1,83 @@
+{
+  "name": "@kitsuden/kon-esports",
+  "version": "1.0.1",
+  "description": "Complete esports competitive ecosystem with players, teams, tournaments, and matches",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "admin",
+    "bracket.persistence.ts",
+    "bracket.ts",
+    "checkin.ts",
+    "custom-fields.ts",
+    "esports.db.ts",
+    "esports.guard.ts",
+    "esports.policy.ts",
+    "esports.routes.ts",
+    "esports.schema.ts",
+    "guest-access.ts",
+    "hidden-drafts.ts",
+    "importers",
+    "index.ts",
+    "kon.json",
+    "leaderboard.ts",
+    "migrations",
+    "online.routes.ts",
+    "online.ts",
+    "operations.ts",
+    "participant-privacy.ts",
+    "phases.routes.ts",
+    "phases.ts",
+    "player-identity.ts",
+    "registration.routes.ts",
+    "registration.ts",
+    "reporting.ts",
+    "roundrobin.persistence.ts",
+    "roundrobin.ts",
+    "schemas.ts",
+    "swiss.persistence.ts",
+    "swiss.ts",
+    "valid-ids.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "esports",
+    "tournaments",
+    "gaming"
+  ],
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-esports",
+    "category": "esports",
+    "order": 15,
+    "core": false,
+    "defaultEnabled": false,
+    "minVersion": "0.8.0",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-esports"
+  }
+}

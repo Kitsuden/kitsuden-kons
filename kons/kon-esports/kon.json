@@ -1,0 +1,192 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-esports",
+  "name": "Esports",
+  "description": "Complete esports competitive ecosystem with players, teams, tournaments, and match tracking.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Trophy",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "esports_tournaments",
+      "label": "Tournaments",
+      "icon": "Trophy",
+      "description": "Tournaments: format, phases, prizes and status"
+    },
+    {
+      "name": "esports_players",
+      "label": "Players",
+      "icon": "User",
+      "description": "Player records with stats and social links"
+    },
+    {
+      "name": "esports_teams",
+      "label": "Teams",
+      "icon": "Users",
+      "description": "Teams and their rosters"
+    },
+    {
+      "name": "esports_matches",
+      "label": "Matches",
+      "icon": "Swords",
+      "description": "Matchups with score and status"
+    },
+    {
+      "name": "esports_phases",
+      "label": "Phases",
+      "icon": "GitBranch",
+      "description": "Phases of a tournament: groups, Swiss, elimination"
+    },
+    {
+      "name": "esports_stations",
+      "label": "Stations",
+      "icon": "Monitor",
+      "description": "Physical stations where play happens"
+    },
+    {
+      "name": "esports_streams",
+      "label": "Streams",
+      "icon": "Tv",
+      "description": "Channels assigned to the broadcast"
+    },
+    {
+      "name": "esports_tournament_participants",
+      "label": "Tournament Participants",
+      "icon": "UserPlus",
+      "readonly": true
+    },
+    {
+      "name": "esports_players_to_teams",
+      "label": "Team Roster Links",
+      "icon": "Link",
+      "readonly": true
+    },
+    {
+      "name": "esports_phase_entries",
+      "label": "Phase Entries",
+      "icon": "Link",
+      "readonly": true
+    },
+    {
+      "name": "esports_match_reports",
+      "label": "Match Reports",
+      "icon": "FileText",
+      "readonly": true,
+      "description": "Reports submitted by teams, before being confirmed"
+    },
+    {
+      "name": "esports_report_evidence",
+      "label": "Report Evidence",
+      "icon": "Image",
+      "readonly": true
+    },
+    {
+      "name": "esports_team_invites",
+      "label": "Team Invites",
+      "icon": "Mail",
+      "readonly": true
+    },
+    {
+      "name": "esports_notifications",
+      "label": "Notifications",
+      "icon": "Bell",
+      "readonly": true,
+      "description": "Notice inbox consumed by the bot"
+    },
+    {
+      "name": "esports_prize_pool_snapshots",
+      "label": "Prize Pool Snapshots",
+      "icon": "Coins",
+      "readonly": true
+    },
+    {
+      "name": "esports_pro_matches",
+      "label": "Scene matches",
+      "icon": "Swords",
+      "description": "Matches of OTHER teams (the professional scene) for the esports blog; they are not our tournaments"
+    }
+  ],
+  "admin": {
+    "category": "esports",
+    "defaultView": "to-panel",
+    "views": [
+      {
+        "id": "to-panel",
+        "type": "element",
+        "title": "Control",
+        "icon": "Trophy",
+        "element": "to-panel",
+        "src": "./admin/to-panel.js"
+      },
+      {
+        "id": "tournaments",
+        "type": "grid",
+        "title": "Tournaments",
+        "table": "esports_tournaments",
+        "icon": "Trophy",
+        "singularName": "tournament"
+      },
+      {
+        "id": "players",
+        "type": "grid",
+        "title": "Players",
+        "table": "esports_players",
+        "icon": "User",
+        "singularName": "player"
+      },
+      {
+        "id": "teams",
+        "type": "grid",
+        "title": "Teams",
+        "table": "esports_teams",
+        "icon": "Users",
+        "singularName": "team"
+      },
+      {
+        "id": "matches",
+        "type": "grid",
+        "title": "Matchups",
+        "table": "esports_matches",
+        "icon": "Swords",
+        "singularName": "matchup"
+      },
+      {
+        "id": "phases",
+        "type": "grid",
+        "title": "Phases",
+        "table": "esports_phases",
+        "icon": "GitBranch",
+        "singularName": "phase"
+      },
+      {
+        "id": "reports",
+        "type": "grid",
+        "title": "Reports",
+        "table": "esports_match_reports",
+        "icon": "FileText",
+        "singularName": "part"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [
+      "kon-games",
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/esports"
+  },
+  "category": "gaming"
+}

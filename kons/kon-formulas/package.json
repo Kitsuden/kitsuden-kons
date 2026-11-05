@@ -1,0 +1,52 @@
+{
+  "name": "@kitsuden/kon-formulas",
+  "version": "1.0.1",
+  "description": "Game formula engine: whitelist-safe evaluator and derived stat systems",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "formula.engine.ts",
+    "formulas.policy.ts",
+    "formulas.schema.ts",
+    "index.ts",
+    "kon.json",
+    "migrations"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "formulas"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-formulas",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-formulas"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

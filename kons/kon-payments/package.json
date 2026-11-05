@@ -1,0 +1,58 @@
+{
+  "name": "@kitsuden/kon-payments",
+  "version": "1.1.1",
+  "description": "Payments & subscriptions kon for Kitsuden",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts",
+    "payments.orders.ts",
+    "payments.policy.ts",
+    "payments.routes.ts",
+    "payments.schema.ts",
+    "payments.service.ts",
+    "payments.types.ts",
+    "providers"
+  ],
+  "types": "./index.ts",
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "payments",
+    "stripe",
+    "paddle",
+    "paypal",
+    "lemonsqueezy"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-payments",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-payments"
+  }
+}

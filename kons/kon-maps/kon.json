@@ -1,0 +1,71 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-maps",
+  "name": "Maps",
+  "description": "Interactive game maps: layers, categories, markers with normalized coordinates and clustering",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Map",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "game_maps",
+      "label": "Maps",
+      "icon": "Map"
+    },
+    {
+      "name": "map_markers",
+      "label": "Markers",
+      "icon": "MapPin"
+    },
+    {
+      "name": "map_categories",
+      "label": "Categories",
+      "icon": "Tags"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "maps",
+    "views": [
+      {
+        "id": "maps",
+        "type": "grid",
+        "title": "Maps",
+        "table": "game_maps",
+        "icon": "Map"
+      },
+      {
+        "id": "markers",
+        "type": "grid",
+        "title": "Markers",
+        "table": "map_markers",
+        "icon": "MapPin"
+      },
+      {
+        "id": "categories",
+        "type": "grid",
+        "title": "Categories",
+        "table": "map_categories",
+        "icon": "Tags"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/maps"
+  },
+  "category": "gaming"
+}

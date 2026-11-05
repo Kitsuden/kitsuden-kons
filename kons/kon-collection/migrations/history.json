@@ -1,0 +1,11 @@
+{
+  "previousChecksums": {
+    "0001_collection.sql": [
+      "e944675adbf3b622",
+      "1d0091c86d87cb02"
+    ]
+  },
+  "renamed": {
+    "0001_collection.sql": "0001_coleccion.sql"
+  }
+}

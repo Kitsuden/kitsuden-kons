@@ -1,0 +1,70 @@
+{
+  "previousChecksums": {
+    "0000_base_schema.sql": [
+      "72a3ea667c8eb48c",
+      "0ffc4abef62d2266"
+    ],
+    "0001_rename_tables.sql": [
+      "ae6fdfc66dbc5b6d",
+      "8abd44ad0b4b3516"
+    ],
+    "0002_bracket_engine.sql": [
+      "b7081fa4908c5c2b",
+      "b91fe7d555670e77"
+    ],
+    "0003_player_country.sql": [
+      "b13568cc0a8ea4c3",
+      "bf418d94c4ed43f9"
+    ],
+    "0004_round_robin.sql": [
+      "c04c92d767029abd",
+      "81fded2a3b6d945e"
+    ],
+    "0005_phases_checkin.sql": [
+      "e8118c9a7e8eaa3e",
+      "1483a3509916490c"
+    ],
+    "0006_external_identity.sql": [
+      "7144c8d354953469",
+      "a8f55d183dec0f36"
+    ],
+    "0007_public_registration.sql": [
+      "ce533aed55efc54f",
+      "8db7e47b2f1d4d6f"
+    ],
+    "0008_online_operations.sql": [
+      "5588ba77fd8ddf7c",
+      "b39e0ebb75b7a51f"
+    ],
+    "0009_prize_pool_history.sql": [
+      "e5e1fe530246de71",
+      "177298722bdcebc1"
+    ],
+    "0010_guest_registration.sql": [
+      "ddc4f9e9b54c7eb3",
+      "ec10b2a83d2126c1"
+    ],
+    "0011_evidence_fields_swiss.sql": [
+      "d4c58f807e6d9974",
+      "65f6b56307d0dd42"
+    ],
+    "0012_scene_matches.sql": [
+      "89937544dcdb5994",
+      "4ccd468100d1896a"
+    ],
+    "0013_invite_binds_player.sql": [
+      "daa1cd6a78ed0020",
+      "ff74aeb2428d1ba5"
+    ],
+    "0014_guests_off_by_default.sql": [
+      "a7524e5a3658ac5b",
+      "75b210dcb0d7a1d7"
+    ]
+  },
+  "renamed": {
+    "0000_base_schema.sql": "0000_esquema_base.sql",
+    "0012_scene_matches.sql": "0012_partidos_de_la_escena.sql",
+    "0013_invite_binds_player.sql": "0013_invitacion_ata_jugador.sql",
+    "0014_guests_off_by_default.sql": "0014_invitados_apagados_por_defecto.sql"
+  }
+}

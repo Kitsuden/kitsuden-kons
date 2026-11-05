@@ -1,0 +1,49 @@
+{
+  "previousChecksums": {
+    "0000_base_schema.sql": [
+      "ead7dff337509a74",
+      "c02a4bdcfaf638c0"
+    ],
+    "0001_workflow_notifications.sql": [
+      "c828530536e3dba3",
+      "b18ad7c51a96241c"
+    ],
+    "0002_slug_history_and_fts.sql": [
+      "814eaea5f39aef80",
+      "4b41950b08ea8f71"
+    ],
+    "0003_comments.sql": [
+      "ee2e14b63cf50e83",
+      "8d3bd006294acd6f"
+    ],
+    "0004_diagrams.sql": [
+      "0384152fc5df36a0",
+      "e52398b00710b462"
+    ],
+    "0005_user_ids_and_rls.sql": [
+      "53d70c65fda81333",
+      "690cfd215269251a"
+    ],
+    "0006_system_without_user.sql": [
+      "d4ac94203cef2d45",
+      "fd772a851d349ee8"
+    ],
+    "0007_effective_admin.sql": [
+      "b431fde102485f87",
+      "edd0ee11ebe8b315",
+      "8a2d8b5667fa3363",
+      "9ad74e5289f4f698"
+    ],
+    "0008_sizes_as_bigint.sql": [
+      "29844ad751f5f7af",
+      "a99600eb86629161"
+    ]
+  },
+  "renamed": {
+    "0000_base_schema.sql": "0000_esquema_base.sql",
+    "0005_user_ids_and_rls.sql": "0005_ids_de_usuario_y_rls.sql",
+    "0006_system_without_user.sql": "0006_sistema_sin_usuario.sql",
+    "0007_effective_admin.sql": "0007_admin_efectivo.sql",
+    "0008_sizes_as_bigint.sql": "0008_tamanos_en_bigint.sql"
+  }
+}

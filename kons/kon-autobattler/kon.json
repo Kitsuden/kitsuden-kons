@@ -1,0 +1,71 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-autobattler",
+  "name": "Autobattler",
+  "description": "Autobattler compositions: units, traits with thresholds, items and board. TFT set included.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Swords",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "autobattler_sets",
+      "label": "Sets",
+      "icon": "Layers"
+    },
+    {
+      "name": "autobattler_entities",
+      "label": "Units, traits and items",
+      "icon": "Package"
+    },
+    {
+      "name": "autobattler_comps",
+      "label": "Compositions",
+      "icon": "Columns3"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "sets",
+    "views": [
+      {
+        "id": "sets",
+        "type": "grid",
+        "title": "Sets",
+        "table": "autobattler_sets",
+        "icon": "Layers"
+      },
+      {
+        "id": "entities",
+        "type": "grid",
+        "title": "Units and traits",
+        "table": "autobattler_entities",
+        "icon": "Package"
+      },
+      {
+        "id": "comps",
+        "type": "grid",
+        "title": "Compositions",
+        "table": "autobattler_comps",
+        "icon": "Columns3"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/autobattler"
+  },
+  "category": "gaming"
+}

@@ -1,0 +1,413 @@
+{
+  "id": "kon-agile",
+  "name": "Agile Tracker",
+  "description": "Agile management where agents work as teammates: projects, customizable states, issues with unique keys, sprints with carry-over, epics, initiatives, labels, checklists, custom fields, saved views, calendar, timeline and dashboard. Agents are members with a work queue; an agent writes only on its own issues, or its squad's as scrum master, and an inbox keeps AI triage under human approval.",
+  "version": "1.3.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Kanban",
+  "$schema": "../../schemas/kon-schema.json",
+  "category": "business",
+  "layer": 3,
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "mount": {
+    "path": "/api/agile"
+  },
+  "entryPoint": "./index.ts",
+  "exports": {
+    "routes": "./index.ts",
+    "schema": "./agile.schema.ts"
+  },
+  "tables": [
+    {
+      "name": "agile_projects",
+      "label": "Projects",
+      "icon": "FolderKanban",
+      "searchableFields": [
+        "name",
+        "identifier",
+        "description"
+      ],
+      "filterableFields": [
+        "isArchived",
+        "leadId"
+      ]
+    },
+    {
+      "name": "agile_issues",
+      "label": "Issues",
+      "icon": "CircleDot",
+      "searchableFields": [
+        "name",
+        "descriptionText",
+        "key"
+      ],
+      "filterableFields": [
+        "type",
+        "priority",
+        "stateId",
+        "assigneeId",
+        "cycleId",
+        "moduleId"
+      ]
+    },
+    {
+      "name": "agile_cycles",
+      "label": "Sprints",
+      "icon": "Timer",
+      "searchableFields": [
+        "name",
+        "description",
+        "goal"
+      ],
+      "filterableFields": [
+        "status",
+        "isActive"
+      ]
+    },
+    {
+      "name": "agile_modules",
+      "label": "Epics",
+      "icon": "Component",
+      "searchableFields": [
+        "name",
+        "description"
+      ],
+      "filterableFields": [
+        "status",
+        "leadId"
+      ]
+    },
+    {
+      "name": "agile_intakes",
+      "label": "Intakes",
+      "icon": "Inbox",
+      "searchableFields": [
+        "title",
+        "description"
+      ],
+      "filterableFields": [
+        "status",
+        "source"
+      ]
+    },
+    {
+      "name": "agile_states",
+      "label": "States",
+      "icon": "Columns3",
+      "readonly": true
+    },
+    {
+      "name": "agile_labels",
+      "label": "Labels",
+      "icon": "Tag",
+      "searchableFields": [
+        "name"
+      ]
+    },
+    {
+      "name": "agile_comments",
+      "label": "Comments",
+      "icon": "MessageSquare",
+      "readonly": true
+    },
+    "agile_estimates",
+    "agile_module_issues",
+    "agile_issue_labels",
+    "agile_issue_links",
+    "agile_activity_log",
+    "agile_project_members",
+    {
+      "name": "agile_squads",
+      "label": "Squads",
+      "icon": "Users",
+      "searchableFields": [
+        "name"
+      ]
+    },
+    "agile_squad_members",
+    {
+      "name": "agile_initiatives",
+      "label": "Initiatives",
+      "icon": "TrendingUp",
+      "searchableFields": [
+        "name",
+        "description"
+      ],
+      "filterableFields": [
+        "status"
+      ]
+    },
+    "agile_checklist_items",
+    "agile_custom_fields",
+    "agile_saved_views",
+    "agile_notifications",
+    {
+      "name": "agile_agent_work",
+      "label": "Agent work",
+      "icon": "BrainCircuit",
+      "readonly": true,
+      "filterableFields": [
+        "status",
+        "trigger",
+        "agentId"
+      ]
+    },
+    "agile_agent_schedules"
+  ],
+  "database": {
+    "enums": [
+      "agile_issue_type",
+      "agile_issue_priority",
+      "agile_cycle_status",
+      "agile_module_status",
+      "agile_intake_status",
+      "agile_link_type",
+      "agile_estimate_type",
+      "agile_state_group"
+    ]
+  },
+  "admin": {
+    "category": "productivity",
+    "defaultView": "workspace",
+    "views": [
+      {
+        "id": "workspace",
+        "type": "element",
+        "title": "Administration",
+        "icon": "Kanban",
+        "element": "agile-workspace",
+        "src": "./admin/workspace.js"
+      },
+      {
+        "id": "projects",
+        "type": "grid",
+        "title": "Projects",
+        "table": "agile_projects",
+        "icon": "FolderKanban"
+      },
+      {
+        "id": "issues",
+        "type": "grid",
+        "title": "Issues",
+        "table": "agile_issues",
+        "icon": "CircleDot"
+      },
+      {
+        "id": "intakes",
+        "type": "grid",
+        "title": "Intake Triage",
+        "table": "agile_intakes",
+        "icon": "Inbox",
+        "rowActions": [
+          {
+            "id": "approve",
+            "label": "Approve",
+            "icon": "Check",
+            "variant": "success",
+            "endpoint": "approve",
+            "confirm": "Convert this intake into an issue?",
+            "refresh": true,
+            "showIf": {
+              "field": "status",
+              "equals": "pending"
+            }
+          },
+          {
+            "id": "decline",
+            "label": "Reject",
+            "icon": "X",
+            "variant": "danger",
+            "endpoint": "decline",
+            "confirm": "Reject this intake?",
+            "refresh": true,
+            "showIf": {
+              "field": "status",
+              "equals": "pending"
+            }
+          },
+          {
+            "id": "convert",
+            "label": "Convert to Issue",
+            "icon": "ArrowRight",
+            "variant": "primary",
+            "endpoint": "convert",
+            "confirm": "Create an issue from this intake?",
+            "refresh": true,
+            "showIf": {
+              "field": "status",
+              "equals": "pending"
+            }
+          }
+        ],
+        "bulkActions": [
+          {
+            "id": "bulk-approve",
+            "label": "Approve selected",
+            "icon": "Check",
+            "endpoint": "bulk-approve",
+            "confirm": "Approve all selected intakes?",
+            "refresh": true
+          }
+        ]
+      },
+      {
+        "id": "cycles",
+        "type": "grid",
+        "title": "Sprints",
+        "table": "agile_cycles",
+        "icon": "Timer"
+      },
+      {
+        "id": "modules",
+        "type": "grid",
+        "title": "Epics",
+        "table": "agile_modules",
+        "icon": "Component"
+      }
+    ]
+  },
+  "features": [
+    "project-management",
+    "custom-workflows",
+    "kanban-board",
+    "sprint-management",
+    "epic-tracking",
+    "issue-keys",
+    "auto-numbering",
+    "ai-triage",
+    "human-approval",
+    "mcp-integration",
+    "transactional-approval",
+    "squads",
+    "scrum-master-agents",
+    "agent-work-queue",
+    "sprint-carry-over",
+    "saved-views",
+    "calendar",
+    "timeline",
+    "dashboards",
+    "initiatives",
+    "custom-fields",
+    "checklists",
+    "mentions"
+  ],
+  "mcp": {
+    "enabled": true,
+    "tools": [
+      {
+        "name": "agile_read_board",
+        "description": "SDK operation get-board (GET /projects/:projectId/board): the Kanban board of a project you are a member of (read-only)",
+        "type": "read"
+      },
+      {
+        "name": "agile_submit_intake",
+        "description": "SDK operation propose-intake (POST /:projectId/intakes): propose work to the triage inbox; a human approves it",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_my_work",
+        "description": "SDK operation list-my-work: First thing in a run: what you were asked to do (assignments, mentions, hand-offs, schedules).",
+        "type": "read"
+      },
+      {
+        "name": "agile_claim_work",
+        "description": "SDK operation claim-work: Before starting a piece of work from agile_my_work, so nobody does it twice.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_finish_work",
+        "description": "SDK operation finish-work: When a piece of work is done or failed: its result, run id, tokens and cost.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_list_issues",
+        "description": "SDK operation list-issues: To find issues by state, assignee, label, cycle… (e.g. your own: assigneeId = your id).",
+        "type": "read"
+      },
+      {
+        "name": "agile_get_issue",
+        "description": "SDK operation get-issue: To read one issue by its key before working on it.",
+        "type": "read"
+      },
+      {
+        "name": "agile_list_comments",
+        "description": "SDK operation list-issue-comments: To read the conversation on an issue.",
+        "type": "read"
+      },
+      {
+        "name": "agile_get_checklist",
+        "description": "SDK operation list-checklist: To see the steps of an issue.",
+        "type": "read"
+      },
+      {
+        "name": "agile_update_issue",
+        "description": "SDK operation update-issue: To move your issue to another state or change its fields. Only issues in your reach.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_comment",
+        "description": "SDK operation comment-issue: To report progress or ask something on an issue in your reach; `mentions` notifies members.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_check_item",
+        "description": "SDK operation update-checklist-item: To tick a step of the checklist of an issue in your reach.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_add_checklist_item",
+        "description": "SDK operation add-checklist-item: To split your issue into steps.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_handoff",
+        "description": "SDK operation handoff-issue: To pass your issue to another member (person or agent) with a note of where it stands.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_create_issue",
+        "description": "SDK operation create-issue: To create an issue assigned to yourself or, as scrum master, to your squad. Otherwise propose an intake.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_list_squads",
+        "description": "SDK operation list-squads: To know your squad and who you can hand work to.",
+        "type": "read"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "documentation": {
+    "readme": "./README.md",
+    "mcp": "./MCP_EXAMPLE.md"
+  },
+  "keywords": [
+    "agile",
+    "kanban",
+    "scrum",
+    "sprints",
+    "epics",
+    "issues",
+    "project-management",
+    "ai-triage",
+    "mcp"
+  ],
+  "schema": {
+    "entry": "./agile.schema.ts",
+    "strategy": "sql"
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "name": "@kitsuden/kon-crm",
+  "version": "1.0.1",
+  "description": "Kitsuden Kon - CRM & Kanban Pipeline (contacts, companies, deals, activities)",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "AGENT_GUIDE.md",
+    "README.md",
+    "admin",
+    "crm.access.ts",
+    "crm.agents.ts",
+    "crm.automation.ts",
+    "crm.billing.ts",
+    "crm.capture.ts",
+    "crm.context.ts",
+    "crm.db.ts",
+    "crm.dedupe.ts",
+    "crm.entities.ts",
+    "crm.events.ts",
+    "crm.evidence.ts",
+    "crm.import.ts",
+    "crm.inbound.ts",
+    "crm.intake.ts",
+    "crm.mails.ts",
+    "crm.policy.ts",
+    "crm.presets.ts",
+    "crm.public.ts",
+    "crm.records.ts",
+    "crm.routes.ts",
+    "crm.schema.ts",
+    "crm.scoring.ts",
+    "crm.work.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts",
+    "presets"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "test": "vitest run --config=tests/vitest.config.ts",
+    "test:watch": "vitest --config=tests/vitest.config.ts",
+    "test:coverage": "vitest run --config=tests/vitest.config.ts --coverage",
+    "test:integration": "npx playwright test tests/crm.integration.spec.ts"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "crm",
+    "kanban",
+    "sales",
+    "pipeline"
+  ],
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-crm",
+    "category": "business",
+    "layer": 3,
+    "core": false,
+    "defaultEnabled": false,
+    "minVersion": "0.8.0",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-crm"
+  }
+}

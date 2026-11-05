@@ -1,0 +1,54 @@
+{
+  "name": "@kitsuden/kon-wiki",
+  "version": "1.1.1",
+  "description": "Wiki engine: immutable revisions, diffs, revert and [[wiki]] links with backlinks",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "admin",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts",
+    "wiki.engine.ts",
+    "wiki.policy.ts",
+    "wiki.schema.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "wiki"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-wiki",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-wiki"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

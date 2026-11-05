@@ -1,0 +1,27 @@
+# Dependencies and the link to the Kitsuden checkout (scripts/link-core.mjs)
+node_modules/
+.kitsuden
+
+# Build output and caches
+dist/
+*.tsbuildinfo
+coverage/
+.vitest/
+
+# Compiled artifacts next to sources (kons run as TypeScript)
+kons/*/*.js.map
+kons/*/*.d.ts
+kons/*/*.d.ts.map
+kons/*/src/**/*.js
+kons/*/src/**/*.d.ts
+
+# Logs, secrets, editors, OS
+*.log
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+progress.txt

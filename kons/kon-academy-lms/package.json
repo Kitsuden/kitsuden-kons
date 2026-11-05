@@ -1,0 +1,103 @@
+{
+  "name": "@kitsuden/kon-academy-lms",
+  "version": "1.1.1",
+  "description": "Academy LMS - Learning Management System for Kitsuden",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "API.md",
+    "README.md",
+    "SETUP.md",
+    "academy-lms.admin.ts",
+    "academy-lms.routes.ts",
+    "academy-lms.schema.ts",
+    "academy.admin.ts",
+    "academy.db.ts",
+    "academy.policy.ts",
+    "academy.queries.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts",
+    "schemas.ts",
+    "services",
+    "src"
+  ],
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    },
+    "./schema": {
+      "import": "./academy-lms.schema.ts",
+      "types": "./academy-lms.schema.ts"
+    },
+    "./routes": {
+      "import": "./academy-lms.routes.ts",
+      "types": "./academy-lms.routes.ts"
+    },
+    "./services/pdf": {
+      "import": "./services/pdf.service.ts",
+      "types": "./services/pdf.service.ts"
+    },
+    "./services/excel": {
+      "import": "./services/excel.service.ts",
+      "types": "./services/excel.service.ts"
+    },
+    "./services/media": {
+      "import": "./services/media.service.ts",
+      "types": "./services/media.service.ts"
+    },
+    "./services/user-sync": {
+      "import": "./services/user-sync.service.ts",
+      "types": "./services/user-sync.service.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0",
+    "@hono/zod-validator": "^0.9.1",
+    "exceljs": "^4.4.0",
+    "pdfkit": "^0.14.0"
+  },
+  "optionalDependencies": {
+    "pdf-lib": "^1.17.1"
+  },
+  "devDependencies": {
+    "@types/pdfkit": "^0.13.0",
+    "pdf-lib": "^1.17.1",
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "@hono/zod-validator": "^0.9.1",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "lms",
+    "academy",
+    "learning",
+    "courses",
+    "education"
+  ],
+  "license": "MIT",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-academy-lms"
+  },
+  "kitsuden": {
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  }
+}

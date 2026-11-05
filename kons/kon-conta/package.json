@@ -1,0 +1,51 @@
+{
+  "name": "@kitsuden/kon-conta",
+  "version": "1.0.1",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "conta.billing.routes.ts",
+    "conta.billing.ts",
+    "conta.bridge.ts",
+    "conta.policy.ts",
+    "conta.reports.ts",
+    "conta.routes.ts",
+    "conta.schema.ts",
+    "conta.service.ts",
+    "http-errors.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts",
+    "types.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "@paralleldrive/cuid2": "^3.3.0",
+    "date-fns": "^3.6.0",
+    "dayjs": "^1.11.20",
+    "decimal.js": "^10.6.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-conta"
+  },
+  "kitsuden": {
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "id": "kon-blog",
+  "name": "Blog & Content Publishing",
+  "description": "Complete CMS publishing platform. Includes all content management features: rich text editing, SEO metadata, slugs, editorial workflow, scheduling, and public content API.",
+  "version": "2.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "essential",
+  "maturity": "stable",
+  "icon": "FileText",
+  "$schema": "../../schemas/kon-schema.json",
+  "category": "core",
+  "order": 3,
+  "core": false,
+  "defaultEnabled": true,
+  "layer": 3,
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "mount": {
+    "path": "/api/blog",
+    "router": "blogRoutes"
+  },
+  "entryPoint": "./src/index.ts",
+  "exports": {
+    "routes": "./src/index.ts",
+    "schema": "./src/schema.ts"
+  },
+  "tables": [
+    "blog_posts",
+    "blog_posts_to_tags",
+    "blog_posts_to_games",
+    "blog_categories",
+    "blog_posts_to_categories"
+  ],
+  "database": {
+    "enums": [
+      "blog_status"
+    ]
+  },
+  "admin": {
+    "category": "core",
+    "order": 3,
+    "icon": "FileText",
+    "defaultView": "posts",
+    "views": [
+      {
+        "id": "posts",
+        "type": "custom",
+        "title": "All",
+        "icon": "FileText"
+      },
+      {
+        "id": "published",
+        "type": "grid",
+        "title": "Published",
+        "table": "blog_posts",
+        "icon": "Globe",
+        "defaultFilter": {
+          "status": "published"
+        }
+      },
+      {
+        "id": "drafts",
+        "type": "grid",
+        "title": "Drafts",
+        "table": "blog_posts",
+        "icon": "Pencil",
+        "defaultFilter": {
+          "status": "draft"
+        }
+      },
+      {
+        "id": "scheduled",
+        "type": "grid",
+        "title": "Scheduled",
+        "table": "blog_posts",
+        "icon": "Calendar",
+        "defaultFilter": {
+          "status": "scheduled"
+        }
+      },
+      {
+        "id": "archived",
+        "type": "grid",
+        "title": "Archived",
+        "table": "blog_posts",
+        "icon": "Archive",
+        "defaultFilter": {
+          "status": "archived"
+        }
+      },
+      {
+        "id": "categories",
+        "type": "grid",
+        "title": "Categories",
+        "table": "blog_categories",
+        "singularName": "category",
+        "icon": "FolderTree"
+      }
+    ]
+  },
+  "features": [
+    "posts-crud",
+    "rich-text-editor",
+    "scheduling",
+    "tags",
+    "seo-overrides",
+    "slug-management",
+    "featured-images",
+    "authorship",
+    "reading-time",
+    "content-blocks",
+    "realtime-updates",
+    "public-content-api",
+    "editorial-workflow"
+  ],
+  "postStatuses": [
+    "draft",
+    "scheduled",
+    "published",
+    "archived"
+  ],
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.8.0"
+  },
+  "documentation": {
+    "readme": "./README.md"
+  },
+  "schema": {
+    "entry": "./src/schema.local.ts",
+    "strategy": "drizzle"
+  }
+}

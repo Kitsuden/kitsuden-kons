@@ -1,0 +1,11 @@
+{
+  "previousChecksums": {
+    "0000_missing_columns.sql": [
+      "15796dd84a98cbc7",
+      "b513d2d3a1e678a8"
+    ]
+  },
+  "renamed": {
+    "0000_missing_columns.sql": "0000_columnas_ausentes.sql"
+  }
+}

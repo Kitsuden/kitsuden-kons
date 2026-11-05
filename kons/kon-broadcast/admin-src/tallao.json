@@ -1,0 +1,15 @@
+{
+  "components": [
+    "alert",
+    "badge",
+    "button",
+    "card",
+    "card-content",
+    "checkbox",
+    "confirm-dialog",
+    "copy-button",
+    "input",
+    "select",
+    "theme-scope"
+  ]
+}

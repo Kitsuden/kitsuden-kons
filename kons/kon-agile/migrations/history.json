@@ -1,0 +1,21 @@
+{
+  "previousChecksums": {
+    "0000_base_schema.sql": [
+      "907a6ec16421fc5f",
+      "5c1bb5d4667cdd91"
+    ],
+    "0001_members_and_rls.sql": [
+      "2568fbba8e121761",
+      "25592e4a6e15eb87"
+    ],
+    "0002_system_without_user.sql": [
+      "61c6f87e0749ace7",
+      "8b51cd8a1c1068fa"
+    ]
+  },
+  "renamed": {
+    "0000_base_schema.sql": "0000_esquema_base.sql",
+    "0001_members_and_rls.sql": "0001_miembros_y_rls.sql",
+    "0002_system_without_user.sql": "0002_sistema_sin_usuario.sql"
+  }
+}

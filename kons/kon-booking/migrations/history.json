@@ -1,0 +1,38 @@
+{
+  "previousChecksums": {
+    "0000_initial.sql": [
+      "63c685b9a3833f70",
+      "248cabf6bdff6ecf"
+    ],
+    "0001_rename_tables.sql": [
+      "650a4aa86a8587b6",
+      "6317acd587122f30"
+    ],
+    "0002_booking_security.sql": [
+      "4d8d3d0dc6c435f5",
+      "de66d073a70f9af2"
+    ],
+    "0003_system_without_user.sql": [
+      "655f95304925a172",
+      "def27385419babb7"
+    ],
+    "0004_effective_admin.sql": [
+      "8cac527ac9b99174",
+      "ca259b6c4ff8abe0",
+      "6b1be2b25b0edfeb",
+      "c68315b0c6b12d41"
+    ],
+    "0005_effective_staff.sql": [
+      "d462e5c585bf4290",
+      "8d45176447881e0c",
+      "d06736745f2c2e0d",
+      "a47e0e0a2d134ae8"
+    ]
+  },
+  "renamed": {
+    "0002_booking_security.sql": "0002_seguridad_reservas.sql",
+    "0003_system_without_user.sql": "0003_sistema_sin_usuario.sql",
+    "0004_effective_admin.sql": "0004_admin_efectivo.sql",
+    "0005_effective_staff.sql": "0005_staff_efectivo.sql"
+  }
+}

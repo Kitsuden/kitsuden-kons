@@ -1,0 +1,81 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-ocr-training",
+  "name": "OCR Training + Vision LLM",
+  "description": "OCR model operation (template proposals, /train, vocabulary against vekocr) and vision LLM governance: knobs in ocr_vision_config, provider key in KITSUDEN Secrets. The OCR job lifecycle lives in konusagi, outside this kon.",
+  "version": "1.1.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "experimental",
+  "icon": "BrainCircuit",
+  "mount": {
+    "path": "/api/ocr-training"
+  },
+  "tables": [
+    {
+      "name": "ocr_vision_config",
+      "label": "AI settings (vision)",
+      "icon": "Sparkles",
+      "description": "Vision LLM config (non-sensitive knobs; the key lives in KITSUDEN Secrets)",
+      "filterableFields": [
+        "enabled",
+        "provider"
+      ]
+    }
+  ],
+  "admin": {
+    "category": "content",
+    "hasCustomView": true,
+    "apiBase": "/api/ocr-training",
+    "views": [
+      {
+        "id": "vision-config",
+        "type": "custom",
+        "title": "AI settings (vision)",
+        "icon": "Sparkles"
+      }
+    ]
+  },
+  "secrets": [
+    {
+      "key": "VEKOCR_VISION_LLM_API_KEY",
+      "required": false,
+      "description": "Vision LLM provider key (Anthropic/OpenAI). Encrypted in KITSUDEN Secrets; never leaves KITSUDEN."
+    }
+  ],
+  "features": {
+    "proxy": {
+      "upstream": "vekocr engine",
+      "env": "VEKOCR_URL (default http://vekocr_engine:8000)",
+      "paths": [
+        "proposals",
+        "train",
+        "templates",
+        "vocabulary",
+        "feedback",
+        "extract",
+        "status",
+        "health"
+      ]
+    },
+    "visionLLM": {
+      "config_table": "ocr_vision_config",
+      "secret": "VEKOCR_VISION_LLM_API_KEY",
+      "endpoints": [
+        "GET/PUT /vision-config",
+        "POST /vision-config/test",
+        "POST /vision-reprocess/:jobId"
+      ],
+      "note": "The kon runs the call to the provider; the key never touches the RabbitMQ queue or the engine"
+    }
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "category": "documents"
+}

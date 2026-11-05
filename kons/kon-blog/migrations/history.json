@@ -1,0 +1,43 @@
+{
+  "previousChecksums": {
+    "0000_initial.sql": [
+      "e0c537689dc52fbe",
+      "a7de0a4514e561da"
+    ],
+    "0001_unified_media.sql": [
+      "119568def686e864",
+      "ab866530ea88a1f2"
+    ],
+    "0002_schema_fixes.sql": [
+      "55a2f3ac4bd07def",
+      "943f6dfb1dca6fe1"
+    ],
+    "0003_categories.sql": [
+      "b7d3663c4088c639",
+      "a6f4b53f6d9266bc"
+    ],
+    "0004_comments.sql": [
+      "72ce56157b0e1840",
+      "2b9d2e8ae8c2cdc9"
+    ],
+    "0005_template.sql": [
+      "1ee02aca0bf8299d",
+      "f595b30ebba6d1aa"
+    ],
+    "0006_languages.sql": [
+      "d60b136d728f0a1e",
+      "f121e0702e2b645b"
+    ],
+    "0007_duplicate_indexes.sql": [
+      "968c152f9f15ca7b",
+      "17d37e80b3f53506"
+    ]
+  },
+  "renamed": {
+    "0003_categories.sql": "0003_categorias.sql",
+    "0004_comments.sql": "0004_comentarios.sql",
+    "0005_template.sql": "0005_plantilla.sql",
+    "0006_languages.sql": "0006_idiomas.sql",
+    "0007_duplicate_indexes.sql": "0007_indices_duplicados.sql"
+  }
+}

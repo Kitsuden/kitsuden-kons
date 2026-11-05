@@ -1,0 +1,215 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-dms",
+  "name": "Document Management System",
+  "description": "Versioned document management with hierarchical categories, approval workflows, semantic versioning, and comprehensive audit trail. Optimized for manuals and corporate documentation.",
+  "version": "2.0.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "FileStack",
+  "mount": {
+    "path": "/api/dms"
+  },
+  "tables": [
+    {
+      "name": "dms_categories",
+      "label": "Categories",
+      "icon": "FolderTree",
+      "description": "Hierarchical categories for organizing documents",
+      "searchableFields": [
+        "name",
+        "description"
+      ],
+      "filterableFields": [
+        "parentId",
+        "level",
+        "departmentId",
+        "isActive"
+      ]
+    },
+    {
+      "name": "dms_documents",
+      "label": "Documents",
+      "icon": "FileText",
+      "description": "Document metadata and version control",
+      "searchableFields": [
+        "title",
+        "code",
+        "description",
+        "tags"
+      ],
+      "filterableFields": [
+        "type",
+        "status",
+        "categoryId",
+        "ownerId",
+        "departmentId",
+        "visibility"
+      ]
+    },
+    {
+      "name": "dms_document_versions",
+      "label": "Versions",
+      "icon": "GitBranch",
+      "description": "Individual document versions with semantic versioning",
+      "filterableFields": [
+        "documentId",
+        "status",
+        "changeType",
+        "isLatest"
+      ]
+    },
+    {
+      "name": "dms_document_files",
+      "label": "Files",
+      "icon": "Paperclip",
+      "description": "Physical files attached to document versions",
+      "filterableFields": [
+        "documentId",
+        "versionId",
+        "mimeType",
+        "fileType"
+      ]
+    },
+    {
+      "name": "dms_document_relations",
+      "label": "Relations",
+      "icon": "Link2",
+      "description": "Relationships between documents",
+      "filterableFields": [
+        "sourceDocumentId",
+        "targetDocumentId",
+        "relationType"
+      ]
+    },
+    {
+      "name": "dms_document_acknowledgments",
+      "label": "Acknowledgments",
+      "icon": "CheckCircle",
+      "description": "User acknowledgments for required documents",
+      "filterableFields": [
+        "documentId",
+        "userId"
+      ]
+    },
+    {
+      "name": "dms_access_log",
+      "label": "Access Log",
+      "icon": "Activity",
+      "description": "Complete audit trail of all document activities",
+      "filterableFields": [
+        "documentId",
+        "userId",
+        "action",
+        "resourceType"
+      ]
+    },
+    {
+      "name": "dms_workflow_notifications",
+      "label": "Notifications",
+      "icon": "Bell",
+      "description": "Workflow notifications for reviewers and authors",
+      "filterableFields": [
+        "documentId",
+        "userId",
+        "type",
+        "read"
+      ]
+    },
+    {
+      "name": "dms_document_slug_history",
+      "label": "Slug History",
+      "icon": "History",
+      "description": "Permanent redirects for renamed documents",
+      "filterableFields": [
+        "documentId",
+        "oldSlug"
+      ]
+    },
+    {
+      "name": "dms_document_comments",
+      "label": "Comments",
+      "icon": "MessageCircle",
+      "description": "Informal collaboration comments on documents",
+      "filterableFields": [
+        "documentId",
+        "userId",
+        "parentId"
+      ]
+    },
+    {
+      "name": "dms_document_diagrams",
+      "label": "Diagrams",
+      "icon": "GitBranch",
+      "description": "Embedded diagrams in document versions",
+      "filterableFields": [
+        "versionId"
+      ]
+    }
+  ],
+  "admin": {
+    "category": "content",
+    "hasCustomView": true,
+    "defaultView": "dashboard",
+    "apiBase": "/api/dms",
+    "views": [
+      {
+        "id": "dashboard",
+        "type": "custom",
+        "title": "Documents",
+        "icon": "FileStack"
+      }
+    ]
+  },
+  "features": {
+    "versioning": {
+      "enabled": true,
+      "semantic": true,
+      "changeTypes": [
+        "major",
+        "minor",
+        "patch"
+      ]
+    },
+    "workflow": {
+      "enabled": true,
+      "stages": [
+        "draft",
+        "review_pending",
+        "approved",
+        "published",
+        "archived"
+      ]
+    },
+    "categories": {
+      "enabled": true,
+      "hierarchical": true,
+      "maxDepth": 5
+    },
+    "acl": {
+      "enabled": true,
+      "levels": [
+        "public",
+        "restricted",
+        "private"
+      ],
+      "supportsDepartments": true,
+      "supportsRoles": true
+    },
+    "audit": {
+      "enabled": true,
+      "logAllActions": true,
+      "retentionDays": 365
+    }
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "category": "business"
+}

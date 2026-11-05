@@ -1,0 +1,19 @@
+{
+  "previousChecksums": {
+    "0001_tierlist.sql": [
+      "9c32fbd2839c56cc",
+      "f0904710f33e1fc7"
+    ],
+    "0002_tierlist.sql": [
+      "4d67603d586ea401",
+      "9d6525aa332d612b"
+    ],
+    "0003_public_templates_rls.sql": [
+      "5feddc2b449216ee",
+      "e5d9423ff263aea8"
+    ]
+  },
+  "renamed": {
+    "0003_public_templates_rls.sql": "0003_plantillas_publicas_rls.sql"
+  }
+}

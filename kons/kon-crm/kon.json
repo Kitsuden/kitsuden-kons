@@ -1,0 +1,143 @@
+{
+  "id": "kon-crm",
+  "name": "Kitsuden CRM",
+  "description": "Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view, activities, and sales automation.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "common",
+  "maturity": "beta",
+  "icon": "Briefcase",
+  "$schema": "../../schemas/kon-schema.json",
+  "category": "business",
+  "layer": 3,
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "mount": {
+    "path": "/api/crm",
+    "router": "createCRMRouter"
+  },
+  "entryPoint": "./index.ts",
+  "exports": {
+    "routes": "./index.ts",
+    "schema": "./crm.schema.ts"
+  },
+  "database": {
+    "enums": [
+      "crm_contact_status",
+      "crm_deal_status",
+      "crm_activity_type",
+      "crm_priority"
+    ]
+  },
+  "features": [
+    "contacts-management",
+    "companies-directory",
+    "deals-pipeline",
+    "kanban-board",
+    "activity-log",
+    "sales-automation",
+    "contact-scoring",
+    "deal-tracking",
+    "pipeline-management",
+    "activity-scheduling"
+  ],
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ],
+    "optionalKons": [
+      "kon-conta"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.8.0"
+  },
+  "admin": {
+    "category": "business",
+    "icon": "Briefcase",
+    "defaultView": "contacts",
+    "views": [
+      {
+        "id": "settings",
+        "type": "element",
+        "title": "Score, evidence and access",
+        "element": "crm-settings",
+        "src": "admin/settings.js",
+        "icon": "Shield"
+      },
+      {
+        "id": "setup",
+        "type": "element",
+        "title": "Setup",
+        "element": "crm-setup",
+        "src": "admin/setup.js",
+        "icon": "FileStack"
+      },
+      {
+        "id": "contacts",
+        "type": "grid",
+        "title": "Contacts",
+        "icon": "Users",
+        "table": "crm_contacts"
+      },
+      {
+        "id": "companies",
+        "type": "grid",
+        "title": "Companies",
+        "icon": "Building2",
+        "table": "crm_companies"
+      },
+      {
+        "id": "deals",
+        "type": "kanban",
+        "title": "Deals",
+        "icon": "Kanban",
+        "table": "crm_deals",
+        "groupBy": "status"
+      },
+      {
+        "id": "activities",
+        "type": "grid",
+        "title": "Activities",
+        "icon": "Activity",
+        "table": "crm_activities"
+      }
+    ]
+  },
+  "documentation": {
+    "readme": "./README.md"
+  },
+  "schema": {
+    "entry": "./crm.schema.ts",
+    "strategy": "sql"
+  },
+  "tables": [
+    "crm_companies",
+    "crm_contacts",
+    "crm_pipelines",
+    "crm_pipeline_stages",
+    "crm_deals",
+    "crm_activities",
+    "crm_entity_configs",
+    "crm_stage_transitions",
+    "crm_documents",
+    "crm_access_grants",
+    "crm_suppressions",
+    "crm_deal_contacts",
+    "crm_saved_views",
+    "crm_document_templates",
+    "crm_score_models",
+    "crm_merge_requests",
+    "crm_capture_forms",
+    "crm_portal_links",
+    "crm_counters",
+    "crm_evidence_kinds",
+    "crm_evidence_policy",
+    "crm_observations",
+    "crm_inbound_emails"
+  ]
+}

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" width="1200" height="640" role="img" aria-labelledby="t d">
+<title id="t">How a kon is installed</title>
+<desc id="d">A kon in this repository is installed with kitsuden kon add, copied into a Kitsuden project, and mounted in the API at /api/&lt;kon&gt; with REST routes, MCP tools, scopes and row-level security.</desc>
+<style>.s{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif}.m{font-family:ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace}</style>
+<rect x="1" y="1" width="1198" height="638" rx="28" fill="#0f1520" stroke="#2a3446" stroke-width="2"/>
+<text class="s" x="40" y="66" font-size="30" font-weight="800" fill="#f1f5f9">From this repo to a running API</text>
+<rect x="40" y="100" width="320" height="236" rx="18" fill="#161e2c" stroke="#2a3446" stroke-width="2"/>
+<rect x="64" y="114" width="48" height="6" rx="3" fill="#60a5fa"/>
+<text class="s" x="64" y="152" font-size="20" fill="#a8b3c4">1  In this repository</text>
+<text class="m" x="64" y="184" font-size="21" font-weight="700" fill="#f1f5f9">kons/kon-blog/</text>
+<text class="m" x="64" y="230" font-size="20" fill="#f1f5f9">kon.json</text>
+<text class="m" x="64" y="262" font-size="20" fill="#f1f5f9">migrations/</text>
+<text class="m" x="64" y="294" font-size="20" fill="#f1f5f9">operations, policy</text>
+<rect x="440" y="100" width="320" height="236" rx="18" fill="#161e2c" stroke="#2a3446" stroke-width="2"/>
+<rect x="464" y="114" width="48" height="6" rx="3" fill="#ff8a4c"/>
+<text class="s" x="464" y="152" font-size="20" fill="#a8b3c4">2  One command</text>
+<text class="m" x="464" y="184" font-size="21" font-weight="700" fill="#f1f5f9">kitsuden kon add blog</text>
+<text class="s" x="464" y="230" font-size="20" fill="#f1f5f9">copies the kon</text>
+<text class="s" x="464" y="262" font-size="20" fill="#f1f5f9">runs pnpm install</text>
+<text class="s" x="464" y="294" font-size="20" fill="#f1f5f9">applies its migrations</text>
+<rect x="840" y="100" width="320" height="236" rx="18" fill="#161e2c" stroke="#2a3446" stroke-width="2"/>
+<rect x="864" y="114" width="48" height="6" rx="3" fill="#a78bfa"/>
+<text class="s" x="864" y="152" font-size="20" fill="#a8b3c4">3  Copied in</text>
+<text class="s" x="864" y="184" font-size="24" font-weight="700" fill="#f1f5f9">Your Kitsuden project</text>
+<text class="s" x="864" y="230" font-size="20" fill="#f1f5f9">packages/kons/kon-blog/</text>
+<text class="s" x="864" y="262" font-size="20" fill="#f1f5f9">same hono, drizzle-orm</text>
+<text class="s" x="864" y="294" font-size="20" fill="#f1f5f9">and zod as the API</text>
+<line x1="370" y1="218.0" x2="422" y2="218.0" stroke="#ff8a4c" stroke-width="3" stroke-linecap="round"/><path d="M418 209.0 L432 218.0 L418 227.0 Z" fill="#ff8a4c"/>
+<line x1="770" y1="218.0" x2="822" y2="218.0" stroke="#ff8a4c" stroke-width="3" stroke-linecap="round"/><path d="M818 209.0 L832 218.0 L818 227.0 Z" fill="#ff8a4c"/>
+<line x1="1000.0" y1="346" x2="1000.0" y2="382" stroke="#ff8a4c" stroke-width="3" stroke-linecap="round"/><path d="M991.0 378 L1000.0 392 L1009.0 378 Z" fill="#ff8a4c"/>
+<text class="s" x="982.0" y="378" font-size="20" text-anchor="end" fill="#a8b3c4">restart the API</text>
+<rect x="40" y="400" width="1120" height="200" rx="18" fill="#161e2c" stroke="#2a3446" stroke-width="2"/>
+<text class="s" x="64" y="444" font-size="20" fill="#a8b3c4">4  Mounted in the Kitsuden API at <tspan font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="22" font-weight="700" fill="#ff8a4c">/api/blog</tspan></text>
+<rect x="64.0" y="466" width="256.0" height="112" rx="14" fill="#0f1520" stroke="#60a5fa" stroke-width="2"/>
+<text class="s" x="84.0" y="502" font-size="22" font-weight="700" fill="#f1f5f9">REST + OpenAPI</text>
+<text class="s" x="84.0" y="538" font-size="20" fill="#a8b3c4">routes declared once</text>
+<text class="s" x="84.0" y="566" font-size="20" fill="#a8b3c4">as operations</text>
+<rect x="336.0" y="466" width="256.0" height="112" rx="14" fill="#0f1520" stroke="#34d399" stroke-width="2"/>
+<text class="s" x="356.0" y="502" font-size="22" font-weight="700" fill="#f1f5f9">MCP tools</text>
+<text class="s" x="356.0" y="538" font-size="20" fill="#a8b3c4">the same operations,</text>
+<text class="s" x="356.0" y="566" font-size="20" fill="#a8b3c4">for agents</text>
+<rect x="608.0" y="466" width="256.0" height="112" rx="14" fill="#0f1520" stroke="#a78bfa" stroke-width="2"/>
+<text class="s" x="628.0" y="502" font-size="22" font-weight="700" fill="#f1f5f9">Scopes</text>
+<text class="m" x="628.0" y="538" font-size="20" fill="#a8b3c4">blog:*</text>
+<text class="m" x="628.0" y="566" font-size="20" fill="#a8b3c4">kon:blog:create-post</text>
+<rect x="880.0" y="466" width="256.0" height="112" rx="14" fill="#0f1520" stroke="#f472b6" stroke-width="2"/>
+<text class="s" x="900.0" y="502" font-size="22" font-weight="700" fill="#f1f5f9">Row security</text>
+<text class="s" x="900.0" y="538" font-size="20" fill="#a8b3c4">Postgres RLS from</text>
+<text class="s" x="900.0" y="566" font-size="20" fill="#a8b3c4">the kon's migrations</text>
+</svg>

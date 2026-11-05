@@ -1,0 +1,8 @@
+# Every text file is stored and checked out with LF, on every platform; core.autocrlf
+# does not override this. Generated files (the kon table in README.md) are compared
+# byte for byte, so a CRLF checkout would fail `pnpm maturity:check`.
+* text=auto eol=lf
+
+# cmd.exe needs CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf

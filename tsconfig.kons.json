@@ -1,0 +1,40 @@
+{
+  // Base shared by every kon's tsconfig (`"extends": "../../tsconfig.kons.json"`).
+  //
+  // The same relative path works in two places, on purpose:
+  //   - here, in kitsuden-kons:             kons/<kon>/../../tsconfig.kons.json
+  //   - in a Kitsuden install (copied kon):  packages/kons/<kon>/../../tsconfig.kons.json
+  //     (= packages/tsconfig.kons.json, shipped by Kitsuden)
+  // so a kon typechecks the same way in this repo and once installed.
+  //
+  // `@kitsuden/shared` and `@kitsuden/engine` resolve to the SOURCE of the
+  // Kitsuden checkout linked at `.kitsuden` (see scripts/link-core.mjs).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "noEmit": true,
+    "paths": {
+      "@kitsuden/shared": ["./.kitsuden/packages/shared/src/index.ts"],
+      "@kitsuden/shared/*": ["./.kitsuden/packages/shared/src/*"],
+      "@kitsuden/engine": ["./.kitsuden/packages/engine/index.ts"],
+      "@kitsuden/engine/zod": ["./.kitsuden/packages/engine/zod.ts"],
+      // The engine re-exports API modules that import with the API's own `@/` alias.
+      "@/*": ["./.kitsuden/apps/api/src/*"],
+      "@kitsuden/kon-cardsim": ["./kons/kon-cardsim/index.ts"],
+      "@kitsuden/kon-esports": ["./kons/kon-esports/index.ts"],
+      "@kitsuden/kon-formulas": ["./kons/kon-formulas/index.ts"]
+    }
+  }
+}

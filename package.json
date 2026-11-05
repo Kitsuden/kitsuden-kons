@@ -1,0 +1,51 @@
+{
+  "name": "kitsuden-kons",
+  "version": "0.9.0-beta",
+  "private": true,
+  "type": "module",
+  "description": "Official kons (installable extension modules) for Kitsuden, the backend for AI agents",
+  "license": "MIT",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.12.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "link-core": "node scripts/link-core.mjs",
+    "build": "pnpm --filter \"./kons/*\" build",
+    "test": "vitest run",
+    "test:guards": "vitest run tests/guards",
+    "test:bun": "node scripts/bun-tests.mjs",
+    "maturity": "node scripts/maturity.mjs",
+    "maturity:check": "node scripts/maturity.mjs --check",
+    "sync:tallao": "node scripts/sync-tallao.mjs",
+    "build:admin": "node scripts/build-admin.mjs",
+    "check:admin": "node scripts/check-admin.mjs",
+    "kon:sync": "node scripts/kon-sync.mjs",
+    "kon:sync:check": "node scripts/kon-sync.mjs --check"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@electric-sql/pglite": "link:.kitsuden/node_modules/@electric-sql/pglite",
+    "@floating-ui/dom": "^1.8.0",
+    "@kitsuden/engine": "link:.kitsuden/packages/engine",
+    "@kitsuden/shared": "link:.kitsuden/packages/shared",
+    "@kitsuden/testing": "link:.kitsuden/packages/testing",
+    "@sveltejs/vite-plugin-svelte": "link:.kitsuden/packages/admin/node_modules/@sveltejs/vite-plugin-svelte",
+    "@types/node": "link:.kitsuden/node_modules/@types/node",
+    "drizzle-kit": "link:.kitsuden/node_modules/drizzle-kit",
+    "drizzle-orm": "link:.kitsuden/node_modules/drizzle-orm",
+    "hono": "link:.kitsuden/node_modules/hono",
+    "svelte": "link:.kitsuden/packages/admin/node_modules/svelte",
+    "svelte-check": "link:.kitsuden/packages/admin/node_modules/svelte-check",
+    "typescript": "link:.kitsuden/node_modules/typescript",
+    "vite": "link:.kitsuden/packages/admin/node_modules/vite",
+    "vitest": "link:.kitsuden/node_modules/vitest",
+    "zod": "link:.kitsuden/node_modules/zod"
+  }
+}

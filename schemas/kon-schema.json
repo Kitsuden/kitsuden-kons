@@ -1,0 +1,375 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://kitsuden.dev/schemas/kon-schema.json",
+  "title": "Manifest of a kon (kon.json)",
+  "description": "Four manifests pointed to this file with `$schema` and the file did not exist, so NOTHING validated the kon.json files. The result was shape drift with real consequences: kon-academy-lms and kon-crm declared their tables in `database.tables`, a field no reader consults, and the modules panel counted them as zero. This schema fixes the shape; tests/unit/kon-manifest.test.ts requires it.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "description",
+    "version",
+    "type",
+    "tier",
+    "icon",
+    "schema",
+    "maturity",
+    "category"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^kon-[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Must match the folder name: resolution goes by this id, not by the directory."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+[.][0-9]+[.][0-9]+"
+    },
+    "sdk": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Kon SDK contract version this kon is written for (GET /api/version → sdk.kons). The loader refuses to mount a kon whose sdk is greater than the core's."
+    },
+    "type": {
+      "const": "kon"
+    },
+    "tier": {
+      "enum": [
+        "essential",
+        "common",
+        "specialized"
+      ],
+      "description": "Activation tier of the kon."
+    },
+    "maturity": {
+      "type": "string",
+      "enum": [
+        "stable",
+        "beta",
+        "experimental"
+      ],
+      "description": "Maturity. stable = used end to end in real production; beta = works and is tested, with gaps or little real use; experimental = nobody has used it end to end."
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "core",
+        "business",
+        "content",
+        "gaming",
+        "documents"
+      ],
+      "description": "Where the kon is listed in the kons README: core (what most sites install), business, content (and community), gaming, documents (and OCR)."
+    },
+    "layer": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "author": {
+      "type": "string"
+    },
+    "license": {
+      "type": "string"
+    },
+    "keywords": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "order": {
+      "type": "integer"
+    },
+    "core": {
+      "type": "boolean"
+    },
+    "defaultEnabled": {
+      "type": "boolean"
+    },
+    "schema": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "required": [
+        "strategy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "enum": [
+            "drizzle",
+            "sql"
+          ],
+          "description": "\"drizzle\": the tables are managed by drizzle-kit and the kon goes into schema-kons.generated.ts. \"sql\": the kon auto-migrates with its own SQL and is EXCLUDED from the aggregate so it does not clash with Postgres global enums."
+        },
+        "entry": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Path to the schema module, relative to the kon root. Required if strategy is \"drizzle\"."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "strategy": {
+                "const": "drizzle"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry"
+            ]
+          }
+        }
+      ],
+      "description": "null for kons that create no tables (e.g. the broadcast-* overlays)."
+    },
+    "tables": {
+      "type": "array",
+      "description": "the ONLY place to declare tables. It is read in routes/modules.ts and routes/data-explorer.ts. A parallel `database.tables` is read by nobody.",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "primaryKey": {
+                "type": "string"
+              },
+              "searchableFields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "filterableFields": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "readonly": {
+                "type": "boolean"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "database": {
+      "type": "object",
+      "description": "Loose metadata. Does NOT allow `tables`: that field here is invisible to the runtime.",
+      "not": {
+        "required": [
+          "tables"
+        ]
+      }
+    },
+    "mount": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/api/[a-z0-9-]+(/[a-z0-9-]+)*$"
+        },
+        "router": {
+          "type": "string"
+        }
+      }
+    },
+    "entryPoint": {
+      "type": "string"
+    },
+    "exports": {
+      "type": "object"
+    },
+    "features": {
+      "type": [
+        "array",
+        "object"
+      ],
+      "description": "Documentation, not read by the runtime. List of labels or structured object."
+    },
+    "dependencies": {
+      "type": "object"
+    },
+    "optionalDependencies": {
+      "type": "object"
+    },
+    "compatibility": {
+      "type": "object"
+    },
+    "documentation": {
+      "type": [
+        "string",
+        "object"
+      ]
+    },
+    "toggle": {
+      "type": "object"
+    },
+    "kitsuden": {
+      "type": [
+        "string",
+        "object"
+      ]
+    },
+    "manifest": {
+      "const": 1,
+      "description": "Kon manifest spec version (docs/kons/registry.md). Optional for source installs; publishing to a registry validates the kon against spec 1."
+    },
+    "repository": {
+      "type": [
+        "string",
+        "object"
+      ],
+      "description": "Source repository: a URL, or {type, url, directory} like package.json."
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What the kon asks for, shown to the user on install and diffed on update (docs/kons/registry.md). Required to publish; empty lists are an explicit 'none'.",
+      "properties": {
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Scopes the kon's code uses or grants (kon:<short>:<op>, datasets:*:read…); a leading ! is a denial."
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Outbound hosts the kon calls (api.example.com, *.example.com). Empty = no outbound network."
+        },
+        "sensitive": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ids of the kon's sensitive operations (the ones with sensible: true)."
+        }
+      }
+    },
+    "admin": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "category": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "order": {
+          "type": "integer"
+        },
+        "apiBase": {
+          "type": "string"
+        },
+        "hasCustomView": {
+          "type": "boolean"
+        },
+        "defaultView": {
+          "type": "string"
+        },
+        "quickActions": {
+          "type": "array"
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "enum": [
+                  "grid",
+                  "kanban",
+                  "calendar",
+                  "dashboard",
+                  "custom",
+                  "element"
+                ],
+                "description": "\"custom\" requires a component registered in the admin; \"element\" is a Web Component loaded at runtime."
+              },
+              "title": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "table": {
+                "type": "string"
+              },
+              "component": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

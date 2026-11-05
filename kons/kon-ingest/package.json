@@ -1,0 +1,48 @@
+{
+  "name": "@kitsuden/kon-ingest",
+  "version": "0.1.1",
+  "description": "Document ingestion for Kitsuden: extract text, chunk it and search it by meaning (PDF and OCR optional).",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "extract.ts",
+    "index.ts",
+    "ingest.model.ts",
+    "job.ts",
+    "kon.json",
+    "migrations",
+    "tables.ts"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "ingestion",
+    "rag",
+    "semantic-search"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.7.0",
+    "unpdf": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "unpdf": {
+      "optional": true
+    }
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-ingest",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  }
+}

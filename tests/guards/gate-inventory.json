@@ -1,0 +1,205 @@
+{
+  "kon-academy-lms": {
+    "operations": 82,
+    "before": 60,
+    "permission": 81,
+    "sensitive": 6,
+    "cost": 0
+  },
+  "kon-agile": {
+    "operations": 25,
+    "before": 0,
+    "permission": 25,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-analytics": {
+    "operations": 3,
+    "before": 0,
+    "permission": 0,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-autobattler": {
+    "operations": 14,
+    "before": 0,
+    "permission": 4,
+    "sensitive": 2,
+    "cost": 0
+  },
+  "kon-blog": {
+    "operations": 18,
+    "before": 0,
+    "permission": 12,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-booking": {
+    "operations": 21,
+    "before": 0,
+    "permission": 5,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-broadcast": {
+    "operations": 30,
+    "before": 16,
+    "permission": 24,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-cardsim": {
+    "operations": 57,
+    "before": 0,
+    "permission": 32,
+    "sensitive": 9,
+    "cost": 0
+  },
+  "kon-character-builder": {
+    "operations": 13,
+    "before": 0,
+    "permission": 6,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-collection": {
+    "operations": 4,
+    "before": 0,
+    "permission": 4,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-comments": {
+    "operations": 8,
+    "before": 0,
+    "permission": 7,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-conta": {
+    "operations": 1,
+    "before": 0,
+    "permission": 0,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-crm": {
+    "operations": 43,
+    "before": 12,
+    "permission": 43,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-directory": {
+    "operations": 19,
+    "before": 0,
+    "permission": 7,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-dms": {
+    "operations": 43,
+    "before": 1,
+    "permission": 43,
+    "sensitive": 2,
+    "cost": 1
+  },
+  "kon-ecommerce": {
+    "operations": 12,
+    "before": 0,
+    "permission": 9,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-esports": {
+    "operations": 78,
+    "before": 0,
+    "permission": 48,
+    "sensitive": 4,
+    "cost": 0
+  },
+  "kon-formulas": {
+    "operations": 4,
+    "before": 0,
+    "permission": 2,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-games": {
+    "operations": 17,
+    "before": 3,
+    "permission": 10,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-ingest": {
+    "operations": 1,
+    "before": 0,
+    "permission": 1,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-maps": {
+    "operations": 3,
+    "before": 0,
+    "permission": 2,
+    "sensitive": 2,
+    "cost": 0
+  },
+  "kon-members": {
+    "operations": 11,
+    "before": 0,
+    "permission": 5,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-newsletter": {
+    "operations": 22,
+    "before": 0,
+    "permission": 13,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-ocr-training": {
+    "operations": 6,
+    "before": 0,
+    "permission": 5,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-payments": {
+    "operations": 6,
+    "before": 0,
+    "permission": 4,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-streamers": {
+    "operations": 8,
+    "before": 0,
+    "permission": 4,
+    "sensitive": 1,
+    "cost": 0
+  },
+  "kon-tierlist": {
+    "operations": 11,
+    "before": 0,
+    "permission": 7,
+    "sensitive": 2,
+    "cost": 0
+  },
+  "kon-vekstudio": {
+    "operations": 4,
+    "before": 0,
+    "permission": 3,
+    "sensitive": 0,
+    "cost": 0
+  },
+  "kon-wiki": {
+    "operations": 11,
+    "before": 0,
+    "permission": 3,
+    "sensitive": 1,
+    "cost": 0
+  }
+}

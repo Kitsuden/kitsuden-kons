@@ -1,0 +1,155 @@
+# CI of kitsuden-kons: build and test every kon AGAINST a published Kitsuden.
+#
+# Kons do not run on their own: they import @kitsuden/shared and
+# @kitsuden/engine and share hono/drizzle-orm/zod with the API. This workflow
+# checks out Kitsuden into ./.kitsuden (the fixed link name the root
+# package.json and tsconfig.kons.json point at — see scripts/link-core.mjs),
+# installs and builds its shared package, then installs this repo with
+# --frozen-lockfile and runs:
+#
+#   · `pnpm build`            type-check of every kon (tsc)
+#   · `pnpm maturity:check`   README table == manifests
+#   · `pnpm test`             kon tests + guards (vitest)
+#   · `pnpm test:bun`         the kons that carry bun tests
+#   · migrations of ALL kons on a real Postgres, through Kitsuden's own runner
+#   · Schemathesis against the SDK operations of these kons (contract testing)
+#
+# KITSUDEN_REF picks the Kitsuden version to test against (default: main).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      kitsuden_ref:
+        description: "Kitsuden branch, tag or SHA to test against"
+        required: false
+        default: "main"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KITSUDEN_REF: ${{ github.event.inputs.kitsuden_ref || 'main' }}
+
+jobs:
+  kons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: kitsuden
+          POSTGRES_PASSWORD: ci_only_not_a_secret
+          POSTGRES_DB: kitsuden_kons_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kitsuden -d kitsuden_kons_test"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+
+    steps:
+      - name: Checkout kitsuden-kons
+        uses: actions/checkout@v4
+
+      - name: Checkout Kitsuden (the core the kons run in)
+        uses: actions/checkout@v4
+        with:
+          repository: Kitsuden/kitsuden
+          ref: ${{ env.KITSUDEN_REF }}
+          path: .kitsuden
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            .kitsuden/pnpm-lock.yaml
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.x
+
+      # Schemathesis runs with uvx at the version Kitsuden pins; it is not a
+      # dependency of any kon.
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.9.8"
+
+      - name: Install Kitsuden and build @kitsuden/shared
+        working-directory: .kitsuden
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @kitsuden/shared build
+
+      # actions/checkout already put Kitsuden at ./.kitsuden, so the link script
+      # only validates it (it is a real folder here, not a link).
+      - name: Validate the core checkout
+        run: KITSUDEN_DIR=.kitsuden node scripts/link-core.mjs
+
+      - name: Install kons
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check every kon
+        run: pnpm build
+
+      - name: README maturity table is up to date
+        run: pnpm maturity:check
+
+      - name: Kon tests and guards (vitest)
+        run: pnpm test
+
+      - name: Kon bun tests
+        run: pnpm test:bun
+
+      # The kons' SQL migrations, all of them, on a real Postgres, with the
+      # same runner a Kitsuden server uses: each kon is "installed" by path
+      # through KITSUDEN_KONS, the way `kitsuden kon add --link` declares it.
+      - name: Migrations of every kon (Kitsuden runner)
+        working-directory: .kitsuden/apps/api
+        env:
+          DATABASE_URL: postgresql://kitsuden:ci_only_not_a_secret@127.0.0.1:5432/kitsuden_kons_test
+          BETTER_AUTH_SECRET: ci_only_not_a_secret_ci_only_not_a_secret
+          NODE_ENV: test
+        run: |
+          KITSUDEN_KONS=$(for d in ../../../kons/kon-*; do printf '%s=%s,' "$(basename "$d")" "$(cd "$d" && pwd)"; done)
+          export KITSUDEN_KONS
+          bun run scripts/migrate.ts --all-kons
+          bun run scripts/migrate.ts --status
+
+      # Contract testing: Kitsuden's runner (apps/api/scripts/schemathesis.ts)
+      # mounts the real app with these kons installed and attacks the SDK
+      # operations of THESE kons only (`--only-installed`), against this repo's
+      # own baseline of accepted failures. The database name must contain
+      # "test": the runner sends random writes and refuses anything else.
+      # See Kitsuden's docs/kons/contract-testing.md.
+      - name: Schemathesis (SDK operations of these kons)
+        working-directory: .kitsuden/apps/api
+        env:
+          DATABASE_URL: postgresql://kitsuden:ci_only_not_a_secret@127.0.0.1:5432/kitsuden_kons_test
+          BETTER_AUTH_SECRET: ci_only_not_a_secret_ci_only_not_a_secret
+          NODE_ENV: test
+          KITSUDEN_TEST_DB: postgres
+          LOG_LEVEL: error
+        run: |
+          KITSUDEN_KONS=$(for d in ../../../kons/kon-*; do printf '%s=%s,' "$(basename "$d")" "$(cd "$d" && pwd)"; done)
+          export KITSUDEN_KONS
+          bun run scripts/schemathesis.ts --only-installed --baseline="$GITHUB_WORKSPACE/schemathesis-baseline.json"
+
+      - name: Upload Schemathesis report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: schemathesis-report
+          path: .kitsuden/apps/api/.schemathesis/
+          retention-days: 14

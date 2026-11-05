@@ -1,0 +1,69 @@
+{
+  "name": "@kitsuden/kon-agile",
+  "version": "1.3.1",
+  "description": "Agile project management with agents as teammates: projects, issues, sprints, epics, squads, saved views, dashboards and AI triage with human approval",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "MCP_EXAMPLE.md",
+    "README.md",
+    "admin",
+    "agile.access.ts",
+    "agile.db.ts",
+    "agile.fields.ts",
+    "agile.operations.ts",
+    "agile.planning.ts",
+    "agile.policy.ts",
+    "agile.query.ts",
+    "agile.routes.ts",
+    "agile.schema.ts",
+    "agile.team.ts",
+    "agile.views.ts",
+    "agile.workflow.ts",
+    "http-errors.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "agile",
+    "kanban",
+    "scrum",
+    "project-management"
+  ],
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-agile",
+    "category": "productivity",
+    "order": 10,
+    "core": false,
+    "defaultEnabled": false,
+    "minVersion": "0.8.0",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-agile"
+  }
+}

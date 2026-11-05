@@ -1,0 +1,5 @@
+# Each kon is its own package. `@kitsuden/shared`, `@kitsuden/engine`, hono,
+# drizzle-orm and zod are NOT installed here: they are linked from the Kitsuden
+# checkout at ./.kitsuden (see scripts/link-core.mjs and the README).
+packages:
+  - "kons/*"

@@ -1,0 +1,15 @@
+{
+  "components": [
+    "alert",
+    "button",
+    "card",
+    "card-content",
+    "card-header",
+    "card-title",
+    "checkbox",
+    "confirm-dialog",
+    "selection-bar",
+    "tabs",
+    "theme-scope"
+  ]
+}

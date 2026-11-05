@@ -1,0 +1,52 @@
+{
+  "name": "@kitsuden/kon-analytics",
+  "version": "1.0.1",
+  "description": "View counter per subject and day, with no cookies or personal data",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "analytics.routes.ts",
+    "analytics.schema.ts",
+    "index.ts",
+    "kon.json",
+    "migrations"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "analytics",
+    "views"
+  ],
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-analytics",
+    "category": "content",
+    "order": 14,
+    "core": false,
+    "defaultEnabled": false,
+    "minVersion": "0.9.0",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-analytics"
+  }
+}

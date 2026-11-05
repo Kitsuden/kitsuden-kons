@@ -1,0 +1,31 @@
+{
+  "previousChecksums": {
+    "0000_initial.sql": [
+      "20c9d990ccd78305",
+      "9012f5961930da1e"
+    ],
+    "0001_media_references.sql": [
+      "0b06c1c15d2c4857",
+      "4062fa2fab98ac2b"
+    ],
+    "0002_unique_indexes.sql": [
+      "23def43e76063f25",
+      "d171e09dad5f04b5"
+    ],
+    "0003_management_and_groups_rls.sql": [
+      "7c301ba4e22cd5db",
+      "3815062b9991e347"
+    ],
+    "0004_supervisor_by_groups.sql": [
+      "394a8555191a5517",
+      "20e49789c5e93b26"
+    ]
+  },
+  "renamed": {
+    "0001_media_references.sql": "0001_referencias_a_media.sql",
+    "0002_unique_indexes.sql": "0002_indices_unicos.sql",
+    "0003_management_and_groups_rls.sql": "0003_gestion_y_grupos_rls.sql",
+    "0004_supervisor_by_groups.sql": "0004_supervisor_por_grupos.sql",
+    "0005_generic_catalog.sql": "0005_catalogo_generico.sql"
+  }
+}

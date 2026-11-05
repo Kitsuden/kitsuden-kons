@@ -1,0 +1,80 @@
+{
+  "name": "@kitsuden/kon-cardsim",
+  "version": "2.3.1",
+  "description": "Card simulator builder: games defined by data, deterministic sessions with replay, a deck showcase and a hand generator",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "cardsim.dataset.ts",
+    "cardsim.deck.ts",
+    "cardsim.decklist.ts",
+    "cardsim.engine.ts",
+    "cardsim.goldfish.ts",
+    "cardsim.policy.ts",
+    "cardsim.presets.ts",
+    "cardsim.rating.ts",
+    "cardsim.schema.ts",
+    "cardsim.seed.ts",
+    "cardsim.statecache.ts",
+    "cardsim.types.ts",
+    "deckshow.policy.ts",
+    "deckshow.routes.ts",
+    "deckshow.schema.ts",
+    "handlab.definition.ts",
+    "handlab.policy.ts",
+    "handlab.routes.ts",
+    "handlab.schema.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "cardsim",
+    "deckshow",
+    "handlab",
+    "tcg",
+    "goldfish"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-cardsim",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./motor": "./cardsim.engine.ts",
+    "./presets": "./cardsim.presets.ts",
+    "./decklist": "./cardsim.decklist.ts",
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-cardsim"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "@kitsuden/kon-blog",
+  "version": "2.0.1",
+  "description": "Kitsuden Core Kon - Blog & Content Publishing (rich text, SEO, scheduling)",
+  "type": "module",
+  "main": "./src/index.ts",
+  "files": [
+    "AGENTS.md",
+    "DATAEXPLORER_CONFIG.md",
+    "GEO_IMPLEMENTATION_GUIDE.md",
+    "README.md",
+    "SEO_GUIDE.md",
+    "SOCIAL_PREVIEW_GUIDE.md",
+    "WHATSAPP_OG_GUIDE.md",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "src"
+  ],
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "core",
+    "blog",
+    "cms",
+    "publishing"
+  ],
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "devDependencies": {
+    "pg-mem": "^3.0.14",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "core-den",
+    "id": "kon-blog",
+    "category": "core",
+    "order": 3,
+    "core": true,
+    "defaultEnabled": true,
+    "minVersion": "0.8.0",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-blog"
+  }
+}

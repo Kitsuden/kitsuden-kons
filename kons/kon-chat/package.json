@@ -1,0 +1,60 @@
+{
+  "name": "@kitsuden/kon-chat",
+  "version": "1.0.1",
+  "description": "Chatbots over the core's agents, with knowledge search and an embeddable widget",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "admin",
+    "chat.knowledge.ts",
+    "chat.operations.ts",
+    "chat.policy.ts",
+    "chat.schema.ts",
+    "chat.service.ts",
+    "chat.stream.ts",
+    "chat.widget.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "chat",
+    "chatbot",
+    "rag"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-chat",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-chat"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

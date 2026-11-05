@@ -1,0 +1,72 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-chat",
+  "name": "Chat",
+  "description": "Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what you teach them",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "experimental",
+  "icon": "MessageCircle",
+  "license": "MIT",
+  "kitsuden": ">=0.9.0",
+  "mount": {
+    "path": "/api/chat",
+    "router": "createKonChat"
+  },
+  "entryPoint": "./index.ts",
+  "tables": [
+    {
+      "name": "chat_bots",
+      "label": "Chatbots",
+      "icon": "MessageCircle"
+    },
+    {
+      "name": "chat_documents",
+      "label": "Chatbot knowledge",
+      "icon": "FileText"
+    },
+    {
+      "name": "chat_chunks",
+      "label": "Knowledge chunks",
+      "icon": "FileText"
+    },
+    {
+      "name": "chat_conversations",
+      "label": "Chat conversations",
+      "icon": "MessageSquare"
+    },
+    {
+      "name": "chat_messages",
+      "label": "Chat messages",
+      "icon": "MessageSquare"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "icon": "MessageCircle",
+    "defaultView": "chatbots",
+    "views": [
+      {
+        "id": "chatbots",
+        "type": "element",
+        "title": "Chatbots",
+        "element": "chat-admin",
+        "src": "admin/chat-admin.js",
+        "icon": "MessageCircle"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": "./chat.schema.ts",
+    "strategy": "sql"
+  },
+  "category": "content"
+}

@@ -1,0 +1,18 @@
+{
+  // Only for `pnpm check:admin` (svelte-check). The kon's own tsconfig leaves admin-src out:
+  // its tsc does not understand .svelte files.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "types": [],
+    "paths": { "$lib/*": ["./tallao/*"] }
+  },
+  "include": ["./**/*.ts", "./**/*.svelte"]
+}

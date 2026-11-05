@@ -1,0 +1,40 @@
+{
+  "previousChecksums": {
+    "0001_cardsim.sql": [
+      "2d59f1c2ee6ae025",
+      "33e21b2b6f8bbe84"
+    ],
+    "0002_cardsim_rooms.sql": [
+      "3449df1d58a11727",
+      "00d48d119689921c"
+    ],
+    "0003_cardsim_dataset.sql": [
+      "eb47b253f6f7592e",
+      "e8a770c9c4e48956"
+    ],
+    "0004_ownerless_decks_rls.sql": [
+      "164f8524d3c3c39d",
+      "2f8b173b93d59eb0"
+    ],
+    "0005_secret_seed.sql": [
+      "6df68b6032f55b0b",
+      "777e0a0c53bf1c2f"
+    ],
+    "0008_deckshow.sql": [
+      "35d1a7ea305c8d13",
+      "da4e07c81c00248f"
+    ],
+    "0010_handlab.sql": [
+      "75e081fea21d73c3",
+      "050e603e455d0fdf"
+    ]
+  },
+  "renamed": {
+    "0004_ownerless_decks_rls.sql": "0004_mazos_sin_dueno_rls.sql",
+    "0005_secret_seed.sql": "0005_semilla_secreta.sql",
+    "0008_deckshow.sql": "kon-deckshow/0001_deckshow.sql",
+    "0009_deckshow_english_names.sql": "kon-deckshow/0002_english_names.sql",
+    "0010_handlab.sql": "kon-handlab/0001_handlab.sql",
+    "0011_handlab_english_names.sql": "kon-handlab/0002_english_names.sql"
+  }
+}

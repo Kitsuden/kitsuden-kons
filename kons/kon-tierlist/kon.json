@@ -1,0 +1,55 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-tierlist",
+  "name": "TierList",
+  "description": "Tier lists with two surfaces: editorial templates with diff between patches, and personal lists shareable by code",
+  "version": "1.0.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "ListOrdered",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "tier_lists",
+      "label": "Tier lists",
+      "icon": "ListOrdered"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "tierlist-editor",
+    "views": [
+      {
+        "id": "tierlist-editor",
+        "type": "element",
+        "title": "Tier list editor",
+        "element": "tierlist-editor",
+        "src": "admin/tierlist-editor.js"
+      },
+      {
+        "id": "grid-tier-lists",
+        "type": "grid",
+        "title": "All tier lists",
+        "table": "tier_lists",
+        "singularName": "tier list",
+        "icon": "ListOrdered"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/tierlist"
+  },
+  "category": "gaming"
+}

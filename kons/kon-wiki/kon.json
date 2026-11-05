@@ -1,0 +1,70 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-wiki",
+  "name": "Wiki",
+  "description": "Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with backlinks",
+  "version": "1.1.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "BookOpen",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "wikis",
+      "label": "Wikis",
+      "icon": "Globe"
+    },
+    {
+      "name": "wiki_pages",
+      "label": "Pages",
+      "icon": "FileText"
+    },
+    {
+      "name": "wiki_revisions",
+      "label": "Revisions",
+      "icon": "History"
+    },
+    {
+      "name": "wiki_links",
+      "label": "Links",
+      "icon": "Link"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "wiki-creator",
+    "views": [
+      {
+        "id": "wiki-creator",
+        "type": "element",
+        "title": "Wikis",
+        "element": "wiki-creator",
+        "src": "admin/wiki-creator.js"
+      },
+      {
+        "id": "grid-pages",
+        "type": "grid",
+        "title": "All pages",
+        "table": "wiki_pages",
+        "singularName": "page",
+        "icon": "FileText"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "strategy": "sql",
+    "entry": null
+  },
+  "mount": {
+    "path": "/api/wiki"
+  },
+  "category": "content"
+}

@@ -1,0 +1,65 @@
+{
+  "name": "@kitsuden/kon-broadcast",
+  "version": "1.0.1",
+  "description": "Broadcast kon for Kitsuden",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "VIEWER-GUIDE.md",
+    "admin",
+    "broadcast.bracket.ts",
+    "broadcast.mails.ts",
+    "broadcast.policy.ts",
+    "broadcast.profiles.ts",
+    "broadcast.roster.ts",
+    "broadcast.routes.ts",
+    "broadcast.schema.ts",
+    "broadcast.sections.ts",
+    "classifications",
+    "graphics",
+    "index.ts",
+    "kon.json",
+    "live",
+    "migrations",
+    "operations.ts",
+    "tools"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "broadcast"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@kitsuden/kon-esports": "workspace:*"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-broadcast",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-broadcast"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

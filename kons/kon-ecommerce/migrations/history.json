@@ -1,0 +1,32 @@
+{
+  "previousChecksums": {
+    "0001_shop.sql": [
+      "7fc3f62a71a82032",
+      "64030628f6c3bb4a"
+    ],
+    "0002_secure_orders.sql": [
+      "e2e4ba9305646d68",
+      "dc85922b28d5ca7b"
+    ],
+    "0003_system_without_user.sql": [
+      "25951c321534750e",
+      "72128cc00192f3c9"
+    ],
+    "0004_agents_with_scope.sql": [
+      "8d2903173d734058",
+      "ca2bc0e9d992fa08"
+    ],
+    "0005_common_agent_rule.sql": [
+      "cc43c1e7afb88d94",
+      "be4671cc24026dd9",
+      "1a96f68b3eb1dc61",
+      "1d1841199680d508"
+    ]
+  },
+  "renamed": {
+    "0002_secure_orders.sql": "0002_pedidos_seguros.sql",
+    "0003_system_without_user.sql": "0003_sistema_sin_usuario.sql",
+    "0004_agents_with_scope.sql": "0004_agentes_con_scope.sql",
+    "0005_common_agent_rule.sql": "0005_regla_comun_de_agentes.sql"
+  }
+}

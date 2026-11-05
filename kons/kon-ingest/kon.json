@@ -1,0 +1,27 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-ingest",
+  "name": "Document ingestion",
+  "description": "Extracts text from documents (text, markdown, HTML; PDF with the optional 'unpdf'; images through an OCR sidecar), splits it into chunks and embeds them for semantic search. Heavy work runs on the Postgres queue, never in a request.",
+  "version": "0.1.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "experimental",
+  "icon": "FileText",
+  "category": "documents",
+  "core": false,
+  "defaultEnabled": false,
+  "license": "MIT",
+  "mount": {
+    "path": "/api/ingest"
+  },
+  "tables": [
+    "ingest_documents",
+    "ingest_chunks"
+  ],
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  }
+}

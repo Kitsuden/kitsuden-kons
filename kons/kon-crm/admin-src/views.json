@@ -1,0 +1,4 @@
+[
+  { "entry": "CrmSettings.svelte", "out": "settings.js" },
+  { "entry": "CrmSetup.svelte", "out": "setup.js" }
+]

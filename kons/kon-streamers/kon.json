@@ -1,0 +1,45 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-streamers",
+  "name": "Streamers",
+  "description": "Live streamer tracking across Twitch, YouTube, and Kick with real-time status sync.",
+  "version": "1.0.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "Tv",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    "streamers",
+    "games_to_streamers"
+  ],
+  "dependencies": {
+    "kons": [
+      "kon-games",
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": "./streamers.schema.ts",
+    "strategy": "drizzle"
+  },
+  "mount": {
+    "path": "/api/streamers"
+  },
+  "admin": {
+    "category": "esports",
+    "views": [
+      {
+        "id": "streamers",
+        "type": "grid",
+        "title": "Streamers",
+        "table": "streamers"
+      }
+    ]
+  },
+  "category": "gaming"
+}

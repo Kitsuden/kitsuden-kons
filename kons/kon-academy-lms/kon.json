@@ -1,0 +1,219 @@
+{
+  "id": "kon-academy-lms",
+  "name": "Academy LMS",
+  "description": "Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment groups, Learning Paths, satisfaction surveys, PDF certificates and Excel export.",
+  "version": "1.1.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "beta",
+  "icon": "GraduationCap",
+  "$schema": "../../schemas/kon-schema.json",
+  "category": "business",
+  "layer": 3,
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "mount": {
+    "path": "/api/academy",
+    "router": "academyLMSRoutes"
+  },
+  "exports": {
+    "routes": "./src/index.ts",
+    "schema": "./academy-lms.schema.ts",
+    "default": "./src/index.ts"
+  },
+  "database": {
+    "enums": [
+      "training_role",
+      "course_type",
+      "assignment_method",
+      "department",
+      "job_title",
+      "place",
+      "survey_role"
+    ]
+  },
+  "features": [
+    "courses-crud",
+    "modules-crud",
+    "topics-crud",
+    "quizzes-crud",
+    "progress-tracking",
+    "assignment-groups",
+    "learning-paths",
+    "surveys",
+    "certificates-pdf",
+    "excel-export",
+    "youtube-integration",
+    "user-sync",
+    "dashboard-analytics"
+  ],
+  "admin": {
+    "enabled": true,
+    "category": "content",
+    "defaultView": "grid-courses",
+    "icon": "GraduationCap",
+    "title": "Academy",
+    "order": 10,
+    "views": [
+      {
+        "id": "dashboard",
+        "type": "dashboard",
+        "title": "Dashboard",
+        "icon": "LayoutDashboard",
+        "description": "LMS metrics and statistics"
+      },
+      {
+        "id": "grid-courses",
+        "type": "grid",
+        "title": "Courses",
+        "icon": "BookOpen",
+        "table": "courses",
+        "description": "Management of available courses"
+      },
+      {
+        "id": "grid-modules",
+        "type": "grid",
+        "title": "Modules",
+        "icon": "Layers",
+        "table": "course_modules",
+        "description": "Course modules"
+      },
+      {
+        "id": "grid-topics",
+        "type": "grid",
+        "title": "Topics",
+        "icon": "FileText",
+        "table": "topics",
+        "description": "Topics and content"
+      },
+      {
+        "id": "grid-quizzes",
+        "type": "grid",
+        "title": "Quizzes",
+        "icon": "HelpCircle",
+        "table": "quizzes",
+        "description": "Assessments and quizzes"
+      },
+      {
+        "id": "grid-groups",
+        "type": "grid",
+        "title": "Groups",
+        "icon": "Users",
+        "table": "assignment_groups",
+        "description": "Assignment groups"
+      },
+      {
+        "id": "grid-assignments",
+        "type": "grid",
+        "title": "Assignments",
+        "icon": "UserPlus",
+        "table": "assignments",
+        "description": "Course assignments"
+      },
+      {
+        "id": "grid-learning-paths",
+        "type": "grid",
+        "title": "Learning Paths",
+        "icon": "Route",
+        "table": "learning_paths",
+        "description": "Learning paths"
+      },
+      {
+        "id": "grid-surveys",
+        "type": "grid",
+        "title": "Surveys",
+        "icon": "ClipboardList",
+        "table": "satisfaction_surveys",
+        "description": "Satisfaction surveys"
+      },
+      {
+        "id": "grid-progress",
+        "type": "grid",
+        "title": "Progress",
+        "icon": "TrendingUp",
+        "table": "course_progress",
+        "description": "Student progress"
+      },
+      {
+        "id": "grid-certificates",
+        "type": "grid",
+        "title": "Certificates",
+        "icon": "Award",
+        "table": "certificates",
+        "description": "Generated certificates"
+      }
+    ],
+    "quickActions": [
+      {
+        "id": "create-course",
+        "label": "New Course",
+        "icon": "Plus",
+        "view": "grid-courses",
+        "action": "create"
+      },
+      {
+        "id": "assign-course",
+        "label": "Assign Course",
+        "icon": "UserPlus",
+        "view": "grid-assignments",
+        "action": "create"
+      },
+      {
+        "id": "export-progress",
+        "label": "Export Progress",
+        "icon": "Download",
+        "action": "custom",
+        "endpoint": "/api/academy/export/progress"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ]
+  },
+  "compatibility": {
+    "kitsuden": ">=0.7.0"
+  },
+  "documentation": {
+    "readme": "./README.md",
+    "api": "./API.md"
+  },
+  "toggle": {
+    "enabledByDefault": false,
+    "canDisable": true,
+    "requiresRestart": false
+  },
+  "schema": {
+    "entry": "./academy-lms.schema.ts",
+    "strategy": "sql"
+  },
+  "tables": [
+    "training_user_profiles",
+    "courses",
+    "assignment_groups",
+    "group_users",
+    "group_supervisors",
+    "course_modules",
+    "topics",
+    "additional_files",
+    "quizzes",
+    "questions",
+    "question_options",
+    "course_progress",
+    "module_progress",
+    "topic_progress",
+    "user_answers",
+    "quiz_results",
+    "assignments",
+    "feedback",
+    "satisfaction_surveys",
+    "certificates",
+    "academy_activity_log",
+    "learning_paths",
+    "learning_path_courses",
+    "learning_path_progress",
+    "learning_path_assignments"
+  ]
+}

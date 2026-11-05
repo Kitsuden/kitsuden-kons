@@ -1,0 +1,35 @@
+-- RLS for kon-newsletter after the English rename: functions, triggers and policies come back with the new names.
+--
+-- The previous file dropped the old ones; between both files the tables stay closed, not open.
+
+-- Policies, with the new names and the core's English helpers.
+DROP POLICY IF EXISTS nl_deliveries_permitir ON nl_deliveries;
+DROP POLICY IF EXISTS nl_deliveries_allow ON nl_deliveries;
+CREATE POLICY nl_deliveries_allow ON nl_deliveries AS PERMISSIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_deliveries_solo_admin ON nl_deliveries;
+DROP POLICY IF EXISTS nl_deliveries_admin_only ON nl_deliveries;
+CREATE POLICY nl_deliveries_admin_only ON nl_deliveries AS RESTRICTIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_events_permitir ON nl_events;
+DROP POLICY IF EXISTS nl_events_allow ON nl_events;
+CREATE POLICY nl_events_allow ON nl_events AS PERMISSIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_events_solo_admin ON nl_events;
+DROP POLICY IF EXISTS nl_events_admin_only ON nl_events;
+CREATE POLICY nl_events_admin_only ON nl_events AS RESTRICTIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_members_permitir ON nl_members;
+DROP POLICY IF EXISTS nl_members_allow ON nl_members;
+CREATE POLICY nl_members_allow ON nl_members AS PERMISSIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_members_solo_admin ON nl_members;
+DROP POLICY IF EXISTS nl_members_admin_only ON nl_members;
+CREATE POLICY nl_members_admin_only ON nl_members AS RESTRICTIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_subscriptions_permitir ON nl_subscriptions;
+DROP POLICY IF EXISTS nl_subscriptions_allow ON nl_subscriptions;
+CREATE POLICY nl_subscriptions_allow ON nl_subscriptions AS PERMISSIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_subscriptions_solo_admin ON nl_subscriptions;
+DROP POLICY IF EXISTS nl_subscriptions_admin_only ON nl_subscriptions;
+CREATE POLICY nl_subscriptions_admin_only ON nl_subscriptions AS RESTRICTIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_suppressions_permitir ON nl_suppressions;
+DROP POLICY IF EXISTS nl_suppressions_allow ON nl_suppressions;
+CREATE POLICY nl_suppressions_allow ON nl_suppressions AS PERMISSIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));
+DROP POLICY IF EXISTS nl_suppressions_solo_admin ON nl_suppressions;
+DROP POLICY IF EXISTS nl_suppressions_admin_only ON nl_suppressions;
+CREATE POLICY nl_suppressions_admin_only ON nl_suppressions AS RESTRICTIVE FOR ALL USING ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text)))) WITH CHECK ((kitsuden_effective_admin('newsletter'::text) OR ((COALESCE(current_setting('app.current_user_role'::text, true), ''::text) = ''::text) AND (COALESCE(current_setting('app.current_user_id'::text, true), ''::text) = ''::text))));

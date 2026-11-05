@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MOBA Overlay</title>
+
+    <!--
+      Aesthetics: information density over decoration.
+      ==========================================================================
+      The graphic is overlaid on a moving game. Every pixel it occupies
+      is a pixel that covers the game, so the rule is:
+
+        · Near-black, translucent surfaces, never solid.
+        · 1px hairlines as the only separation. No shadows or bevels.
+        · Condensed, tabular typography: numbers must not jump in width
+          when they change, or the scoreboard shakes live.
+        · Color is used only to MEAN something: team accent, lead,
+          danger. Never as decoration.
+        · Animation only on state changes, and under 200ms.
+
+      All color comes from variables, which the series theme overrides. A
+      third party can provide their own stylesheet without touching this file.
+    -->
+    <style>
+      :root {
+        --blue: #4c8dff;
+        --red: #ff4d5e;
+        --accent: #4c8dff;
+        --surface: 7, 10, 16;
+        --surface-opacity: 0.86;
+        --radius: 0px;
+
+        --ink: #f2f5fa;
+        --ink-dim: #8d96a8;
+        --ink-faint: #59606f;
+        --hairline: rgba(255, 255, 255, 0.1);
+
+        --font: "Inter", "Segoe UI", system-ui, sans-serif;
+        --mono: "Roboto Mono", ui-monospace, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: transparent;
+        font-family: var(--font);
+        color: var(--ink);
+        /* Numbers must NOT change width as they increment. */
+        font-variant-numeric: tabular-nums;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* Nothing is shown until the first state arrives: a scoreboard at zero
+         during startup is worse than an empty screen. */
+      body:not([data-ready]) [data-layer] {
+        opacity: 0;
+      }
+
+      [data-layer] {
+        position: absolute;
+        transition: opacity 160ms ease;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      .panel {
+        background: rgba(var(--surface), var(--surface-opacity));
+        border-radius: var(--radius);
+        backdrop-filter: blur(6px);
+      }
+
+      /* ── Top bar: game scoreboard ───────────────────────────────────────── */
+
+      [data-layer="matchbar"] {
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: stretch;
+        height: 64px;
+      }
+
+      .team-block {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 0 22px;
+        min-width: 330px;
+      }
+
+      .team-block.red {
+        flex-direction: row-reverse;
+      }
+
+      .team-logo {
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+      }
+
+      .team-tag {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .team-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 11px;
+        color: var(--ink-dim);
+      }
+
+      .team-block.red .team-meta {
+        align-items: flex-end;
+      }
+
+      /* Series markers: dots, not numbers. They are read at a glance. */
+      .series-dots {
+        display: flex;
+        gap: 4px;
+      }
+
+      .dot {
+        width: 7px;
+        height: 7px;
+        border: 1px solid currentColor;
+        opacity: 0.4;
+      }
+
+      .dot[data-won="1"] {
+        background: currentColor;
+        opacity: 1;
+      }
+
+      .kills {
+        font-size: 30px;
+        font-weight: 700;
+        min-width: 46px;
+        text-align: center;
+      }
+
+      .center-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0 26px;
+        border-left: 1px solid var(--hairline);
+        border-right: 1px solid var(--hairline);
+        min-width: 132px;
+      }
+
+      .clock {
+        font-family: var(--mono);
+        font-size: 22px;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+      }
+
+      .stage {
+        font-size: 9px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+
+      /* ── Gold difference ────────────────────────────────────────────────── */
+
+      [data-layer="gold"] {
+        top: 64px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 460px;
+        padding: 8px 12px 4px;
+      }
+
+      .gold-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+
+      .gold-value {
+        font-family: var(--mono);
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+
+      /*
+        Estimate mark. Riot does not publish gold in spectator mode, so
+        when the number comes from the estimator it says so — in the graphic, not just
+        in the documentation. The caster will read it aloud.
+      */
+      .estimated::after {
+        content: "EST.";
+        margin-left: 6px;
+        font-family: var(--font);
+        font-size: 8px;
+        letter-spacing: 0.1em;
+        color: var(--ink-faint);
+        vertical-align: 2px;
+      }
+
+      .gold-chart {
+        display: block;
+        width: 100%;
+        height: 46px;
+      }
+
+      /* ── Objectives ─────────────────────────────────────────────────────── */
+
+      [data-layer="objectives"] {
+        top: 64px;
+        left: 50%;
+        margin-left: -472px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      [data-layer="objectives"].right {
+        margin-left: 242px;
+      }
+
+      .timer-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .timer-label {
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        min-width: 52px;
+      }
+
+      .timer-value {
+        font-family: var(--mono);
+        font-size: 13px;
+      }
+
+      .timer-row[data-soon="1"] .timer-value {
+        color: var(--accent);
+      }
+
+      .timer-row[data-available="1"] .timer-value {
+        color: #ffd166;
+      }
+
+      /* Dragon soul: only appears when there is something to count. */
+      .soul {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-top: 1px solid var(--hairline);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      /* ── Players bar ────────────────────────────────────────────────────── */
+
+      [data-layer="players"] {
+        top: 120px;
+        left: 24px;
+        width: 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      [data-layer="players"].right {
+        left: auto;
+        right: 24px;
+      }
+
+      .player {
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        align-items: center;
+        gap: 9px;
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+
+      .player[data-dead="1"] {
+        opacity: 0.45;
+      }
+
+      .portrait {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        background: rgba(255, 255, 255, 0.05);
+        display: grid;
+        place-items: center;
+        font-size: 9px;
+        color: var(--ink-faint);
+        overflow: hidden;
+      }
+
+      .portrait img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .level {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.82);
+        font-family: var(--mono);
+        font-size: 9px;
+        padding: 0 3px;
+        color: var(--ink);
+      }
+
+      .respawn {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(0, 0, 0, 0.7);
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--red);
+      }
+
+      .player-name {
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .player-sub {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--ink-dim);
+      }
+
+      .kda {
+        font-family: var(--mono);
+        font-size: 13px;
+        text-align: right;
+      }
+
+      .items {
+        display: flex;
+        gap: 2px;
+        margin-top: 3px;
+      }
+
+      .item {
+        width: 15px;
+        height: 15px;
+        background: rgba(255, 255, 255, 0.07);
+        overflow: hidden;
+      }
+
+      .item-img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .portrait-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .pick-img {
+        width: 46px;
+        height: 46px;
+        object-fit: cover;
+      }
+
+      .ban-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        /* A ban is a DENIED champion: in gray it reads at a glance. */
+        filter: grayscale(1) brightness(0.55);
+      }
+
+      /* ── Draft ──────────────────────────────────────────────────────────── */
+
+      [data-layer="draft"] {
+        inset: 0;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        background: linear-gradient(180deg, rgba(3, 5, 9, 0.94), rgba(3, 5, 9, 0.82));
+      }
+
+      .draft-head {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 60px;
+        padding: 54px 0 26px;
+      }
+
+      .draft-team {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font-size: 40px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .draft-body {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 40px;
+        padding: 0 90px;
+        align-content: start;
+      }
+
+      .picks {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .pick {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 16px;
+        border-left: 3px solid transparent;
+        background: rgba(255, 255, 255, 0.035);
+        font-size: 19px;
+      }
+
+      .picks.red .pick {
+        flex-direction: row-reverse;
+        border-left: none;
+        border-right: 3px solid transparent;
+      }
+
+      /* The current turn is the only thing that moves on the draft screen. */
+      .pick[data-awaiting="1"] {
+        border-color: var(--accent);
+        background: rgba(255, 255, 255, 0.07);
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        50% {
+          background: rgba(255, 255, 255, 0.12);
+        }
+      }
+
+      .bans {
+        display: flex;
+        gap: 6px;
+        margin-top: 18px;
+      }
+
+      .ban {
+        width: 42px;
+        height: 42px;
+        background: rgba(255, 255, 255, 0.05);
+        display: grid;
+        place-items: center;
+        font-size: 9px;
+        color: var(--ink-faint);
+        position: relative;
+      }
+
+      /* A skipped ban is not an empty gap: it is marked. */
+      .ban[data-passed="1"]::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          transparent 46%,
+          var(--ink-faint) 46%,
+          var(--ink-faint) 54%,
+          transparent 54%
+        );
+      }
+
+      .fearless-note {
+        text-align: center;
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        padding-bottom: 40px;
+      }
+
+      /* ── Pre-game screen ────────────────────────────────────────────────── */
+
+      [data-layer="pregame"] {
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: linear-gradient(180deg, rgba(3, 5, 9, 0.96), rgba(3, 5, 9, 0.88));
+      }
+
+      .pre {
+        text-align: center;
+      }
+
+      .pre-teams {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 56px;
+        margin: 26px 0 34px;
+      }
+
+      .pre-team {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        font-size: 46px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        min-width: 320px;
+      }
+
+      .pre-team img {
+        height: 120px;
+        object-fit: contain;
+      }
+
+      .pre-vs {
+        font-size: 20px;
+        letter-spacing: 0.3em;
+        color: var(--ink-faint);
+      }
+
+      /*
+        The countdown is the only big thing on the screen: it is what people
+        watch while waiting, and at a small size it forces them to lean toward the monitor.
+      */
+      .pre-clock {
+        font-family: var(--mono);
+        font-size: 92px;
+        font-weight: 300;
+        letter-spacing: 0.04em;
+        line-height: 1;
+        margin-bottom: 22px;
+      }
+
+      /* ── Post-game ──────────────────────────────────────────────────────── */
+
+      [data-layer="postgame"] {
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgba(3, 5, 9, 0.9);
+      }
+
+      .result {
+        text-align: center;
+      }
+
+      .result-winner {
+        font-size: 64px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .result-label {
+        font-size: 12px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        margin-bottom: 10px;
+      }
+
+      .mvp {
+        margin-top: 44px;
+        display: inline-flex;
+        align-items: center;
+        gap: 20px;
+        padding: 18px 30px;
+        border-top: 1px solid var(--hairline);
+      }
+
+      .mvp-name {
+        font-size: 26px;
+        font-weight: 600;
+      }
+
+      .mvp-reasons {
+        font-size: 11px;
+        color: var(--ink-dim);
+      }
+
+      /* ── Timeline ───────────────────────────────────────────────────────── */
+
+      [data-layer="timeline"] {
+        bottom: 92px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 1px;
+      }
+
+      .tl {
+        padding: 5px 10px;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        display: flex;
+        gap: 6px;
+        align-items: baseline;
+      }
+
+      .tl-at {
+        font-family: var(--mono);
+        color: var(--ink-faint);
+      }
+
+      /* ── Casters y patrocinadores ───────────────────────────────────────── */
+
+      [data-layer="casters"] {
+        bottom: 40px;
+        left: 60px;
+        display: flex;
+        gap: 1px;
+      }
+
+      .caster {
+        padding: 10px 20px;
+      }
+
+      .caster-name {
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .caster-handle {
+        font-size: 11px;
+        color: var(--ink-dim);
+      }
+
+      [data-layer="sponsors"] {
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 40px;
+        height: 42px;
+      }
+
+      .sponsor {
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--ink-dim);
+      }
+
+      .sponsor img {
+        height: 20px;
+        object-fit: contain;
+      }
+
+      /* ── Diagnostics ────────────────────────────────────────────────────── */
+
+      /*
+        Only the operator sees this in their preview: in the broadcast program
+        the notice is clipped outside the safe area on purpose. For the overlay to
+        warn that it lost the source is useful; for it to go on air, not.
+      */
+      [data-conn],
+      [data-source-lost] {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        background: var(--red);
+        color: #fff;
+      }
+
+      [data-source-lost] {
+        left: auto;
+        right: 4px;
+        background: #b45309;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div data-conn hidden>No connection</div>
+    <div data-source-lost hidden>No game data</div>
+
+    <!-- Scoreboard -->
+    <div class="panel" data-layer="matchbar" hidden>
+      <div class="team-block blue" data-side="blue">
+        <img class="team-logo" data-logo-blue alt="" hidden />
+        <div class="team-meta">
+          <span class="team-tag" data-tag-blue></span>
+          <span class="series-dots" data-dots-blue></span>
+        </div>
+        <span class="kills" data-kills-blue>0</span>
+      </div>
+
+      <div class="center-block">
+        <span class="clock" data-clock>0:00</span>
+        <span class="stage" data-stage></span>
+      </div>
+
+      <div class="team-block red" data-side="red">
+        <img class="team-logo" data-logo-red alt="" hidden />
+        <div class="team-meta">
+          <span class="team-tag" data-tag-red></span>
+          <span class="series-dots" data-dots-red></span>
+        </div>
+        <span class="kills" data-kills-red>0</span>
+      </div>
+    </div>
+
+    <!-- Gold difference -->
+    <div class="panel" data-layer="gold" hidden>
+      <div class="gold-head">
+        <span data-gold-label>Gold difference</span>
+        <span class="gold-value" data-gold-diff>0</span>
+      </div>
+      <svg class="gold-chart" data-gold-chart viewBox="0 0 460 46" preserveAspectRatio="none">
+        <line x1="0" y1="23" x2="460" y2="23" stroke="rgba(255,255,255,.12)" stroke-width="1" />
+        <path data-gold-path fill="none" stroke-width="1.5" />
+      </svg>
+    </div>
+
+    <!-- Objectives -->
+    <div class="panel" data-layer="objectives" hidden>
+      <div data-timers></div>
+      <div class="soul" data-soul hidden></div>
+    </div>
+
+    <!-- Players -->
+    <div class="panel" data-layer="players" data-team="blue" hidden></div>
+    <div class="panel right" data-layer="players-red" data-team="red" hidden></div>
+
+    <!-- Draft -->
+    <div data-layer="draft" hidden>
+      <div class="draft-head">
+        <span class="draft-team" data-draft-blue></span>
+        <span class="stage">Draft</span>
+        <span class="draft-team" data-draft-red></span>
+      </div>
+      <div class="draft-body">
+        <div>
+          <div class="picks blue" data-picks-blue></div>
+          <div class="bans" data-bans-blue></div>
+        </div>
+        <div></div>
+        <div>
+          <div class="picks red" data-picks-red></div>
+          <div class="bans" data-bans-red></div>
+        </div>
+      </div>
+      <div class="fearless-note" data-fearless hidden></div>
+    </div>
+
+    <!-- Pre-game screen -->
+    <div data-layer="pregame" hidden>
+      <div class="pre">
+        <div class="stage" data-pre-stage></div>
+        <div class="pre-teams">
+          <div class="pre-team">
+            <img data-pre-logo-blue alt="" hidden />
+            <span data-pre-blue></span>
+          </div>
+          <span class="pre-vs">VS</span>
+          <div class="pre-team">
+            <img data-pre-logo-red alt="" hidden />
+            <span data-pre-red></span>
+          </div>
+        </div>
+        <div class="pre-clock" data-countdown></div>
+        <div class="stage" data-pre-format></div>
+      </div>
+    </div>
+
+    <!-- Post-game -->
+    <div data-layer="postgame" hidden>
+      <div class="result">
+        <div class="result-label">Victory</div>
+        <div class="result-winner" data-winner></div>
+        <div class="mvp" data-mvp hidden>
+          <div>
+            <div class="result-label">MVP</div>
+            <div class="mvp-name" data-mvp-name></div>
+            <div class="mvp-reasons" data-mvp-reasons></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div data-layer="timeline" hidden></div>
+
+    <!-- Casters -->
+    <div data-layer="casters" hidden></div>
+
+    <!-- Patrocinadores -->
+    <div class="panel" data-layer="sponsors" hidden></div>
+
+    <script type="module" src="./overlay-live.js"></script>
+  </body>
+</html>

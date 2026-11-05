@@ -1,0 +1,9 @@
+{
+  "id": "kitsuden-viggo",
+  "name": "Viggo",
+  "description": "Broadcast theme: high contrast on a dark background, legible on stream.",
+  "version": "1.0.0",
+  "type": "theme",
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "css_entry": "variables.css"
+}

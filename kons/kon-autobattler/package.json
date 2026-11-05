@@ -1,0 +1,61 @@
+{
+  "name": "@kitsuden/kon-autobattler",
+  "version": "1.0.1",
+  "description": "Autobattler compositions: units, traits with thresholds, items and board. TFT set included.",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "autobattler",
+    "tft"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-autobattler",
+    "core": false,
+    "defaultEnabled": false,
+    "mount": {
+      "path": "/api/autobattler"
+    },
+    "sdk": 1,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)",
+    "maturity": "stable"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-autobattler"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  },
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "autobattler.builder.ts",
+    "autobattler.engine.ts",
+    "autobattler.policy.ts",
+    "autobattler.schema.ts",
+    "autobattler.types.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ]
+}

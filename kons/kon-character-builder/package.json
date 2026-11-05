@@ -1,0 +1,57 @@
+{
+  "name": "@kitsuden/kon-character-builder",
+  "version": "1.1.0",
+  "description": "Character builder engine: per-game definitions, build validation, stats and build codes",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "admin",
+    "character-builder.dataset.ts",
+    "character-builder.engine.ts",
+    "character-builder.policy.ts",
+    "character-builder.schema.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "character-builder"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@kitsuden/kon-formulas": "workspace:*"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7",
+    "@kitsuden/kon-formulas": "workspace:*"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-character-builder",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-character-builder"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

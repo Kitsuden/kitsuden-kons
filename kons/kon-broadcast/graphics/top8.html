@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Top 8 — Bracket</title>
+    <!--
+      Top 8 for OBS. 1920×1080 Browser Source:
+
+        /api/kons/kon-broadcast/graphics/top8.html?tournament=<id>
+
+      It is the screen every tournament shows between pools and finals. It is fed
+      from the bracket's public endpoint and refreshes itself: the bracket changes
+      every few minutes, not every second, so there is NO WebSocket here — a
+      20 s poll is plenty and saves maintaining another channel with permissions.
+
+      Same aesthetics as the rest: near-black surfaces, 1px hairlines,
+      tabular numbers, color only to mean something.
+    -->
+    <style>
+      :root {
+        --a: #00d2a8;
+        --ink: #f2f5fa;
+        --ink-dim: #8d96a8;
+        --ink-faint: #59606f;
+        --surface: rgba(7, 10, 16, 0.92);
+        --hairline: rgba(255, 255, 255, 0.1);
+        --won: #ffd166;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: transparent;
+        font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body:not([data-ready]) .board {
+        opacity: 0;
+      }
+
+      .board {
+        position: absolute;
+        inset: 60px 80px;
+        background: var(--surface);
+        backdrop-filter: blur(6px);
+        padding: 44px 56px;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 30px;
+        transition: opacity 200ms ease;
+      }
+
+      .head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--hairline);
+        padding-bottom: 16px;
+      }
+
+      .title {
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+      }
+
+      .subtitle {
+        font-size: 12px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+      }
+
+      /* Two bands: winners on top, losers below. It is how a top 8 is read. */
+      .halves {
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 24px;
+      }
+
+      .half {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        gap: 28px;
+        align-items: center;
+      }
+
+      .col {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        gap: 14px;
+        height: 100%;
+      }
+
+      .col-label {
+        font-size: 10px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        text-align: center;
+      }
+
+      .match {
+        border: 1px solid var(--hairline);
+        border-radius: 3px;
+      }
+
+      .slot {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        font-size: 15px;
+      }
+
+      .slot + .slot {
+        border-top: 1px solid var(--hairline);
+      }
+
+      .slot .flag {
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .slot .who {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--ink-dim);
+      }
+
+      /* The winner is the only thing highlighted. A TBD does not compete for attention. */
+      .slot[data-won="1"] .who {
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .slot[data-won="1"]::before {
+        content: "";
+        width: 3px;
+        align-self: stretch;
+        margin: -8px 0 -8px -12px;
+        background: var(--won);
+      }
+
+      .champion {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        justify-content: center;
+        padding: 14px;
+        border: 1px solid var(--won);
+        border-radius: 3px;
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="board">
+      <div class="head">
+        <span class="title" data-title>TOP 8</span>
+        <span class="subtitle" data-subtitle></span>
+      </div>
+      <div class="halves">
+        <div class="half" data-winners></div>
+        <div class="half" data-losers></div>
+      </div>
+    </div>
+
+    <script type="module" src="./top8.js"></script>
+  </body>
+</html>

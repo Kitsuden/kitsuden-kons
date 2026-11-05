@@ -1,0 +1,15 @@
+{
+  "previousChecksums": {
+    "0001_wiki.sql": [
+      "e0001fcbfc9f981f",
+      "92b5a4bd723265cd"
+    ],
+    "0002_wikis_with_subdomain.sql": [
+      "2ec44c64a1b0f4bb",
+      "950b274fcbd15ca0"
+    ]
+  },
+  "renamed": {
+    "0002_wikis_with_subdomain.sql": "0002_wikis_con_subdominio.sql"
+  }
+}

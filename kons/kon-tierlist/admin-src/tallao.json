@@ -1,0 +1,18 @@
+{
+  "components": [
+    "alert",
+    "button",
+    "card",
+    "card-content",
+    "card-header",
+    "card-title",
+    "checkbox",
+    "confirm-dialog",
+    "drag-board",
+    "drag-item",
+    "drop-zone",
+    "input",
+    "select",
+    "theme-scope"
+  ]
+}

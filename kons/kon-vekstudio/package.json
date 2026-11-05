@@ -1,0 +1,54 @@
+{
+  "name": "@kitsuden/kon-vekstudio",
+  "version": "1.0.1",
+  "description": "Bridge to the vekocr OCR stack (konusagi gateway): job submission, results, corrections and live SSE events",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "src"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "ocr",
+    "vekocr",
+    "konusagi",
+    "documents"
+  ],
+  "author": "Victor Antinori Broce (https://github.com/vigogami)",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-vekstudio",
+    "category": "business",
+    "order": 30,
+    "core": false,
+    "defaultEnabled": false,
+    "minVersion": "0.8.0",
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-vekstudio"
+  }
+}

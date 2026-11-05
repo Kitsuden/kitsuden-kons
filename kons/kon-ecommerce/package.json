@@ -1,0 +1,64 @@
+{
+  "name": "@kitsuden/kon-ecommerce",
+  "version": "1.1.1",
+  "description": "Shop for digital products and made-to-order goods: catalog, orders, finite stock and local pickup",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts",
+    "shop.access.ts",
+    "shop.delivery.ts",
+    "shop.mails.ts",
+    "shop.notify.ts",
+    "shop.orders.ts",
+    "shop.payments.ts",
+    "shop.policy.ts",
+    "shop.promotions.ts",
+    "shop.routes.ts",
+    "shop.schema.ts",
+    "shop.service.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "ecommerce",
+    "shop",
+    "digital-products",
+    "made-to-order"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-ecommerce",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-ecommerce"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

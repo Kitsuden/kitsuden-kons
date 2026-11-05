@@ -1,0 +1,147 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-ecommerce",
+  "name": "Shop",
+  "description": "Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes and order emails. It is not a large-catalog ecommerce: it covers what Shopify makes expensive and Etsy charges for.",
+  "version": "1.1.1",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "common",
+  "maturity": "beta",
+  "icon": "ShoppingBag",
+  "kitsuden": ">=0.9.0",
+  "core": false,
+  "defaultEnabled": false,
+  "dependencies": {
+    "kons": [
+      "kon-media"
+    ],
+    "core": [
+      "auth"
+    ]
+  },
+  "tables": [
+    {
+      "name": "shop_products",
+      "label": "Products",
+      "icon": "Package",
+      "searchableFields": [
+        "name",
+        "slug"
+      ],
+      "filterableFields": [
+        "kind",
+        "active"
+      ]
+    },
+    {
+      "name": "shop_variants",
+      "label": "Variants",
+      "icon": "Layers",
+      "searchableFields": [
+        "name",
+        "sku"
+      ],
+      "filterableFields": [
+        "active"
+      ]
+    },
+    {
+      "name": "shop_orders",
+      "label": "Orders",
+      "icon": "Receipt",
+      "searchableFields": [
+        "number",
+        "customerEmail"
+      ],
+      "filterableFields": [
+        "status",
+        "fulfillmentType"
+      ]
+    },
+    {
+      "name": "shop_order_items",
+      "label": "Order lines",
+      "icon": "List"
+    },
+    {
+      "name": "shop_product_files",
+      "label": "Delivered files",
+      "icon": "FileText"
+    },
+    {
+      "name": "shop_license_keys",
+      "label": "License keys",
+      "icon": "Tag",
+      "filterableFields": [
+        "variant_id"
+      ]
+    },
+    {
+      "name": "shop_entitlements",
+      "label": "Deliveries",
+      "icon": "CircleCheckBig",
+      "filterableFields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "shop_promotions",
+      "label": "Discount codes",
+      "icon": "Sparkles",
+      "searchableFields": [
+        "code"
+      ],
+      "filterableFields": [
+        "active"
+      ]
+    },
+    {
+      "name": "shop_order_links",
+      "label": "My-orders links",
+      "icon": "Link"
+    }
+  ],
+  "schema": {
+    "entry": "./shop.schema.ts",
+    "strategy": "drizzle"
+  },
+  "mount": {
+    "path": "/api/shop"
+  },
+  "category": "business",
+  "admin": {
+    "category": "content",
+    "defaultView": "products",
+    "views": [
+      {
+        "id": "products",
+        "type": "grid",
+        "title": "Products",
+        "table": "shop_products",
+        "icon": "Package"
+      },
+      {
+        "id": "variants",
+        "type": "grid",
+        "title": "Variants",
+        "table": "shop_variants",
+        "icon": "Layers"
+      },
+      {
+        "id": "orders",
+        "type": "grid",
+        "title": "Orders",
+        "table": "shop_orders",
+        "icon": "Receipt"
+      },
+      {
+        "id": "promotions",
+        "type": "grid",
+        "title": "Discount codes",
+        "table": "shop_promotions",
+        "icon": "Sparkles"
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "@kitsuden/kon-newsletter",
+  "version": "1.0.1",
+  "description": "Newsletter kon for Kitsuden — members, double opt-in, segments and campaigns with delegated delivery",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "feedback",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "newsletter.db.ts",
+    "newsletter.limits.ts",
+    "newsletter.mails.ts",
+    "newsletter.policy.ts",
+    "newsletter.routes.ts",
+    "newsletter.schema.ts",
+    "newsletter.service.ts",
+    "newsletter.tracking.ts",
+    "newsletter.types.ts",
+    "operations.ts",
+    "transports"
+  ],
+  "types": "./index.ts",
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "newsletter",
+    "email",
+    "members",
+    "resend",
+    "mailgun",
+    "postal"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-newsletter",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-newsletter"
+  }
+}

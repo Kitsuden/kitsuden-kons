@@ -1,0 +1,19 @@
+{
+  "previousChecksums": {
+    "0000_base_tables.sql": [
+      "1cb99a97154bf7a6",
+      "f5975a958957d3d4"
+    ],
+    "0000_rename_enums.sql": [
+      "dd238f18ea3808ff",
+      "ea14065539bc4c94"
+    ],
+    "0001_collections_missing_columns.sql": [
+      "3515eb4e6e0e2ade",
+      "abe4bd0efd764867"
+    ]
+  },
+  "renamed": {
+    "0001_collections_missing_columns.sql": "0001_collections_columnas_ausentes.sql"
+  }
+}
