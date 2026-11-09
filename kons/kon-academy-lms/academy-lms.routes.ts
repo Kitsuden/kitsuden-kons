@@ -2663,7 +2663,7 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       access: "session",
       permission: ANY_ACCOUNT,
       input: { params: ParamId("Course id") },
-      output: { schema: listing("course_modules") },
+      output: { schema: listing("modules") },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c) => {

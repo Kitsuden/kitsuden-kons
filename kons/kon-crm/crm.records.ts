@@ -107,6 +107,7 @@ export function recordOperations(routes: ReturnType<typeof registry>): void {
       permission: EDIT,
       input: { params: ParamId, body: Reopen },
       output: { schema: Output },
+      errors: ["KITSUDEN_E_CONFLICT"],
     },
     async (c, input) => {
       const db = dbDe(c);

@@ -241,7 +241,7 @@ const Grant = z.object({
   reason: z.string().trim().min(3).max(500).describe("Why: it stays on record"),
 });
 const AccessOut = z
-  .object({ records: z.enum(["all", "assigned"]), money: z.boolean(), sensitive: z.boolean(), notes: z.boolean() })
+  .object({ records: z.enum(["all", "assigned"]), money: z.boolean(), sensitive: z.boolean(), notes: z.boolean().nullable() })
   .passthrough();
 const Listing = z.object({ data: z.array(z.record(z.string(), z.unknown())) }).passthrough();
 const Removed = z

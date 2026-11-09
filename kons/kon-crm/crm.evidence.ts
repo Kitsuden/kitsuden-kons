@@ -259,6 +259,7 @@ export function evidenceOperations(routes: ReturnType<typeof registry>): void {
       permission: EDIT,
       input: { body: Observe },
       output: { schema: Output, status: 201 },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input) => {
       const db = dbDe(c);

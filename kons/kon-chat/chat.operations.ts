@@ -59,7 +59,7 @@ const Knowledge = z.object({
 
 const Message = z.object({
   message: z.string().max(MAX_MESSAGE_CHARS).optional().describe("The question. Leave it out with `regenerate`"),
-  conversationId: z.string().max(100).optional().describe("To continue a conversation of yours"),
+  conversationId: z.string().min(1).max(100).optional().describe("To continue a conversation of yours"),
   regenerate: z.boolean().optional().describe("Answer the last question of `conversationId` again, replacing its answer"),
 });
 const Visitor = z.object({
@@ -72,7 +72,7 @@ const MAX_ATTACHMENT_CHARS = 2_000_000;
 
 const Fork = z.object({ fromMessageId: z.string().min(1).max(100).describe("The last message to keep") });
 const Attachment = z.object({
-  conversationId: z.string().max(100).optional().describe("Leave it out to start a conversation with the file"),
+  conversationId: z.string().min(1).max(100).optional().describe("Leave it out to start a conversation with the file"),
   title: z.string().trim().min(1).max(300),
   mime: z.string().max(100).optional().describe("Default text/plain. PDF, HTML and images need kon-ingest; send them base64"),
   content: z.string().min(1).max(MAX_ATTACHMENT_CHARS).describe("Text, or base64 for a binary file"),
@@ -167,6 +167,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
       sensitive: true,
       input: { body: BotFields },
       output: { schema: Output, status: 201 },
+      errors: ["KITSUDEN_E_CONFLICT"],
     },
     async (c, input) => {
       const body = input.body as z.infer<typeof BotFields>;

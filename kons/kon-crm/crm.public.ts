@@ -356,6 +356,7 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
       mcp: { exclude: "Opening client access is a decision for a person." },
       input: { body: PortalLink },
       output: { schema: Output, status: 201 },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input) => {
       const user = userOf(c);
@@ -439,6 +440,7 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
       mcp: { exclude: "For a client with a link, not a tool for agents." },
       input: { body: PortalRequest },
       output: { schema: Output },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input) => {
       const db = root();
