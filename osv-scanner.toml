@@ -1,0 +1,7 @@
+# Advisories OSV-Scanner may ignore (security workflow, check `deps`).
+# Each entry needs a reason and an expiry date: when it passes, the advisory counts again.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2027-01-31
+# reason = "Dev-only dependency; the vulnerable path is never reached because ..."

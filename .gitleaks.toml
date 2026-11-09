@@ -1,0 +1,29 @@
+# gitleaks (security workflow, check `secrets`): the default rules, plus the known
+# false positives below. Each entry says why it is not a secret. Keep them narrow:
+# a whole-file allowlist hides any real secret added to that file later.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Reports, downloaded scanners and the core checkout, never committed"
+paths = ['''^\.security/''', '''(^|/)node_modules/''', '''^\.kitsuden/''']
+
+[[allowlists]]
+description = "A migration file name in the cardsim history, not a secret"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^kons/kon-cardsim/migrations/history\.json$''']
+regexes = ['''0005_secret_seed''']
+
+[[allowlists]]
+description = "The alphabet digital-delivery keys are drawn from"
+condition = "AND"
+regexTarget = "line"
+paths = ['''^kons/kon-ecommerce/shop\.delivery\.ts$''']
+regexes = ['''KEY_ALPHABET''']
+
+[[allowlists]]
+description = "Idempotency keys made up by the tests"
+condition = "AND"
+paths = ['''^tests/unit/(idempotency|security-shop)\.test\.ts$''']
+regexes = ['''respaldo-pg-0[12]''', '''pedido-abc-123''']

@@ -25,3 +25,4 @@ kons/*/src/**/*.d.ts
 .DS_Store
 Thumbs.db
 progress.txt
+.security/

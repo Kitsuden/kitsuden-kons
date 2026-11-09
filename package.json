@@ -47,5 +47,10 @@
     "vite": "link:.kitsuden/packages/admin/node_modules/vite",
     "vitest": "link:.kitsuden/node_modules/vitest",
     "zod": "link:.kitsuden/node_modules/zod"
+  },
+  "pnpm": {
+    "overrides": {
+      "exceljs>uuid": "11.1.1"
+    }
   }
 }

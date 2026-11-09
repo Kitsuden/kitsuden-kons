@@ -1,0 +1,13 @@
+# Checkov (security workflow, check `iac`): the GitHub Actions workflows.
+# Every skipped check says why. Prefer fixing the file over adding a skip.
+framework:
+  - github_actions
+skip-path:
+  - node_modules
+  - .security
+  - .kitsuden
+skip-check:
+  # SLSA "workflow_dispatch inputs must be empty". The one manual input of ci.yml
+  # picks which Kitsuden ref the kons are tested against; it builds nothing that
+  # is published.
+  - CKV_GHA_7

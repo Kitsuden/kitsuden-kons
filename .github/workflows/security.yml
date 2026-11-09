@@ -1,0 +1,141 @@
+name: Security
+
+# Security scanning of the official kons, with the same scanners, versions and rules
+# as Kitsuden itself: the kons run inside the core with access to its database, so a
+# hole here is a hole in Kitsuden. The scanners come from Kitsuden's
+# scripts/security/scan.mjs (pinned binaries checked by SHA-256), run against THIS
+# repository with `--root=.`; the exceptions live here, in .gitleaks.toml,
+# osv-scanner.toml and .checkov.yaml. Kitsuden's docs/security-scanning.md
+# explains each tool.
+#
+# Blocking on every push and pull request:
+#   scanners  gitleaks (secrets), OSV-Scanner (HIGH or CRITICAL advisories in
+#             pnpm-lock.yaml), Checkov (the workflows)
+#   codeql    CodeQL security-extended on the kons' TypeScript and the workflows
+# Only with the secret: GitGuardian (GITGUARDIAN_API_KEY).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 05:47 UTC: new advisories appear without a commit
+    - cron: "47 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scanners:
+    name: Secrets, dependencies, IaC
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout Kitsuden (for its scanners)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Kitsuden/kitsuden
+          ref: main
+          path: .kitsuden
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.9.8"
+
+      - name: Run the scanners
+        run: node .kitsuden/scripts/security/scan.mjs --root=.
+
+      # One upload per report: code scanning refuses several runs under one
+      # category. Skipped on pull requests from forks (their token cannot write).
+      - name: Upload gitleaks (history) to code scanning
+        if: always() && hashFiles('.security/gitleaks-history.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: .security/gitleaks-history.sarif
+          category: gitleaks-history
+      - name: Upload gitleaks (tree) to code scanning
+        if: always() && hashFiles('.security/gitleaks-tree.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: .security/gitleaks-tree.sarif
+          category: gitleaks-tree
+      - name: Upload OSV-Scanner to code scanning
+        if: always() && hashFiles('.security/osv.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: .security/osv.sarif
+          category: osv-scanner
+      - name: Upload Checkov to code scanning
+        if: always() && hashFiles('.security/checkov.sarif') != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: .security/checkov.sarif
+          category: checkov
+
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - node_modules
+              - "**/dist"
+              - "**/*.test.ts"
+              - tests
+              - extras
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: codeql-${{ matrix.language }}
+
+  ggshield:
+    name: GitGuardian (when GITGUARDIAN_API_KEY is set)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Is there a key?
+        id: key
+        env:
+          KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+        run: echo "present=$([ -n "$KEY" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: steps.key.outputs.present == 'true'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: GitGuardian/ggshield-action@5cc1ed2be3e8bf625d354c7170731880670f74de # v1.56.1
+        if: steps.key.outputs.present == 'true'
+        env:
+          GITHUB_PUSH_BEFORE_SHA: ${{ github.event.before }}
+          GITHUB_PUSH_BASE_SHA: ${{ github.event.base }}
+          GITHUB_PULL_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}

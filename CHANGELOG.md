@@ -5,6 +5,9 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## 0.9.0-beta — first public release
 
+- Security scanning on every push and pull request with Kitsuden's scanners: gitleaks, OSV-Scanner,
+  Checkov and CodeQL (`.github/workflows/security.yml`). Actions are pinned by commit and kept
+  current by Dependabot. `exceljs` gets `uuid` 11.1.1 (its own `uuid@8` has a HIGH advisory).
 - 30 kons under MIT, grouped by category: core (blog, members), business, content and community,
   gaming, and documents and OCR. `stable` is reserved for the essential kons; the rest are `beta`
   or `experimental`.
