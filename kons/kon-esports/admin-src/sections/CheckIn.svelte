@@ -141,6 +141,6 @@
   }
 
   .chip.in {
-    color: rgb(var(--ta-accent));
+    color: rgb(var(--ta-accent-hover));
   }
 </style>

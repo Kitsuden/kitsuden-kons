@@ -9,6 +9,7 @@ import {
   eqEnum,
   can,
   operationsRouter,
+  withSavepoint,
   type AuthzUser,
   type AnyOperation,
 } from "@kitsuden/engine";
@@ -829,19 +830,24 @@ function tournamentsOperations(ctx: KonContext): AnyOperation[] {
       }
 
       try {
-        const [participant] = await db.instance
-          .insert(tournamentParticipants)
-          .values({
-            tournamentId: id,
-            playerId: body.playerId || null,
-            teamId: body.teamId || null,
-            // The STAFF registers on purpose: it enters approved. Generating the bracket
-            // only seeds the approved (an earlier audit), and with
-            // "Pending" what the staff (or their agent via MCP) added never
-            // reached the bracket. Public registrations keep their plan.
-            status: "Approved",
-          })
-          .returning();
+        // In a SAVEPOINT: a repeated registration (or a player that does not exist) is answered
+        // with 400 below, and without a savepoint that SQL error would leave the request's
+        // transaction aborted (rule 2 of the kon SDK).
+        const [participant] = await withSavepoint(async () =>
+          db.instance
+            .insert(tournamentParticipants)
+            .values({
+              tournamentId: id,
+              playerId: body.playerId || null,
+              teamId: body.teamId || null,
+              // The STAFF registers on purpose: it enters approved. Generating the bracket
+              // only seeds the approved (an earlier audit), and with
+              // "Pending" what the staff (or their agent via MCP) added never
+              // reached the bracket. Public registrations keep their plan.
+              status: "Approved",
+            })
+            .returning()
+        );
         return c.json(participant, 201);
       } catch (error: unknown) {
         return c.json(

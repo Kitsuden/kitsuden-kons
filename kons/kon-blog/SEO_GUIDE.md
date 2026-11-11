@@ -630,4 +630,4 @@ const siteConfig: SiteSEOConfig = {
 
 ---
 
-**Applies to:** kon-blog 2.0.1
+**Applies to:** kon-blog 2.0.2

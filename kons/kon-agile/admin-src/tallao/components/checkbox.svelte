@@ -59,4 +59,9 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+
+  /* On touch screens: the whole label is the 44px hit area; the box stays 16px. */
+  @media (pointer: coarse) {
+    .ta-checkbox { min-height: 2.75rem; align-items: center; }
+  }
 </style>

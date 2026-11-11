@@ -534,4 +534,4 @@ media transform URL as if it were a media id, which yields a broken image URL. U
 
 ---
 
-**Applies to:** kon-blog 2.0.1
+**Applies to:** kon-blog 2.0.2

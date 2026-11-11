@@ -13,11 +13,12 @@ teams whose members book shared spaces and a desk that manages them.
 Inside a Kitsuden project:
 
 ```bash
-kitsuden kon add booking
+kitsuden kon add booking --enable
 ```
 
-`kon-media` is added with it (a dependency in `kon.json`). The manifest does not set
-`defaultEnabled: false`, so `--enable` is not needed. Restart the API afterwards. No environment
+Kitsuden leaves a specialized kon off until you switch it on, so pass `--enable` (or switch it on
+in the admin panel, **Kons**). Restart the API afterwards. `kon.json` lists `kon-media` as a
+required kon; it ships with the Kitsuden core, so nothing else is installed. No environment
 variables are required.
 
 ## What it adds

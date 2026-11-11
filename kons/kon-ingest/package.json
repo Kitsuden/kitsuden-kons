@@ -17,7 +17,8 @@
     "tables.ts"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc"
   },
   "keywords": [
     "kitsuden",

@@ -31,9 +31,20 @@ const rows = readdirSync(join(root, "kons"), { withFileTypes: true })
   .sort((a, b) => (ORDER[a.maturity] ?? 9) - (ORDER[b.maturity] ?? 9) || a.id.localeCompare(b.id));
 
 const oneLine = (s) => String(s).replace(/\s+/g, " ").replace(/\|/g, "\\|").trim();
+/**
+ * At most 110 characters, cut at the end of a WORD: a description cut wherever the limit fell
+ * ended in half a word ("queries" read "que…"). A word followed by punctuation loses the
+ * punctuation too, so the ellipsis never follows a comma or an open parenthesis.
+ */
 const short = (s) => {
   const t = oneLine(s);
-  return t.length > 110 ? `${t.slice(0, 107).trimEnd()}…` : t;
+  if (t.length <= 110) return t;
+  // The last word boundary that leaves room for the ellipsis. With no space to cut at (one
+  // very long word) the hard cut is all there is.
+  const room = t.slice(0, 110);
+  const space = room.lastIndexOf(" ");
+  const cut = space > 0 ? room.slice(0, space) : room.slice(0, 109);
+  return `${cut.replace(/[\s,;:.(\[—–-]+$/, "")}…`;
 };
 
 /**

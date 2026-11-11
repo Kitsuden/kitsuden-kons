@@ -71,6 +71,10 @@ It is a `stable`, tier `essential` kon: most sites run it, so behaviour changes 
 
 ## Rules that must hold
 
+- **A write whose failure is answered with a 4xx runs in a savepoint** (`withSavepoint`): creating
+  and updating posts (with their tags, games and categories, all in one savepoint) and categories.
+  Without it the 409 or 400 leaves the request's transaction aborted and the host's COMMIT fails.
+  Guard: `tests/unit/input-errors-in-the-request-transaction.test.ts`.
 - **One visibility rule.** Every public read goes through `hiddenForThisVisitor` /
   `canViewUnpublished` and `alreadyPublic` (published and date reached). A new read route must use
   them (`drafts-not-public.test.ts`, `sec-blog-routes.test.ts`).
@@ -108,6 +112,7 @@ pnpm vitest run tests/unit/sec-blog-sanitize.test.ts
 pnpm vitest run tests/unit/drafts-not-public.test.ts
 pnpm vitest run tests/unit/blog-publish-on-edit.test.ts
 pnpm vitest run tests/unit/blog-docs-review-fixes.test.ts
+pnpm vitest run tests/unit/input-errors-in-the-request-transaction.test.ts
 pnpm vitest run tests/unit/blog-and-comments.test.ts
 pnpm vitest run tests/unit/english-block-keys.test.ts
 pnpm vitest run tests/unit/event-blog-newsletter.test.ts

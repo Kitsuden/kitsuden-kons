@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-blog",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Kitsuden Core Kon - Blog & Content Publishing (rich text, SEO, scheduling)",
   "type": "module",
   "main": "./src/index.ts",
@@ -43,7 +43,7 @@
     "zod": "^4.6.7"
   },
   "kitsuden": {
-    "type": "core-den",
+    "type": "kon",
     "id": "kon-blog",
     "category": "core",
     "order": 3,

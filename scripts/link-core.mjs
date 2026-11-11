@@ -3,6 +3,11 @@
  * Links the Kitsuden checkout this repo builds and tests against.
  *
  *   KITSUDEN_DIR=../kitsuden node scripts/link-core.mjs     (default: ../kitsuden)
+ *   node scripts/link-core.mjs --check                      validate the current link, change nothing
+ *
+ * Without `--check` this POINTS the link at KITSUDEN_DIR (or ../kitsuden), replacing a link that
+ * points elsewhere. To only verify the checkout `.kitsuden` already points at (a release check,
+ * an agent that must not move it), use `--check`: it never creates, removes or re-points it.
  *
  * Kons are NOT standalone packages: they run inside a Kitsuden API and import
  * `@kitsuden/shared` and `@kitsuden/engine`, and they must share ONE copy of
@@ -28,11 +33,20 @@ import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const link = join(root, ".kitsuden");
-const target = resolve(root, process.env.KITSUDEN_DIR || "../kitsuden");
+const check = process.argv.includes("--check");
+// `--check` looks at what is linked NOW, whatever KITSUDEN_DIR says.
+const target = check ? link : resolve(root, process.env.KITSUDEN_DIR || "../kitsuden");
 
 function fail(message) {
   console.error(`link-core: ${message}`);
   process.exit(1);
+}
+
+if (check && !existsSync(link)) {
+  fail(
+    `.kitsuden does not exist. Link a Kitsuden checkout first:\n` +
+      `  node scripts/link-core.mjs        (KITSUDEN_DIR=<path> if it is not ../kitsuden)`
+  );
 }
 
 function readName(pkgJson) {
@@ -62,6 +76,11 @@ if (!existsSync(join(target, "packages", "shared", "dist", "index.js"))) {
   fail(
     `@kitsuden/shared is not built in ${target}: run \`pnpm --filter @kitsuden/shared build\` there first.`
   );
+}
+
+if (check) {
+  console.log(`link-core: .kitsuden -> ${realpathSync(link)} (checked, not changed)`);
+  process.exit(0);
 }
 
 let current = null;

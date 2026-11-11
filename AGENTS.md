@@ -10,15 +10,24 @@ Optional modules (**kons**) for [Kitsuden](https://github.com/Kitsuden/kitsuden)
 a Kitsuden API: it imports `@kitsuden/shared` and `@kitsuden/engine` from the host and shares one
 copy of `hono`, `drizzle-orm` and `zod` with it. This repo builds and tests against a Kitsuden
 checkout linked at `./.kitsuden` (`node scripts/link-core.mjs`, `KITSUDEN_DIR=<path>` if it is not
-`../kitsuden`).
+`../kitsuden`). Building `@kitsuden/shared` in that checkout needs Bun.
 
 ## Never
 
 - Edit a migration that has been released. Add the next numbered file instead. A rename or a
   reworded comment goes in that folder's `migrations/history.json` (`renamed`,
   `previousChecksums`), or installed databases run it again or stop on a checksum drift.
-- Create tables at runtime. Tables come from the kon's own migrations, and `kon.json` lists them
+- Create tables at runtime, or read a kon's migration files to run them at startup. Tables come
+  from the kon's own migrations, applied by the host's runner, and `kon.json` lists them; at
+  startup a kon only checks (`ctx.db.tableExists`) and warns
   (guard: `tests/guards/kons-do-not-create-tables.test.ts`).
+- Answer a 4xx from a `catch` around a statement that failed. The request runs in one transaction
+  and that commits it aborted. Put the statement in a savepoint (`withSavepoint` from the engine)
+  or let the error go up to the kon's `onError`.
+- Run `node scripts/link-core.mjs` bare to "validate" the core link: it re-points `.kitsuden` at
+  `../kitsuden`. Use `node scripts/link-core.mjs --check`, which changes nothing.
+- Edit `kons/kon-<id>/admin-src/tallao/` by hand. It is a copy of the tallao UI kit:
+  `pnpm sync:tallao` writes it.
 - Import another kon by relative path. Depend on it by package name and list it in `kon.json` →
   `dependencies.kons` (guard: `kon-installable`).
 - Declare `@kitsuden/shared` or `@kitsuden/engine` in a kon's `package.json`, or make `hono`,
@@ -57,11 +66,30 @@ pnpm test:bun              # bun tests (kon-blog, kon-academy-lms, tests/bun)
 pnpm vitest run tests/unit/<file>   # one file
 pnpm kon:sync:check        # package.json files and kon.json in step
 pnpm maturity:check        # README table matches the manifests
+pnpm check:admin           # svelte-check on every kon's admin views (admin-src/)
+pnpm build:admin           # rebuilds the committed admin/*.js from admin-src/views.json
+pnpm sync:tallao           # refreshes admin-src/tallao/ from a tallao checkout at ../tallao
+node scripts/link-core.mjs --check   # the core link is valid; changes nothing
 ```
+
+`check:admin`, `build:admin` and `sync:tallao` take kon ids (`pnpm build:admin kon-wiki`); without
+them they cover every kon that has `admin-src/views.json`.
 
 Kon tests that mount the kon with the core's middleware belong in vitest (`tests/unit`), not in
 bun: Bun's `mock.module` leaks across files. Run a long suite in the background and read its
 summary. If a worker fails to start under load, rerun that file alone.
+
+## Admin views
+
+- A kon's own views are Svelte 5 components in `admin-src/`, built one file per view into
+  `admin/<view>.js` (a custom element; `admin-src/views.json` lists entry and output, `kon.json` →
+  `admin.views` points at the output). The built files are committed.
+- After changing `admin-src/`: `pnpm check:admin <kon>` and `pnpm build:admin <kon>`, and keep the
+  rebuilt `admin/*.js` in the same change.
+- Build the UI with the tallao components in `admin-src/tallao/` (`$lib/components`) and its
+  colour tokens (`rgb(var(--ta-…))`). If a component is missing, add it to
+  [tallao](https://github.com/tallao-ui/tallao), list it in `admin-src/tallao.json` and run
+  `pnpm sync:tallao <kon>` (`TALLAO_DIR=<path>` if the checkout is not `../tallao`).
 
 ## Adding a kon
 

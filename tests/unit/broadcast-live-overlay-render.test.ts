@@ -450,4 +450,65 @@ describe("graphic security", () => {
     // live with a malicious player name.
     expect(JS).not.toMatch(/\.innerHTML\s*=/);
   });
+
+  /**
+   * A logo is an address someone typed in a form. It went into `img.src` as it came (CodeQL
+   * js/xss and js/client-side-unvalidated-url-redirection on those three lines). Only http(s)
+   * and inline images are loaded; anything else is "no logo".
+   */
+  describe("a logo address is loaded only if it is http(s) or an inline image", () => {
+    const withLogo = (logoUrl: unknown) => {
+      const s = state();
+      (s.teams as { blue: { logoUrl: unknown } }).blue = { ...TEAMS.blue, logoUrl };
+      return s;
+    };
+    const logo = () => document.querySelector("[data-logo-blue]") as HTMLImageElement;
+
+    test.each([
+      "https://cdn.example/t1.png",
+      "http://cdn.example/t1.png",
+      "data:image/png;base64,iVBORw0KGgo=",
+      "data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E",
+    ])("%s is shown", (address) => {
+      render(withLogo(address));
+      expect(logo().hidden).toBe(false);
+      expect(logo().getAttribute("src")).toBe(address);
+    });
+
+    test.each([
+      "javascript:alert(1)",
+      "JaVaScRiPt:alert(1)",
+      "  javascript:alert(1)",
+      "data:text/html,<script>alert(1)</script>",
+      "data:application/javascript,alert(1)",
+      "file:///etc/passwd",
+      "vbscript:msgbox(1)",
+      42,
+      { href: "https://cdn.example/t1.png" },
+    ])("%s is not loaded: the team shows without logo", (address) => {
+      render(withLogo(address));
+      expect(logo().hidden).toBe(true);
+      expect(logo().getAttribute("src") ?? "").not.toContain("alert");
+      expect(logo().getAttribute("src") ?? "").not.toMatch(/^(javascript|data:text|file|vbscript)/i);
+    });
+
+    test("a sponsor whose logo may not be loaded keeps its name, with no image", () => {
+      const s = state();
+      (s as { sponsors: unknown[] }).sponsors = [
+        { name: "Good", logoUrl: "https://cdn.example/good.png" },
+        { name: "Bad", logoUrl: "javascript:alert(1)" },
+      ];
+      render(s);
+      const boxes = [...document.querySelectorAll('[data-layer="sponsors"] .sponsor')];
+      expect(boxes).toHaveLength(2);
+      expect(boxes[0]!.querySelector("img")?.getAttribute("src")).toBe("https://cdn.example/good.png");
+      expect(boxes[1]!.querySelector("img")).toBeNull();
+      expect(boxes[1]!.textContent).toBe("Bad");
+    });
+
+    test("no logo address reaches an `src` without going through the check", () => {
+      // Static, like the innerHTML one: the next `x.src = thing.logoUrl` fails here.
+      expect(JS).not.toMatch(/\.src\s*=\s*[\w.]*\.logoUrl\b/);
+    });
+  });
 });

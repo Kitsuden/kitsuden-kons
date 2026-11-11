@@ -101,6 +101,27 @@ function art(src, className) {
   return img;
 }
 
+/**
+ * A logo address the overlay may load, or null.
+ *
+ * Team and sponsor logos are addresses someone typed in a form. Only `http:`, `https:` (a
+ * relative path resolves to the overlay's own origin) and inline images (`data:image/…`) go
+ * into an `src`; anything else (`javascript:`, `file:`, a `data:` that is not an image, a
+ * value that is not text) counts as "no logo", which every caller already handles.
+ */
+function logoSrc(value) {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text) return null;
+  if (/^data:/i.test(text)) return /^data:image\/[a-z0-9.+-]+[;,]/i.test(text) ? text : null;
+  try {
+    const url = new URL(text, location.href);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Theme ────────────────────────────────────────────────────────────────────
 
 /** Applies the series theme as CSS variables. */
@@ -134,8 +155,9 @@ function renderMatchbar(state) {
     $(`[data-tag-${side}]`).textContent = team.tag || team.name || "";
 
     const logo = $(`[data-logo-${side}]`);
-    logo.hidden = !team.logoUrl;
-    if (team.logoUrl) logo.src = team.logoUrl;
+    const logoUrl = logoSrc(team.logoUrl);
+    logo.hidden = !logoUrl;
+    if (logoUrl) logo.src = logoUrl;
 
     $(`[data-kills-${side}]`).textContent = String(comparison?.kills?.[side] ?? 0);
 
@@ -399,8 +421,9 @@ function renderPregame(state) {
     const team = state.teams?.[side] ?? {};
     $(`[data-pre-${side}]`).textContent = team.name || team.tag || "";
     const logo = $(`[data-pre-logo-${side}]`);
-    logo.hidden = !team.logoUrl;
-    if (team.logoUrl) logo.src = team.logoUrl;
+    const logoUrl = logoSrc(team.logoUrl);
+    logo.hidden = !logoUrl;
+    if (logoUrl) logo.src = logoUrl;
   }
 
   show("pregame", true);
@@ -459,9 +482,11 @@ function renderSponsors(state) {
   const sponsors = state.sponsors ?? [];
   layer("sponsors").replaceChildren(
     ...sponsors.map((s) => {
-      if (s.logoUrl) {
+      // A logo that may not be loaded leaves the sponsor's name, like a sponsor without logo.
+      const logoUrl = logoSrc(s.logoUrl);
+      if (logoUrl) {
         const img = document.createElement("img");
-        img.src = s.logoUrl;
+        img.src = logoUrl;
         img.alt = s.name ?? "";
         const box = el("div", "sponsor");
         box.append(img);

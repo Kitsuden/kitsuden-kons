@@ -114,7 +114,7 @@
   }
 
   .pick.won {
-    color: rgb(var(--ta-accent));
+    color: rgb(var(--ta-accent-hover));
     font-weight: 700;
     background: rgb(var(--ta-accent) / 0.08);
   }
@@ -144,7 +144,7 @@
 
   .ops :global(.queued) {
     border-color: rgb(var(--ta-accent));
-    color: rgb(var(--ta-accent));
+    color: rgb(var(--ta-accent-hover));
   }
 
   @media (max-width: 640px) {

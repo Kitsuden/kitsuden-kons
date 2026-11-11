@@ -33,12 +33,8 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { defineKonSdk } from "@kitsuden/engine";
 import type { KonDefinition, KonContext } from "@kitsuden/shared";
-import { sql } from "drizzle-orm";
 
 import { CRM_TOOLSETS } from "./crm.agents";
 import { createCRMRouter, crmOperations } from "./crm.routes";
@@ -84,7 +80,11 @@ const adminConfig = {
 
 const hooks = {
   /**
-   * onStartup: Verify tables exist
+   * Startup only CHECKS. Tables come from the kon's migrations, which the host's runner applies
+   * (`kitsuden kon add`, the migration step of a deploy); a kon never runs them itself. It used
+   * to: with a table missing it read every `.sql` under the working directory and executed it,
+   * outside the runner's ledger (so the runner would apply them again) and as the application
+   * role, which cannot create tables.
    */
   onStartup: async (ctx: KonContext) => {
     // The kon's emails: registered in the shared Mailer, without touching the host.
@@ -93,57 +93,16 @@ const hooks = {
     registerCrmMails(mail);
     ctx.logger.info("[CRM] Mailables registered");
 
-    ctx.logger.info("[CRM] Verifying database tables...");
-
     try {
-      const tables = [
-        "crm_companies",
-        "crm_contacts",
-        "crm_pipelines",
-        "crm_pipeline_stages",
-        "crm_deals",
-        "crm_activities",
-      ];
-
-      let allExist = true;
-      for (const table of tables) {
-        const result = await ctx.db.instance.execute(sql`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name = ${table}
-          );
-        `);
-
-        const exists = result.rows?.[0]?.exists ?? false;
-        if (!exists) {
-          allExist = false;
-          break;
-        }
+      const missing: string[] = [];
+      for (const table of konTables) {
+        if (!(await ctx.db.tableExists(table))) missing.push(table);
       }
-
-      if (!allExist) {
-        ctx.logger.info("[CRM] Tables missing. Running migrations...");
-        const migrationsDir = join(process.cwd(), "packages", "kons", "kon-crm", "migrations");
-        try {
-          const files = await readdir(migrationsDir);
-          const sqlFiles = files.filter((f) => f.endsWith(".sql")).sort();
-          for (const file of sqlFiles) {
-            const filePath = join(migrationsDir, file);
-            // node:fs instead of Bun.file: portable and without depending on @types/bun.
-            const content = await readFile(filePath, "utf8");
-            await ctx.db.instance.execute(sql.raw(content));
-            ctx.logger.info(`[CRM] Executed migration: ${file}`);
-          }
-          ctx.logger.info("[CRM] ✓ Migrations completed");
-        } catch (migErr) {
-          ctx.logger.error("[CRM] Migration failed", {
-            error: migErr instanceof Error ? migErr.message : String(migErr),
-          });
-        }
-      } else {
-        ctx.logger.info("[CRM] ✓ All tables verified");
+      if (missing.length > 0) {
+        ctx.logger.warn("[CRM] Tables missing: run the kon's migrations", { missing });
+        return;
       }
+      ctx.logger.info("[CRM] ✓ All tables verified");
     } catch (err) {
       ctx.logger.error("[CRM] Failed to verify tables", {
         error: err instanceof Error ? err.message : String(err),

@@ -62,7 +62,7 @@
 
   /* On touch screens: 16px so iOS does not zoom the page on focus, and 44px of height for the finger. */
   @media (pointer: coarse) {
-    .ta-textarea { font-size: 1rem; }
+    .ta-textarea { font-size: 1rem; min-height: 2.75rem; }
   }
 
 </style>

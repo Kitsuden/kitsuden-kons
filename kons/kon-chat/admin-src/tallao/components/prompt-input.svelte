@@ -155,4 +155,9 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+  @media (pointer: coarse) {
+    .ta-prompt-attach { min-width: 2.75rem; min-height: 2.75rem; }
+    /* 16px text: iOS does not zoom the page when the field gets focus. */
+    .ta-prompt-text { font-size: 1rem; }
+  }
 </style>

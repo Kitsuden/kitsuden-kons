@@ -6,7 +6,7 @@ let the team and agents edit the text of those pages without fighting the data l
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 2.1.1 | `/api/games` | — (core: `auth`; images from the core media library, `/api/media`) |
+| beta | gaming | 2.1.2 | `/api/games` | — (core: `auth`; images from the core media library, `/api/media`) |
 
 ## Install
 

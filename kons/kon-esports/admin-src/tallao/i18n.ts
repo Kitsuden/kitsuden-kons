@@ -107,6 +107,8 @@ export interface Labels {
   clearFilters: string;
   /** Empty row when the filters leave nothing (DataTable). */
   noMatches: string;
+  /** A navigation entry that is not available yet (NavMenu). */
+  comingSoon: string;
 }
 
 export const en: Labels = {
@@ -186,6 +188,7 @@ export const en: Labels = {
   allValues: "All",
   clearFilters: "Clear filters",
   noMatches: "No rows match the filters",
+  comingSoon: "Coming soon",
 };
 
 export const es: Labels = {
@@ -265,6 +268,7 @@ export const es: Labels = {
   allValues: "Todos",
   clearFilters: "Quitar filtros",
   noMatches: "Ninguna fila cumple los filtros",
+  comingSoon: "Próximamente",
 };
 
 const KEY = Symbol("tallao-labels");

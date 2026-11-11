@@ -118,4 +118,8 @@
   .ta-copy--done {
     border-color: rgb(var(--ta-success) / 0.5);
   }
+  @media (pointer: coarse) {
+    .ta-copy { position: relative; }
+    .ta-copy::after { content: ""; position: absolute; top: 50%; left: 50%; width: max(100%, 2.75rem); height: max(100%, 2.75rem); transform: translate(-50%, -50%); }
+  }
 </style>

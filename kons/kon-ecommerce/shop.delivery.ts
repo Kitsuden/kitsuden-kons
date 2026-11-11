@@ -33,10 +33,30 @@ function rows<T>(res: unknown): T[] {
 /** Without 0/O and 1/I/L: a key read aloud or copied by hand must not be misread. */
 const KEY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 
-/** A license key like `K7M2P-QX9RT-…`: five groups of five, 125 random bits or so. */
-export function generateLicenseKey(): string {
-  const bytes = randomBytes(25);
-  const chars = [...bytes].map((b) => KEY_ALPHABET[b % KEY_ALPHABET.length]);
+const KEY_LENGTH = 25;
+
+/**
+ * Bytes from here up are thrown away. 256 is not a multiple of 31: with a plain `byte % 31` the
+ * first eight letters (bytes 248–255 wrap onto them) came out 9 times in 256 and the rest 8, a
+ * bias in every character of every key. Below this limit each letter has exactly eight bytes.
+ */
+const KEY_BYTE_LIMIT = 256 - (256 % KEY_ALPHABET.length);
+
+/**
+ * A license key like `K7M2P-QX9RT-…`: five groups of five, about 124 random bits, every letter
+ * of the alphabet equally likely (rejection sampling). `random` is the source of bytes; the
+ * tests pass their own.
+ */
+export function generateLicenseKey(random: (size: number) => Uint8Array = randomBytes): string {
+  const chars: string[] = [];
+  while (chars.length < KEY_LENGTH) {
+    // A few more than are missing: about 3% of the bytes are discarded.
+    for (const byte of random(KEY_LENGTH - chars.length + 8)) {
+      if (byte >= KEY_BYTE_LIMIT) continue;
+      chars.push(KEY_ALPHABET[byte % KEY_ALPHABET.length]!);
+      if (chars.length === KEY_LENGTH) break;
+    }
+  }
   return [0, 5, 10, 15, 20].map((i) => chars.slice(i, i + 5).join("")).join("-");
 }
 
@@ -118,7 +138,7 @@ export async function grantEntitlements(
 
     let keys: string[];
     if (line.licenseMode === "generate") {
-      keys = Array.from({ length: missing }, generateLicenseKey);
+      keys = Array.from({ length: missing }, () => generateLicenseKey());
     } else {
       // SKIP LOCKED: two orders paid at once take different keys instead of waiting for each
       // other, and a key is never given to both.

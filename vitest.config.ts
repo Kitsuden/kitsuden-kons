@@ -6,10 +6,13 @@ import path from "node:path";
 
 import { defineConfig } from "vitest/config";
 
-const core = path.resolve(__dirname, ".kitsuden");
+// `import.meta.dirname`, not `__dirname`: this is an ES module, and Vite's native config loader
+// (the default in a future major) does not provide the CommonJS name.
+const root = import.meta.dirname;
+const core = path.resolve(root, ".kitsuden");
 
 // The core only knows the kons declared as installed. Here that is every kon of this repo, by path.
-const kons = path.resolve(__dirname, "kons");
+const kons = path.resolve(root, "kons");
 const installed = readdirSync(kons, { withFileTypes: true })
   .filter((e) => e.isDirectory() && existsSync(path.join(kons, e.name, "kon.json")))
   .map((e) => `${e.name}=${path.join(kons, e.name)}`)

@@ -6,10 +6,11 @@ Steps to go from an installed kon to a first course a learner can take. Route de
 ## 1. Install and restart
 
 ```bash
-kitsuden kon add academy-lms     # adds kon-media too, runs the migrations
+kitsuden kon add academy-lms --enable   # runs the migrations and switches the kon on
 ```
 
-Restart the API. At startup the kon checks that `courses`, `course_modules` and `quizzes` exist
+Without `--enable` the kon is installed but off: switch it on in the admin panel (**Kons**).
+`kon-media`, which it needs, ships with the Kitsuden core. Restart the API. At startup the kon checks that `courses`, `course_modules` and `quizzes` exist
 and logs a warning if they do not; it never creates tables itself (the migrations in
 `migrations/` do).
 

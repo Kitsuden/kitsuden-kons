@@ -83,4 +83,8 @@
     border-radius: var(--ta-radius-sm);
   }
   .ta-alert-close:hover { color: rgb(var(--ta-text)); }
+  @media (pointer: coarse) {
+    .ta-alert-close { position: relative; }
+    .ta-alert-close::after { content: ""; position: absolute; top: 50%; left: 50%; width: max(100%, 2.75rem); height: max(100%, 2.75rem); transform: translate(-50%, -50%); }
+  }
 </style>

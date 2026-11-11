@@ -3,7 +3,7 @@
   "id": "kon-broadcast",
   "name": "Broadcast",
   "description": "Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games, draft with Fearless and live telemetry. Multi-game through profiles.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",
@@ -96,21 +96,21 @@
         "type": "element",
         "title": "Scoreboard panel",
         "element": "broadcast-scoreboard",
-        "src": "./admin/scoreboard.js"
+        "src": "admin/scoreboard.js"
       },
       {
         "id": "classifications",
         "type": "element",
         "title": "Classifications",
         "element": "broadcast-classifications",
-        "src": "./admin/classifications.js"
+        "src": "admin/classifications.js"
       },
       {
         "id": "live",
         "type": "element",
         "title": "Live booth",
         "element": "broadcast-live-control",
-        "src": "./admin/live-control.js"
+        "src": "admin/live-control.js"
       },
       {
         "id": "games",

@@ -6,7 +6,7 @@ fields (BLUF, FAQ) for answer engines. For any site that publishes articles; mos
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| stable (tier `essential`) | core | 2.0.1 | `/api/blog` | kon-media (part of the core), core `auth` |
+| stable (tier `essential`) | core | 2.0.2 | `/api/blog` | kon-media (part of the core), core `auth` |
 
 ## Install
 

@@ -6,7 +6,7 @@ viewed" list and a per-page view series without a consent banner.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.0.1 | `/api/analytics` | — |
+| beta | content | 1.0.2 | `/api/analytics` | — |
 
 ## Install
 

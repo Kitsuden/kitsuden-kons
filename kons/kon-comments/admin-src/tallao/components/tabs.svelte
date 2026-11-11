@@ -154,7 +154,7 @@
   }
   .ta-tabs--pills .ta-tab[aria-selected="true"] {
     color: rgb(var(--ta-on-accent));
-    background: rgb(var(--ta-accent));
+    background: var(--ta-accent-fill, color-mix(in srgb, rgb(var(--ta-accent)) 88%, black));
   }
 
   .ta-tabs-list {

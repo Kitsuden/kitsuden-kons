@@ -180,7 +180,7 @@
         "title": "Administration",
         "icon": "Kanban",
         "element": "agile-workspace",
-        "src": "./admin/workspace.js"
+        "src": "admin/workspace.js"
       },
       {
         "id": "projects",

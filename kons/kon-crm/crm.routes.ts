@@ -460,11 +460,18 @@ const ReorderResponse = z.object({ updated: z.number().int() }).passthrough();
  * Data that Postgres does not accept (a reference to a row that does not exist, a
  * deletion that another row prevents, an out-of-range value) is the fault of the
  * INPUT, not the server: before it came out as a 500 "Failed to …".
+ *
+ * It is THROWN, not answered from the `catch`. The statement that failed left the request's
+ * transaction aborted; a response returned from here made the host commit it, and a COMMIT of
+ * an aborted transaction is a silent ROLLBACK on Postgres but an error on PGlite (the 409 became
+ * a 500). Thrown, the router's `onError` (`createCRMRouter`) writes the same envelope
+ * (`respondError` reads the SQLSTATE) and the host rolls the transaction back.
+ *
+ * The driver's error goes up as it is, not as an `AppError`: the SDK answers an `AppError` itself
+ * and the transaction would still be committed.
  */
-function inputError(c: Context, error: unknown): Response | null {
-  const ofInput = postgresInputError(error);
-  if (!ofInput) return null;
-  return respondError(c, error);
+function throwInputError(error: unknown): void {
+  if (postgresInputError(error)) throw error;
 }
 
 /** Bounded pagination. A negative offset was a Postgres 500. */
@@ -625,8 +632,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching companies:", { error });
         throw error;
       }
@@ -689,8 +695,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         );
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating company:", { error });
         throw error;
       }
@@ -755,8 +760,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching company:", { error });
         throw error;
       }
@@ -831,8 +835,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating company:", { error });
         throw error;
       }
@@ -867,8 +870,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id: companyId, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting company:", { error });
         throw error;
       }
@@ -956,8 +958,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching contacts:", { error });
         throw error;
       }
@@ -1030,8 +1031,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         );
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating contact:", { error });
         throw error;
       }
@@ -1100,8 +1100,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching contact:", { error });
         throw error;
       }
@@ -1188,8 +1187,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating contact:", { error });
         throw error;
       }
@@ -1224,8 +1222,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id: contactId, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting contact:", { error });
         throw error;
       }
@@ -1266,8 +1263,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: pipelines });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching pipelines:", { error });
         throw error;
       }
@@ -1335,8 +1331,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: pipeline }, 201);
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating pipeline:", { error });
         throw error;
       }
@@ -1384,8 +1379,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching pipeline:", { error });
         throw error;
       }
@@ -1438,8 +1432,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: pipeline });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating pipeline:", { error });
         throw error;
       }
@@ -1474,8 +1467,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id: pipelineId, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting pipeline:", { error });
         throw error;
       }
@@ -1532,8 +1524,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: stage }, 201);
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating stage:", { error });
         throw error;
       }
@@ -1587,8 +1578,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: stage });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating stage:", { error });
         throw error;
       }
@@ -1635,8 +1625,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id: stageId, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting stage:", { error });
         throw error;
       }
@@ -1692,8 +1681,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching deals:", { error });
         throw error;
       }
@@ -1818,8 +1806,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: deal }, 201);
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating deal:", { error });
         throw error;
       }
@@ -1883,8 +1870,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching deal:", { error });
         throw error;
       }
@@ -1965,8 +1951,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: deal });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating deal:", { error });
         throw error;
       }
@@ -2001,8 +1986,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id: dealId, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting deal:", { error });
         throw error;
       }
@@ -2077,8 +2061,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching kanban:", { error });
         throw error;
       }
@@ -2136,8 +2119,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ updated: deals.length });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error reordering deals:", { error });
         throw error;
       }
@@ -2212,8 +2194,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching activities:", { error });
         throw error;
       }
@@ -2277,8 +2258,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: activity }, 201);
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating activity:", { error });
         throw error;
       }
@@ -2317,8 +2297,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: activity });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching activity:", { error });
         throw error;
       }
@@ -2395,8 +2374,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: activity });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating activity:", { error });
         throw error;
       }
@@ -2444,8 +2422,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: activity });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error completing activity:", { error });
         throw error;
       }
@@ -2486,8 +2463,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id: activityId, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting activity:", { error });
         throw error;
       }
@@ -2600,8 +2576,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching stats:", { error });
         throw error;
       }
@@ -2640,8 +2615,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: configs });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching entity configs:", { error });
         throw error;
       }
@@ -2695,8 +2669,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: config }, 201);
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating entity config:", { error });
         throw error;
       }
@@ -2759,8 +2732,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: config });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating entity config:", { error });
         throw error;
       }
@@ -2920,8 +2892,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: validation });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error validating move:", { error });
         throw error;
       }
@@ -2995,8 +2966,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: formattedTimeline });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching timeline:", { error });
         throw error;
       }
@@ -3086,8 +3056,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: formattedData });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching cycle time:", { error });
         throw error;
       }
@@ -3143,8 +3112,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: stage });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error updating stage config:", { error });
         throw error;
       }
@@ -3184,8 +3152,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: documents });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error fetching documents:", { error });
         throw error;
       }
@@ -3238,8 +3205,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: doc }, 201);
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error creating document:", { error });
         throw error;
       }
@@ -3284,8 +3250,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ data: { id, deleted: true } });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error deleting document:", { error });
         throw error;
       }
@@ -3424,8 +3389,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         });
       } catch (error) {
         if (error instanceof AppError) throw error;
-        const ofInput = inputError(c, error);
-        if (ofInput) return ofInput;
+        throwInputError(error);
         logger.error("[CRM] Error moving deal:", { error });
         throw error;
       }

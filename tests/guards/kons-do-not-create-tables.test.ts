@@ -64,16 +64,47 @@ function withoutComments(source: string): string {
     .join("\n");
 }
 
+/**
+ * ── AND NOT BY READING THEIR OWN MIGRATIONS EITHER ─────────────────────────
+ *
+ * The check above reads the TypeScript. kon-crm passed it for months while doing the same thing
+ * one step removed: at startup, with a table missing, it listed `migrations/`, read every
+ * `.sql` and ran it with `sql.raw` — outside the runner's ledger (so the runner applies them
+ * again), as the application role, and from a path under the working directory that only
+ * exists in one layout. There is no `CREATE TABLE` in that code: it is in the files it reads.
+ *
+ * So a kon's runtime source may not NAME its migrations: no string that is the `migrations`
+ * folder, a path through it, or a `.sql` file. A sentence in a log ("run the kon's migrations")
+ * is not a path and is allowed. Tests and admin sources are not runtime and are not read.
+ */
+const NAMES_A_MIGRATION =
+  /(["'`])(?:migrations|[^"'`\n]*(?:\/migrations\b|\bmigrations\/)[^"'`\n]*|[^"'`\n]*\.sql)\1/g;
+
 describe("kons do not create tables at runtime", () => {
   const findings: string[] = [];
+  const migrationReaders: string[] = [];
 
   const sources = [
     ...listFiles(join(ROOT, "kons"), ".ts"),
     ...listFiles(join(ROOT, ".kitsuden", "packages", "core"), ".ts"),
   ].filter((f) => !f.includes(".test.") && !f.endsWith(".d.ts"));
 
+  const relative = (file: string) =>
+    file
+      .slice(ROOT.length + 1)
+      .split(sep)
+      .join("/");
+
   for (const file of sources) {
     const code = withoutComments(readFileSync(file, "utf-8"));
+
+    const runtime = !/\/(tests|admin-src|admin|node_modules|dist)\//.test(relative(file));
+    if (runtime && relative(file).startsWith("kons/")) {
+      for (const m of code.matchAll(NAMES_A_MIGRATION)) {
+        const line = code.slice(0, m.index).split("\n").length;
+        migrationReaders.push(`${relative(file)}:${line}  ${m[0]}`);
+      }
+    }
 
     for (const m of code.matchAll(/CREATE\s+(?:(TEMP|TEMPORARY|UNLOGGED)\s+)?TABLE/gi)) {
       // Temporary ones live in the session: they do not need CREATE on the schema
@@ -81,12 +112,7 @@ describe("kons do not create tables at runtime", () => {
       if (m[1]) continue;
 
       const line = code.slice(0, m.index).split("\n").length;
-      findings.push(
-        `${file
-          .slice(ROOT.length + 1)
-          .split(sep)
-          .join("/")}:${line}`
-      );
+      findings.push(`${relative(file)}:${line}`);
     }
   }
 
@@ -105,5 +131,34 @@ describe("kons do not create tables at runtime", () => {
         `with the admin role, recorded in kitsuden_migrations ` +
         `and fails loudly if something goes wrong.`
     ).toEqual([]);
+  });
+
+  it("no kon source reads its migration files at runtime", () => {
+    expect(
+      migrationReaders,
+      `These kon sources name the migrations folder or a .sql file:\n\n${migrationReaders.join("\n")}\n\n` +
+        `A kon never applies its own migrations: the host's runner does (\`kitsuden kon add\`, ` +
+        `the migration step of a deploy), with the admin role and its ledger. At startup a kon ` +
+        `only CHECKS (\`ctx.db.tableExists\`) and warns, as kon-conta and kon-crm do.`
+    ).toEqual([]);
+  });
+
+  it("the migration check sees what kon-crm used to do", () => {
+    const before = [
+      `const migrationsDir = join(process.cwd(), "packages", "kons", "kon-crm", "migrations");`,
+      `const sqlFiles = files.filter((f) => f.endsWith(".sql")).sort();`,
+      "const dir = `${root}/migrations`;",
+      `readFileSync(resolve(here, "./migrations/0000_initial.sql"), "utf8");`,
+    ];
+    for (const line of before) {
+      expect([...line.matchAll(NAMES_A_MIGRATION)].length, line).toBeGreaterThan(0);
+    }
+    const allowed = [
+      `ctx.logger.warn("[CRM] Tables missing: run the kon's migrations", { missing });`,
+      `description: "Applies pending SQL in order.",`,
+    ];
+    for (const line of allowed) {
+      expect([...line.matchAll(NAMES_A_MIGRATION)], line).toEqual([]);
+    }
   });
 });

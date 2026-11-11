@@ -58,7 +58,9 @@ pushed in by a sync job; the kon calls no streaming platform itself.
 - `channelUrl` is an `http(s)` link or null; the site renders it as a link.
 - `?sort=` only accepts the columns in `SORTABLE`; anything else falls back to `-followerCount`.
 - A repeated slug or platform + channel is a 409, never a 500
-  (`tests/unit/streamers-unique-channel.test.ts`).
+  (`tests/unit/streamers-unique-channel.test.ts`). The insert and the update run in a savepoint
+  (`withSavepoint`), so the 409 does not leave the request's transaction aborted
+  (`tests/unit/input-errors-in-the-request-transaction.test.ts`).
 - A malformed `:id` is a 404, never a 500 (`tests/unit/streamers-and-collections-malformed-ids.test.ts`).
 - Queries inside a handler run one after another, never with `Promise.all` (one request
   transaction).

@@ -204,6 +204,7 @@
   [data-placement="top"] .ta-dialog,
   [data-placement="bottom"] .ta-dialog {
     max-height: 85vh;
+    max-height: 85dvh;
     border-radius: 0;
   }
   [data-placement="left"] .ta-dialog { animation-name: ta-dialog-left; border-left: none; }
@@ -228,6 +229,8 @@
     width: 100%;
     /* A long form scrolls inside; header and footer stay in view. */
     max-height: calc(100vh - 2rem);
+    /* dvh: the visible height, with the on-screen keyboard and the browser bars. */
+    max-height: calc(100dvh - 2rem);
     display: flex;
     flex-direction: column;
     background: rgb(var(--ta-surface));
@@ -258,6 +261,7 @@
 
   .ta-dialog-title {
     margin: 0;
+    overflow-wrap: anywhere;
     font-size: 1.125rem;
     font-weight: 600;
     color: rgb(var(--ta-text));
@@ -295,5 +299,19 @@
     gap: 0.75rem;
     padding: 1rem 1.5rem;
     border-top: 1px solid rgb(var(--ta-border));
+  }
+  /* Phones: less padding, a footer that wraps, the panel never wider than the screen. */
+  @media (max-width: 480px) {
+    .ta-dialog-overlay { padding: 0.5rem; }
+    .ta-dialog { max-width: 100%; }
+    .ta-dialog-header,
+    .ta-dialog-body,
+    .ta-dialog-footer { padding-left: 1rem; padding-right: 1rem; }
+    .ta-dialog-footer { flex-wrap: wrap; }
+  }
+
+  @media (pointer: coarse) {
+    .ta-dialog-close { display: inline-flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; margin: -0.5rem -0.5rem -0.5rem 0; }
+    .ta-dialog-close--floating { margin: 0; top: 0.25rem; right: 0.25rem; }
   }
 </style>

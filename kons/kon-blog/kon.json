@@ -2,7 +2,7 @@
   "id": "kon-blog",
   "name": "Blog & Content Publishing",
   "description": "Complete CMS publishing platform. Includes all content management features: rich text editing, SEO metadata, slugs, editorial workflow, scheduling, and public content API.",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "essential",

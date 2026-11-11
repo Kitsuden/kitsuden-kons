@@ -54,7 +54,7 @@ and agents use the same operations; some decisions are kept for people. Human do
 
 | File | Responsibility |
 | --- | --- |
-| `index.ts` | `defineKonSdk` definition; rate limits of the public routes; `mcpToolsets`; startup registers the kon's emails; exports of dedupe and capture helpers |
+| `index.ts` | `defineKonSdk` definition; rate limits of the public routes; `mcpToolsets`; startup registers the kon's emails and checks (never creates) the tables; exports of dedupe and capture helpers |
 | `kon.json` | Manifest: id, version, mount, tables, admin views and dependencies (`kons`, `core`, `optionalKons`); `index.ts` reads both lists from here |
 | `operations.ts` | `KON_ID`, `registry()` (every response passes `checkWrite` and `applyAccess`), `VIEW`/`EDIT`/`DELETE`/`CONFIGURE`, `requiresEdit` |
 | `crm.routes.ts` | Companies, contacts, pipelines, stages, deals, board, activities, stats, entities, moves, history, cycle times, documents; `createCRMRouter` |
@@ -98,6 +98,13 @@ and agents use the same operations; some decisions are kept for people. Human do
   Guards: `tests/bun/crm-dedupe-capture.test.ts`, "duplicates and merging".
 - **Having an account is not being on the team**; delete and configure are admin. Guard:
   `tests/unit/kon-crm-security.test.ts`.
+- **A value Postgres refuses is thrown, never answered from the `catch`** (`throwInputError` in
+  `crm.routes.ts`): the router's `onError` writes the 4xx and the host rolls the request's
+  transaction back. Answering from the `catch` commits an aborted transaction (a 500 on PGlite).
+  Guard: `tests/unit/kon-crm-security.test.ts` ("what used to be 500s are 4xx").
+- **Startup never runs migrations**: it warns when a table of `kon.json` is missing and creates
+  nothing. Guards: `tests/unit/kon-crm-startup.test.ts`,
+  `tests/guards/kons-do-not-create-tables.test.ts`.
 - **Stage requirements are checked on every move**; a failed stage action never undoes the move.
   Guards: "moving opportunities respects the stages", "stage automation".
 - **Public routes reveal nothing**: a form always answers 202 once it exists; any bad portal token

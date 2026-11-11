@@ -7,10 +7,17 @@ own version; a fix ships as a new version of the affected kon in the next releas
 
 ## Reporting a vulnerability
 
-Please do not open a public issue. Report it privately through
-[GitHub private vulnerability reporting](https://github.com/Kitsuden/kitsuden-kons/security/advisories/new).
+Please do not describe a vulnerability in a public issue, pull request or discussion. Report it
+privately through
+[GitHub private vulnerability reporting](https://github.com/Kitsuden/kitsuden-kons/security/advisories/new)
+(the **Report a vulnerability** button under the repository's **Security** tab).
 
-Include what you can of:
+If that page is not available to you, open a
+[new issue](https://github.com/Kitsuden/kitsuden-kons/issues/new) whose title is only
+"Security contact requested" and that says nothing else: no kon, no route, no details. A
+maintainer answers there with a private channel, and you send the report through it.
+
+In the report, include what you can of:
 
 - the affected kon, route or file, and the kon version or commit;
 - the steps to reproduce it, ideally with a request or a failing test;

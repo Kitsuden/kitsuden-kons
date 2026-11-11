@@ -124,7 +124,13 @@
   .ta-badge--accent { --ta-badge-color: var(--ta-accent); --ta-badge-on: var(--ta-on-accent); }
   .ta-badge--accent-2 { --ta-badge-color: var(--ta-accent-2-dim); --ta-badge-on: var(--ta-on-accent-2, 255 255 255); }
 
-  .ta-badge--solid:not(.ta-badge--default, .ta-badge--secondary) {
+  /* The accent as a fill is darkened so its text reaches 4.5:1 (see Button). */
+  .ta-badge--solid.ta-badge--purple,
+  .ta-badge--solid.ta-badge--accent {
+    background: var(--ta-accent-fill, color-mix(in srgb, rgb(var(--ta-accent)) 88%, black));
+    border-color: var(--ta-accent-fill, color-mix(in srgb, rgb(var(--ta-accent)) 88%, black));
+  }
+  .ta-badge--solid:not(.ta-badge--default, .ta-badge--secondary, .ta-badge--purple, .ta-badge--accent) {
     background: rgb(var(--ta-badge-color));
     color: rgb(var(--ta-badge-on));
     border-color: rgb(var(--ta-badge-color));

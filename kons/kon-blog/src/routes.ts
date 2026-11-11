@@ -2059,16 +2059,21 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
             if (!parent) return c.json({ error: "The parent category does not exist" }, 400);
           }
 
-          const [createdOne] = await db.instance
-            .insert(blogCategories)
-            .values({
-              name: data.name,
-              slug: data.slug,
-              description: data.description ?? null,
-              parentId: data.parentId ?? null,
-              displayOrder: data.displayOrder ?? 0,
-            })
-            .returning();
+          // In a SAVEPOINT: a value Postgres does not accept is answered with 4xx below, and
+          // without a savepoint that SQL error would leave the request's transaction aborted
+          // (rule 2 of the kon SDK).
+          const [createdOne] = await withSavepoint(async () =>
+            db.instance
+              .insert(blogCategories)
+              .values({
+                name: data.name,
+                slug: data.slug,
+                description: data.description ?? null,
+                parentId: data.parentId ?? null,
+                displayOrder: data.displayOrder ?? 0,
+              })
+              .returning()
+          );
 
           await cache.invalidate("blog:categories:*");
           return c.json(createdOne, 201);
@@ -2140,11 +2145,14 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
             }
           }
 
-          const [updatedValue] = await db.instance
-            .update(blogCategories)
-            .set({ ...data, updatedAt: new Date() })
-            .where(eq(blogCategories.id, id))
-            .returning();
+          // In a SAVEPOINT, for the same reason as in `create-category`.
+          const [updatedValue] = await withSavepoint(async () =>
+            db.instance
+              .update(blogCategories)
+              .set({ ...data, updatedAt: new Date() })
+              .where(eq(blogCategories.id, id))
+              .returning()
+          );
 
           if (!updatedValue) return c.json({ error: "Category not found" }, 404);
 
@@ -2401,14 +2409,57 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
               )
             : eq(blogPosts.id, postId);
 
-          const [updated] = await db.instance
-            .update(blogPosts)
-            .set({
-              ...columnUpdates,
-              updatedAt: new Date(),
-            })
-            .where(condition)
-            .returning();
+          // The update and its relations in a SAVEPOINT: a value Postgres does not accept
+          // (a repeated slug, a tag that does not exist) is answered with 4xx below, and without
+          // a savepoint that SQL error would leave the request's transaction aborted (rule 2 of
+          // the kon SDK). All of it in ONE savepoint: a failed relation undoes the update too.
+          const updated = await withSavepoint(async () => {
+            const [row] = await db.instance
+              .update(blogPosts)
+              .set({
+                ...columnUpdates,
+                updatedAt: new Date(),
+              })
+              .where(condition)
+              .returning();
+            if (!row) return null;
+
+            // Sync tags if provided
+            if (tagIds !== undefined) {
+              await db.instance.delete(blogPostsToTags).where(eq(blogPostsToTags.postId, postId));
+
+              if (tagIds.length > 0) {
+                await db.instance
+                  .insert(blogPostsToTags)
+                  .values(tagIds.map((tagId: string) => ({ postId, tagId })));
+              }
+            }
+
+            // Sync games if provided
+            if (gameIds !== undefined) {
+              await db.instance.delete(blogPostsToGames).where(eq(blogPostsToGames.postId, postId));
+
+              if (gameIds.length > 0) {
+                await db.instance
+                  .insert(blogPostsToGames)
+                  .values(gameIds.map((gameId: string) => ({ postId, gameId })));
+              }
+            }
+
+            if (categoryIds !== undefined) {
+              await db.instance
+                .delete(blogPostsToCategories)
+                .where(eq(blogPostsToCategories.postId, postId));
+
+              if (categoryIds.length > 0) {
+                await db.instance
+                  .insert(blogPostsToCategories)
+                  .values(categoryIds.map((categoryId: string) => ({ postId, categoryId })));
+              }
+            }
+
+            return row;
+          });
 
           if (!updated) {
             // No rows can mean two very different things, and confusing them
@@ -2435,40 +2486,6 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
               }
             }
             return c.json({ error: "Post not found" }, 404);
-          }
-
-          // Sync tags if provided
-          if (tagIds !== undefined) {
-            await db.instance.delete(blogPostsToTags).where(eq(blogPostsToTags.postId, postId));
-
-            if (tagIds.length > 0) {
-              await db.instance
-                .insert(blogPostsToTags)
-                .values(tagIds.map((tagId: string) => ({ postId, tagId })));
-            }
-          }
-
-          // Sync games if provided
-          if (gameIds !== undefined) {
-            await db.instance.delete(blogPostsToGames).where(eq(blogPostsToGames.postId, postId));
-
-            if (gameIds.length > 0) {
-              await db.instance
-                .insert(blogPostsToGames)
-                .values(gameIds.map((gameId: string) => ({ postId, gameId })));
-            }
-          }
-
-          if (categoryIds !== undefined) {
-            await db.instance
-              .delete(blogPostsToCategories)
-              .where(eq(blogPostsToCategories.postId, postId));
-
-            if (categoryIds.length > 0) {
-              await db.instance
-                .insert(blogPostsToCategories)
-                .values(categoryIds.map((categoryId: string) => ({ postId, categoryId })));
-            }
           }
 
           // Invalidate cache

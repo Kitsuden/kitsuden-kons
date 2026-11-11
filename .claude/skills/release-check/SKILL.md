@@ -11,8 +11,10 @@ description: >-
 Run every step, even after a failure, and report a table: step, result, and what failed.
 Do not fix anything unless the user asks; do not commit, tag or push.
 
-1. **Core link.** `.kitsuden` points at a Kitsuden checkout (`node scripts/link-core.mjs`
-   validates it).
+1. **Core link.** `.kitsuden` points at a Kitsuden checkout:
+   `KITSUDEN_DIR=.kitsuden node scripts/link-core.mjs` validates it (so does
+   `node scripts/link-core.mjs --check`). Never run the script bare here: without `--check` or
+   `KITSUDEN_DIR` it re-points the link at `../kitsuden`.
 2. **Type-check.** `pnpm build`
 3. **Tests.** `pnpm test` (kon tests and guards), in the background; read the summary. Rerun a
    file alone if a worker failed to start.

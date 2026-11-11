@@ -14,13 +14,13 @@ books in Kitsuden, whatever it sells.
 Inside a Kitsuden project:
 
 ```bash
-kitsuden kon add conta
+kitsuden kon add conta --enable
 ```
 
-It needs no other kon and no environment variables. The manifest does not set
-`defaultEnabled: false`, so `--enable` is not needed. The host's migration runner creates the
-tables (the kon never runs its migrations itself; at startup it only warns if a table is missing).
-Restart the API. The first start that finds no account seeds the default currencies and chart of
+It needs no other kon and no environment variables. Kitsuden leaves a specialized kon off until
+you switch it on, so pass `--enable` (or switch it on in the admin panel, **Kons**). The host's
+migration runner creates the tables (the kon never runs its migrations itself; at startup it only
+warns if a table is missing). Restart the API. The first start that finds no account seeds the default currencies and chart of
 accounts (`ContaService.seedDefaultAccounts`); later starts leave the chart alone. To seed again on
 purpose: `POST /api/conta/seed`.
 

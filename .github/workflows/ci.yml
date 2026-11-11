@@ -9,18 +9,28 @@
 #
 #   · `pnpm build`            type-check of every kon (tsc)
 #   · `pnpm maturity:check`   README table == manifests
+#   · `pnpm kon:sync:check`   package.json `files` and kon.json `version` in step
+#   · `pnpm site:check`       landing page catalogue == manifests
+#   · `pnpm check:admin`      svelte-check on the kons' admin views
 #   · `pnpm test`             kon tests + guards (vitest)
 #   · `pnpm test:bun`         the kons that carry bun tests
 #   · migrations of ALL kons on a real Postgres, through Kitsuden's own runner
 #   · Schemathesis against the SDK operations of these kons (contract testing)
 #
 # KITSUDEN_REF picks the Kitsuden version to test against (default: main).
+#
+# The default is a branch that moves: a commit in Kitsuden can break a kon with
+# no push here, and the last green run would go on saying everything is fine.
+# So it also runs once a week on its own.
 name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Mondays 06:17 UTC: against Kitsuden's main as it is that day
+    - cron: "17 6 * * 1"
   workflow_dispatch:
     inputs:
       kitsuden_ref:
@@ -110,6 +120,16 @@ jobs:
 
       - name: README maturity table is up to date
         run: pnpm maturity:check
+
+      - name: package.json files and kon.json versions are in step
+        run: pnpm kon:sync:check
+
+      - name: The landing page lists the kons of the repository
+        run: pnpm site:check
+
+      # svelte-check comes from the Kitsuden checkout's admin (root package.json links it).
+      - name: Admin views type-check (svelte-check)
+        run: pnpm check:admin
 
       - name: Kon tests and guards (vitest)
         run: pnpm test

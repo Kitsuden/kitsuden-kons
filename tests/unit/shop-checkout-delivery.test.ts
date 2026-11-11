@@ -436,6 +436,56 @@ describe("downloads and keys", () => {
   it("generated keys use an alphabet without look-alike characters", () => {
     for (let i = 0; i < 50; i++) expect(generateLicenseKey()).not.toMatch(/[01ILO]/);
   });
+
+  /**
+   * The alphabet has 31 letters and a byte 256 values. `byte % 31` gave the first eight letters
+   * nine bytes each and the other twenty-three eight: a bias in every character (CodeQL
+   * js/biased-cryptographic-random). Bytes 248–255 are now discarded.
+   */
+  describe("every letter of a generated key is equally likely", () => {
+    const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    /** A source that hands out the given bytes in order, whatever size is asked for. */
+    const from = (bytes: number[]) => {
+      let at = 0;
+      return (size: number) => {
+        const out = new Uint8Array(size);
+        for (let i = 0; i < size; i++) out[i] = bytes[at++ % bytes.length]!;
+        return out;
+      };
+    };
+
+    it("each of the 256 byte values maps to a letter exactly 8 times, or to none", () => {
+      const counts = new Map<string, number>();
+      let discarded = 0;
+      for (let byte = 0; byte < 256; byte++) {
+        // The byte under test first, then a filler that is always accepted.
+        const first = generateLicenseKey(from([byte, ...Array(40).fill(0)]))[0]!;
+        const later = generateLicenseKey(from([0]))[0]!;
+        if (byte >= 248) {
+          // Discarded: the first letter comes from the filler, not from this byte.
+          expect(first, `byte ${byte}`).toBe(later);
+          discarded++;
+        } else {
+          expect(first, `byte ${byte}`).toBe(ALPHABET[byte % 31]);
+          counts.set(first, (counts.get(first) ?? 0) + 1);
+        }
+      }
+      expect(discarded).toBe(8);
+      expect([...counts.keys()].sort().join("")).toBe([...ALPHABET].sort().join(""));
+      expect([...counts.values()].every((n) => n === 8)).toBe(true);
+    });
+
+    it("a source that only gives discarded bytes for a while still ends in a full key", () => {
+      const key = generateLicenseKey(from([...Array(100).fill(255), ...Array(40).fill(30)]));
+      expect(key).toBe("99999-99999-99999-99999-99999");
+    });
+
+    it("the key keeps its shape: five groups of five from the alphabet", () => {
+      for (let i = 0; i < 200; i++) {
+        expect(generateLicenseKey()).toMatch(/^([A-HJKMNP-Z2-9]{5}-){4}[A-HJKMNP-Z2-9]{5}$/);
+      }
+    });
+  });
 });
 
 describe("discount codes", () => {

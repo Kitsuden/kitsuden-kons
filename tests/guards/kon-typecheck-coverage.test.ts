@@ -46,7 +46,27 @@ describe("typecheck coverage in the kons", () => {
       withoutScript,
       `These kons do not declare "typecheck", so \`pnpm -r typecheck\` ` +
         `SKIPS them and its green means nothing. Add ` +
-        `"typecheck": "tsc --noEmit" a su package.json. Kons: ${withoutScript.join(", ")}`
+        `"typecheck": "tsc --noEmit" to its package.json. Kons: ${withoutScript.join(", ")}`
+    ).toEqual([]);
+  });
+
+  /**
+   * In THIS repository the command people and CI run is `pnpm build`
+   * (`pnpm --filter "./kons/*" build`), and it has the same hole: a kon without a `build` script
+   * is skipped in silence. kon-ingest declared `typecheck` only, so "type-checks every kon"
+   * meant 29 of 30.
+   */
+  it("all declare a build script that type-checks, which is what `pnpm build` runs", () => {
+    const withoutBuild = listKons().filter((kon) => {
+      const pkg = JSON.parse(readFileSync(join(KONS, kon, "package.json"), "utf8"));
+      return !/\btsc\b/.test(pkg.scripts?.build ?? "");
+    });
+
+    expect(
+      withoutBuild,
+      `These kons have no "build" script that runs tsc, so \`pnpm build\` (and the CI step ` +
+        `"Type-check every kon") skips them. Add "build": "pnpm exec tsc" to its ` +
+        `package.json. Kons: ${withoutBuild.join(", ")}`
     ).toEqual([]);
   });
 

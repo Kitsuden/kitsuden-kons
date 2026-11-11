@@ -8,7 +8,7 @@ organizers and the people who play.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.1 | `/api/esports` | `kon-games`, `kon-media` (core: `auth`) |
+| beta | gaming | 1.0.2 | `/api/esports` | `kon-games`, `kon-media` (core: `auth`) |
 
 ## Install
 

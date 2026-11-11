@@ -100,6 +100,9 @@ results, online operations and imports. 78 SDK operations, all of them MCP tools
 
 ## Rules that must hold
 
+- `register-participant` inserts in a savepoint (`withSavepoint`): a registration Postgres refuses
+  (a repeated one, a player that does not exist) is its 400 and does not leave the request's
+  transaction aborted (`tests/unit/input-errors-in-the-request-transaction.test.ts`).
 - Players never get `manage` by acting on their own participation
   (`tests/unit/esports-authz.test.ts`, "the boundary is where it should be").
 - Public reads never expose emails, link hashes, handles or private answers; staff see contact

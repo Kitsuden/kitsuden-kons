@@ -208,7 +208,8 @@ curl -X PATCH https://YOUR-SERVER/api/broadcast/matches/<matchId> \
 - **`surfaceOpacity`** below 0.8 lets too much of the game show through and the
   text loses legibility; above 0.95 it covers like an opaque block.
 
-Sponsor logos (`sponsors[].logoUrl`) are URLs (at most 8 sponsors). Team sides have no logo field:
+Sponsor logos (`sponsors[].logoUrl`) are `http(s)` URLs or inline `data:image/…` images (at most 8
+sponsors); any other address is not loaded and the sponsor shows by name. Team sides have no logo field:
 a team is shown by its `tag`, `name` and `color`.
 
 ---

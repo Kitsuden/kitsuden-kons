@@ -13,11 +13,12 @@ public verification, and Excel exports. For organisations that train their own s
 Inside a Kitsuden project:
 
 ```bash
-kitsuden kon add academy-lms
+kitsuden kon add academy-lms --enable
 ```
 
-`kon-media` is required (`dependencies.kons` in `kon.json`). The manifest does not set
-`defaultEnabled: false`, so `--enable` is not needed. Restart the API.
+Kitsuden leaves a specialized kon off until you switch it on, so pass `--enable` (or switch it on
+in the admin panel, **Kons**). Restart the API afterwards. `kon.json` lists `kon-media` as a
+required kon; it ships with the Kitsuden core, so nothing else is installed.
 
 No environment variables are read. PDF certificates
 (`GET /api/academy/certificates/:courseId/pdf`) use `pdfkit` and Excel exports (the three

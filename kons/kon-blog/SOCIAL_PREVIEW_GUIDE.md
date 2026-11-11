@@ -510,4 +510,4 @@ To add new platforms:
 
 ---
 
-**Applies to:** kon-blog 2.0.1
+**Applies to:** kon-blog 2.0.2

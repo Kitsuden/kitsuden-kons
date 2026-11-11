@@ -10,7 +10,13 @@
  * Specific routes must be registered BEFORE parameterized routes.
  */
 
-import { eqEnum, operationsRouter, sqlstateOf, type AnyOperation } from "@kitsuden/engine";
+import {
+  eqEnum,
+  operationsRouter,
+  sqlstateOf,
+  withSavepoint,
+  type AnyOperation,
+} from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import type { Hono } from "hono";
@@ -502,26 +508,30 @@ export function streamersOperations(ctx: KonContext): AnyOperation[] {
 
       let streamer: typeof streamers.$inferSelect;
       try {
-        [streamer] = await dbInstance
-          .insert(streamers)
-          .values({
-            displayName: body.displayName,
-            slug: body.slug || body.displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-            platform: body.platform,
-            channelId: body.channelId,
-            channelUrl: body.channelUrl ?? null,
-            bio: body.bio ?? null,
-            avatarId: body.avatarId ?? null,
-            thumbnailId: body.thumbnailId ?? null,
-            socialLinks: body.socialLinks ?? null,
-            // The live fields the body accepts are stored too (the sync job overwrites them later).
-            isLive: body.isLive ?? false,
-            viewerCount: body.viewerCount ?? 0,
-            followerCount: body.followerCount ?? 0,
-            currentStreamTitle: body.currentStreamTitle ?? null,
-            currentGameId: body.currentGameId ?? null,
-          })
-          .returning();
+        // In a SAVEPOINT: the duplicate is answered with 409 below, and without a savepoint that
+        // SQL error would leave the request's transaction aborted (rule 2 of the kon SDK).
+        [streamer] = await withSavepoint(async () =>
+          dbInstance
+            .insert(streamers)
+            .values({
+              displayName: body.displayName,
+              slug: body.slug || body.displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+              platform: body.platform,
+              channelId: body.channelId,
+              channelUrl: body.channelUrl ?? null,
+              bio: body.bio ?? null,
+              avatarId: body.avatarId ?? null,
+              thumbnailId: body.thumbnailId ?? null,
+              socialLinks: body.socialLinks ?? null,
+              // The live fields the body accepts are stored too (the sync job overwrites them later).
+              isLive: body.isLive ?? false,
+              viewerCount: body.viewerCount ?? 0,
+              followerCount: body.followerCount ?? 0,
+              currentStreamTitle: body.currentStreamTitle ?? null,
+              currentGameId: body.currentGameId ?? null,
+            })
+            .returning()
+        );
       } catch (err) {
         if (isUniqueViolation(err)) return c.json({ error: DUPLICATE }, 409);
         throw err;
@@ -568,11 +578,14 @@ export function streamersOperations(ctx: KonContext): AnyOperation[] {
 
       let updated: typeof streamers.$inferSelect | undefined;
       try {
-        [updated] = await dbInstance
-          .update(streamers)
-          .set({ ...columnUpdates, updatedAt: new Date() })
-          .where(eq(streamers.id, id))
-          .returning();
+        // In a SAVEPOINT, for the same reason as in `create-streamer`.
+        [updated] = await withSavepoint(async () =>
+          dbInstance
+            .update(streamers)
+            .set({ ...columnUpdates, updatedAt: new Date() })
+            .where(eq(streamers.id, id))
+            .returning()
+        );
       } catch (err) {
         if (isUniqueViolation(err)) return c.json({ error: DUPLICATE }, 409);
         throw err;

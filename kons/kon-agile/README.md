@@ -13,12 +13,14 @@ members, work from a queue and write only on the issues in their reach.
 Inside a Kitsuden project:
 
 ```bash
-kitsuden kon add agile
+kitsuden kon add agile --enable
 ```
 
-`kon-media` is added with it. The manifest does not set `defaultEnabled: false`, so `--enable` is
-not needed. Restart the API. No environment variables are required. Once running, the kon starts a
-one-minute timer (`agile.workflow.ts`, `tick`) for automation and agent schedules.
+The kon is off by default (`defaultEnabled: false` in `package.json`), so pass `--enable` or switch
+it on in the admin panel (**Kons**). Restart the API afterwards. `kon.json` lists `kon-media` as a
+required kon; it ships with the Kitsuden core, so nothing else is installed. No environment
+variables are required. Once running, the kon starts a one-minute timer (`agile.workflow.ts`,
+`tick`) for automation and agent schedules.
 
 ## What it adds
 

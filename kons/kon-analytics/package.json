@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-analytics",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "View counter per subject and day, with no cookies or personal data",
   "type": "module",
   "main": "./index.ts",
@@ -32,7 +32,8 @@
   },
   "peerDependencies": {
     "hono": "^4.7.0",
-    "drizzle-orm": "^0.45.0"
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
   },
   "kitsuden": {
     "type": "kon",

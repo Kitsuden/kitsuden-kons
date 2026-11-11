@@ -70,23 +70,9 @@ export function estimateReadingTime(text: string, wordsPerMinute: number = 200):
   return Math.max(1, Math.ceil(wordCount / wordsPerMinute));
 }
 
-/**
- * Sanitize HTML content
- * Basic sanitization - removes script tags and dangerous attributes
- */
-export function sanitizeHtml(html: string): string {
-  return (
-    html
-      // Remove script tags and contents
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      // Remove event handlers
-      .replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, "")
-      // Remove javascript: URLs
-      .replace(/javascript:/gi, "")
-      // Remove data: URLs (except images)
-      .replace(/data:(?!image\/)\/[^;]*;/gi, "")
-  );
-}
+// HTML is sanitized in `sanitize.ts` (`sanitizeHtml`, an allowlist). A second `sanitizeHtml` lived
+// here, made of four regular expressions that a nested tag or an unquoted handler got past;
+// nothing imported it, and it is gone so that nobody does.
 
 /**
  * Convert plain text to HTML paragraphs

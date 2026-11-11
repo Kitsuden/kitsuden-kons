@@ -3,7 +3,7 @@
   "id": "kon-ecommerce",
   "name": "Shop",
   "description": "Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes and order emails. It is not a large-catalog ecommerce: it covers what Shopify makes expensive and Etsy charges for.",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sdk": 1,
   "type": "kon",
   "tier": "common",

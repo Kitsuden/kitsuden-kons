@@ -3,7 +3,7 @@
   "id": "kon-games",
   "name": "Games",
   "description": "Full game catalog with metadata, screenshots, specs, platforms, tags, and collections. Cover art, screenshots and platform icons come from the core media library (/api/media).",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

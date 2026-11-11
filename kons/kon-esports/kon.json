@@ -3,7 +3,7 @@
   "id": "kon-esports",
   "name": "Esports",
   "description": "Complete esports competitive ecosystem with players, teams, tournaments, and match tracking.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",
@@ -120,7 +120,7 @@
         "title": "Control",
         "icon": "Trophy",
         "element": "to-panel",
-        "src": "./admin/to-panel.js"
+        "src": "admin/to-panel.js"
       },
       {
         "id": "tournaments",

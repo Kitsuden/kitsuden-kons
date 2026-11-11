@@ -106,4 +106,7 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+  @media (pointer: coarse) {
+    .ta-drag-item { display: block; min-height: 2.75rem; }
+  }
 </style>

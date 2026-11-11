@@ -8,7 +8,7 @@ admin views are configuration only.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.1 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
+| beta | business | 1.0.2 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
 
 ## Install
 
@@ -18,9 +18,11 @@ Inside a Kitsuden project:
 kitsuden kon add crm
 ```
 
-`kon-media` is added with it. The manifest does not set `defaultEnabled: false`, so `--enable` is
-not needed. Restart the API. For the billing routes install kon-conta too (`kitsuden kon add
-conta`); without it they answer 409.
+Kitsuden switches kon-crm on by itself the first time it is installed (it is in the core's list of
+kons most businesses want), so `--enable` is not needed. Restart the API. `kon.json` lists
+`kon-media` as a required kon; it ships with the Kitsuden core, so nothing else is installed. For
+the billing routes install kon-conta too (`kitsuden kon add conta --enable`); without it they
+answer 409.
 
 Environment variables are needed only to receive email into the CRM (see
 [Configuration](#configuration)).

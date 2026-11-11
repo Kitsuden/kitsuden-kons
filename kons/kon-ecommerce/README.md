@@ -6,7 +6,7 @@ delivery of files and license keys, discount codes and order e-mails.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.1.1 | `/api/shop` | kon-media (core `auth`) |
+| beta | business | 1.1.2 | `/api/shop` | kon-media (core `auth`) |
 
 It is not a large-catalog shop: there is no persistent cart, no carrier rates, no warehouse
 management and no per-jurisdiction taxes. For that, run a dedicated commerce engine next to

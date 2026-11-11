@@ -2,9 +2,14 @@
 /**
  * Copies tallao components into a kon's admin sources.
  *
- *   TALLAO_DIR=../cms/tallao node scripts/sync-tallao.mjs [kon-id ...]   (default: every kon with admin-src/tallao.json)
+ *   node scripts/sync-tallao.mjs [kon-id ...]   (default: every kon with admin-src/tallao.json)
  *
- * tallao (the owner's Svelte 5 UI kit) is used the shadcn way: components are COPIED into the
+ * It reads a checkout of tallao (https://github.com/tallao-ui/tallao) next to this repository,
+ * at `../tallao`; `TALLAO_DIR=<path>` if it lives elsewhere:
+ *
+ *   git clone https://github.com/tallao-ui/tallao ../tallao
+ *
+ * tallao (a Svelte 5 UI kit) is used the shadcn way: components are COPIED into the
  * project, not installed. A kon lists the ones it uses in `admin-src/tallao.json`
  * (`{ "components": ["button", "tabs", …] }`); this script copies them, the ones they import
  * (`./dialog.svelte` from `confirm-dialog.svelte`…), `utils.ts`, and writes an `index.ts` with
@@ -15,7 +20,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const tallao = resolve(root, process.env.TALLAO_DIR || "../cms/tallao");
+const tallao = resolve(root, process.env.TALLAO_DIR || "../tallao");
 const source = join(tallao, "src", "lib");
 
 function fail(message) {
@@ -24,7 +29,11 @@ function fail(message) {
 }
 
 if (!existsSync(join(source, "components", "index.ts"))) {
-  fail(`no tallao at ${tallao} (set TALLAO_DIR to the folder with src/lib/components)`);
+  fail(
+    `no tallao at ${tallao}.\n` +
+      `  Clone https://github.com/tallao-ui/tallao next to this repo (../tallao),\n` +
+      `  or set TALLAO_DIR to the folder that has src/lib/components.`
+  );
 }
 
 const wanted = process.argv.slice(2);

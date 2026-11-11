@@ -3,7 +3,7 @@
   "id": "kon-analytics",
   "name": "Analytics",
   "description": "Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "common",
