@@ -20,12 +20,23 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="color-scheme" content="dark light" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin />
     <script>
-      // Theme: the visitor's saved choice, else the system's. Runs before paint.
-      try {
-        var t = localStorage.getItem("kitsuden-site-theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-      } catch (e) {}
+      // Runs before paint: the saved theme, and whether this visit gets the moving page
+      // (class "motion": pinned chapters and a live scene) or the calm one.
+      (function () {
+        var root = document.documentElement;
+        try {
+          var t = localStorage.getItem("kitsuden-site-theme");
+          if (t === "light" || t === "dark") root.dataset.theme = t;
+        } catch (e) {}
+        var calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        root.classList.add("js");
+        if (!calm && window.innerHeight >= 560) {
+          root.classList.add("motion");
+          if (!location.hash) root.classList.add("intro");
+        }
+      })();
     </script>
     <style>
       @font-face {
@@ -49,21 +60,18 @@
         --dim: #a1a1aa;
         --violet: #a855f7;
         --seal: #ff2d6f;
-        --on-seal: #09090b;
         --agent: #c084fc;
         --ok: #00e676;
         --wait: #ffab00;
-        --no: #ff6b8f;
         --fill-a: #6d28d9;
         --fill-b: #be185d;
-        --glow-a: rgb(168 85 247 / 0.24);
-        --glow-b: rgb(255 45 111 / 0.16);
+        --glow-a: rgb(168 85 247 / 0.2);
+        --glow-b: rgb(255 45 111 / 0.12);
         --grid: rgb(255 255 255 / 0.035);
-        --serif: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
         --sans: "Space Grotesk", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
         --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
-        --wrap: 74rem;
-        --gutter: clamp(1rem, 4vw, 2.5rem);
+        --wrap: 78rem;
+        --gutter: clamp(1rem, 4vw, 3rem);
       }
       :root[data-theme="light"] {
         --ink: #f6f5fb;
@@ -74,14 +82,29 @@
         --dim: #4d4860;
         --violet: #7e22ce;
         --seal: #c2185b;
-        --on-seal: #ffffff;
         --agent: #6d28d9;
         --ok: #087443;
         --wait: #8a5a00;
-        --no: #b3123f;
-        --glow-a: rgb(126 34 206 / 0.12);
-        --glow-b: rgb(194 24 91 / 0.08);
+        --glow-a: rgb(126 34 206 / 0.1);
+        --glow-b: rgb(194 24 91 / 0.07);
         --grid: rgb(20 18 28 / 0.045);
+      }
+      /* The scene is night in both themes: it is a lit object, not a document. */
+      .stage,
+      .top.on-stage,
+      #intro,
+      .tip {
+        --ink: #09090b;
+        --panel: #131318;
+        --panel-2: #1b1b22;
+        --line: #2e2e3a;
+        --text: #fafafa;
+        --dim: #a1a1aa;
+        --violet: #a855f7;
+        --seal: #ff2d6f;
+        --agent: #c084fc;
+        --ok: #00e676;
+        --wait: #ffab00;
       }
 
       *,
@@ -99,31 +122,31 @@
       }
       body {
         margin: 0;
-        background: var(--ink);
         color: var(--text);
         font: 400 1.0625rem/1.6 var(--sans);
         overflow-x: hidden;
+        background:
+          linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 56px 56px,
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 56px 56px,
+          var(--ink);
       }
       h1,
       h2,
       h3 {
-        font-family: var(--serif);
-        font-weight: 600;
-        letter-spacing: -0.015em;
-        line-height: 1.08;
+        font-family: var(--sans);
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
         margin: 0;
         text-wrap: balance;
       }
-      h1 {
-        font-size: clamp(2.4rem, 5vw, 4rem);
-        letter-spacing: -0.025em;
-      }
       h2 {
-        font-size: clamp(1.8rem, 3.2vw, 2.7rem);
+        font-size: clamp(2.1rem, 5.2vw, 4.4rem);
       }
       h3 {
         font-size: 1.3rem;
         line-height: 1.25;
+        letter-spacing: -0.02em;
       }
       p {
         margin: 0;
@@ -143,6 +166,12 @@
         font-family: var(--mono);
         font-size: 0.875em;
       }
+      kbd {
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 0.05em 0.4em;
+        color: var(--dim);
+      }
       :focus-visible {
         outline: 3px solid var(--seal);
         outline-offset: 3px;
@@ -154,43 +183,64 @@
         margin-inline: auto;
         padding-inline: var(--gutter);
       }
-      .dim {
-        color: var(--dim);
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
       .skip {
         position: absolute;
         left: -999px;
         top: 0.5rem;
         background: var(--seal);
-        color: var(--on-seal);
+        color: #09090b;
         padding: 0.5rem 0.9rem;
         border-radius: 6px;
-        z-index: 50;
+        z-index: 60;
       }
       .skip:focus {
         left: 0.5rem;
       }
+      .grad {
+        background: linear-gradient(92deg, var(--agent), var(--seal));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
 
       /* ── top bar ── */
       .top {
-        position: sticky;
-        top: 0;
-        z-index: 20;
-        background: color-mix(in srgb, var(--ink) 88%, transparent);
-        backdrop-filter: blur(10px);
+        position: fixed;
+        inset: 0 0 auto 0;
+        z-index: 30;
+        color: var(--text);
+        background: color-mix(in srgb, var(--ink) 82%, transparent);
+        backdrop-filter: blur(12px);
         border-bottom: 1px solid var(--line);
+        transition:
+          background 0.3s,
+          border-color 0.3s;
+      }
+      .top.on-stage {
+        background: linear-gradient(rgb(9 9 11 / 0.75), rgb(9 9 11 / 0));
+        backdrop-filter: none;
+        border-bottom-color: transparent;
       }
       .top .wrap {
         display: flex;
         align-items: center;
         gap: 1.25rem;
-        min-height: 3.75rem;
+        min-height: 4rem;
       }
       .brand {
         display: inline-flex;
         align-items: center;
         gap: 0.6rem;
-        font: 600 1.3rem/1 var(--serif);
+        font: 700 1.2rem/1 var(--sans);
+        letter-spacing: -0.02em;
         text-decoration: none;
         margin-right: auto;
       }
@@ -203,12 +253,14 @@
       }
       .top nav {
         display: flex;
-        gap: 1.4rem;
-        font-size: 0.95rem;
+        gap: 1.5rem;
+        font: 500 0.8rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
       }
       .top nav a {
         text-decoration: none;
-        padding: 0.75rem 0;
+        padding: 0.9rem 0;
       }
       .icon-btn {
         display: inline-grid;
@@ -224,7 +276,7 @@
       .icon-btn:hover {
         border-color: var(--dim);
       }
-      @media (max-width: 720px) {
+      @media (max-width: 860px) {
         .top nav a.wide {
           display: none;
         }
@@ -237,62 +289,278 @@
         justify-content: center;
         gap: 0.55rem;
         min-height: 3rem;
-        padding: 0.7rem 1.2rem;
-        border-radius: 8px;
+        padding: 0.7rem 1.25rem;
+        border-radius: 99px;
         border: 1px solid var(--line);
-        background: var(--panel);
+        background: color-mix(in srgb, var(--panel) 80%, transparent);
         color: var(--text);
         font: 600 1rem/1.2 var(--sans);
         text-decoration: none;
         cursor: pointer;
+        transition:
+          border-color 0.2s,
+          transform 0.2s;
       }
       .btn:hover {
         border-color: var(--dim);
         color: var(--text);
       }
       .btn.primary {
-        background: var(--seal);
-        border-color: var(--seal);
-        color: var(--on-seal);
+        background: linear-gradient(92deg, var(--fill-a), var(--fill-b));
+        border-color: transparent;
+        color: #fff;
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.08) inset,
+          0 10px 28px -14px #ff2d6f;
       }
       .btn.primary:hover {
-        filter: brightness(1.08);
-        color: var(--on-seal);
+        color: #fff;
+        filter: brightness(1.15);
+        transform: translateY(-1px);
+      }
+      .btn.small {
+        min-height: 2.75rem;
+        padding: 0.4rem 0.95rem;
+        font-size: 0.9rem;
       }
       .btn[data-copied="true"] {
         border-color: var(--ok);
       }
-      .btn svg {
-        width: 1.1rem;
-        height: 1.1rem;
-        flex: none;
-      }
 
-      /* ── hero ── */
-      .hero {
-        padding-block: clamp(2.5rem, 6vw, 5rem) clamp(3rem, 6vw, 5rem);
+      /* ── intro ── */
+      #intro {
+        display: none;
       }
-      .hero-grid {
+      .intro #intro {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
         display: grid;
-        gap: 1.5rem clamp(2rem, 5vw, 4.5rem);
-        align-items: start;
+        place-items: end start;
+        padding: clamp(1.2rem, 4vw, 3rem);
+        background: #09090b;
+        color: #fafafa;
+        /* never a trap: if the script dies, the curtain still lifts */
+        animation: curtain 0.6s 4s forwards;
       }
-      @media (min-width: 60rem) {
-        .hero-grid {
-          grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      .intro #intro.out {
+        animation: curtain 0.7s forwards;
+      }
+      @keyframes curtain {
+        to {
+          opacity: 0;
+          visibility: hidden;
         }
       }
-      .hero .film {
-        margin-top: clamp(2.2rem, 4vw, 3.2rem);
+      #intro .n {
+        font: 700 clamp(6rem, 26vw, 20rem) / 0.8 var(--sans);
+        letter-spacing: -0.06em;
+        font-variant-numeric: tabular-nums;
       }
-      .hero p.lede {
-        margin-top: 0.5rem;
-        font-size: 1.2rem;
+      #intro .cap {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        font: 500 0.8rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #a1a1aa;
+        margin-top: 1.4rem;
+        width: calc(100vw - 2 * clamp(1.2rem, 4vw, 3rem));
+      }
+      #intro .bar {
+        display: block;
+        height: 2px;
+        margin-top: 0.8rem;
+        background: #2e2e3a;
+      }
+      #intro .bar i {
+        display: block;
+        height: 100%;
+        width: 100%;
+        transform-origin: 0 50%;
+        transform: scaleX(0);
+        background: linear-gradient(90deg, #a855f7, #ff2d6f);
+      }
+
+      /* ── the stage: a pinned scene and its chapters ── */
+      .stage {
+        position: relative;
+        isolation: isolate;
+        color: var(--text);
+        background:
+          radial-gradient(70rem 46rem at 78% 30rem, rgb(168 85 247 / 0.17), transparent 62%),
+          radial-gradient(46rem 34rem at 4% 6rem, rgb(255 45 111 / 0.09), transparent 65%),
+          linear-gradient(rgb(255 255 255 / 0.028) 1px, transparent 1px) 0 0 / 64px 64px,
+          linear-gradient(90deg, rgb(255 255 255 / 0.028) 1px, transparent 1px) 0 0 / 64px 64px,
+          #09090b;
+        border-bottom: 1px solid var(--line);
+      }
+      .scene-wrap {
+        display: none;
+      }
+      .js .scene-wrap {
+        display: block;
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 100vh;
+        height: 100lvh;
+        z-index: 0;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      .motion .scene-wrap {
+        position: sticky;
+        top: 0;
+      }
+      .motion .chapters {
+        margin-top: -100vh;
+        margin-top: -100lvh;
+      }
+      #scene {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .scene-wrap::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        /* --st: where the text of the chapter on screen starts (set by the script) */
+        background: linear-gradient(180deg, rgb(9 9 11 / 0) calc(var(--st, 42%) - 10%), rgb(9 9 11 / 0.84) var(--st, 42%), #09090b calc(var(--st, 42%) + 14%));
+      }
+      @media (min-width: 60rem) {
+        .scene-wrap::after {
+          background: linear-gradient(90deg, rgb(9 9 11 / 0.9) 0%, rgb(9 9 11 / 0.62) 30%, rgb(9 9 11 / 0) 56%);
+        }
+      }
+      .ch {
+        position: relative;
+        z-index: 1;
+      }
+      .ch-pin {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-content: end;
+        padding-block: 5.5rem clamp(1.5rem, 5vh, 3rem);
+      }
+      .js .ch-hero .ch-pin {
+        min-height: 100vh;
+        min-height: 100svh;
+      }
+      /* the calm page: the scene sits behind the hero, so the rest starts under it */
+      .js:not(.motion) .ch-hero .ch-pin {
+        min-height: 100vh;
+        min-height: 100lvh;
+      }
+      .ch:not(.ch-hero) .ch-pin {
+        padding-block: clamp(3rem, 8vw, 6rem);
+      }
+      .motion .ch:not(.ch-hero) .ch-pin {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        height: 100svh;
+        padding-block: 5rem clamp(1.2rem, 4vh, 2.5rem);
+        will-change: opacity, transform;
+      }
+      .motion .ch-dock {
+        height: 230vh;
+      }
+      .motion .ch-gains {
+        height: 280vh;
+      }
+      .motion .ch-orbit {
+        height: 200vh;
+      }
+      @media (min-width: 60rem) {
+        .ch-pin,
+        .motion .ch:not(.ch-hero) .ch-pin {
+          align-content: center;
+        }
+        .ch-col {
+          max-width: 35rem;
+        }
+        .ch-hero .ch-col {
+          max-width: 47rem;
+        }
+      }
+      .eyebrow {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        font: 500 0.8rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--agent);
+        margin-bottom: 1.1rem;
+      }
+      .eyebrow b {
+        font-weight: 700;
+        color: var(--seal);
+      }
+      .eyebrow::after {
+        content: "";
+        flex: 0 0 3rem;
+        height: 1px;
+        background: linear-gradient(90deg, var(--violet), transparent);
+      }
+      .stage h1 {
+        font-size: clamp(2.6rem, 11vw, 4.4rem);
+        line-height: 0.94;
+        letter-spacing: -0.05em;
+      }
+      @media (min-width: 60rem) {
+        .stage h1 {
+          font-size: min(6.5vw, 11.5vh, 6.75rem);
+        }
+      }
+      .stage h2 {
+        font-size: clamp(1.9rem, 7.4vw, 3.6rem);
+        line-height: 0.98;
+      }
+      @media (min-width: 60rem) {
+        .stage h2 {
+          font-size: min(4.3vw, 8vh, 4.2rem);
+        }
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        font: 500 0.8rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--agent);
+        border: 1px solid rgb(168 85 247 / 0.45);
+        background: rgb(168 85 247 / 0.1);
+        border-radius: 99px;
+        padding: 0.35rem 0.8rem;
+        margin-bottom: 1.2rem;
+      }
+      .tag i {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--ok);
+        animation: ping 2s ease-out infinite;
+      }
+      @keyframes ping {
+        from {
+          box-shadow: 0 0 0 0 var(--ok);
+        }
+        to {
+          box-shadow: 0 0 0 0.6rem transparent;
+        }
+      }
+      .lede {
+        margin-top: 1.4rem;
+        font-size: clamp(1rem, 1.5vw, 1.2rem);
         line-height: 1.55;
         color: var(--dim);
         max-width: 34rem;
       }
-      .hero p.lede b {
+      .lede b {
         color: var(--text);
         font-weight: 600;
       }
@@ -307,379 +575,537 @@
         font-size: 0.9rem;
         color: var(--dim);
       }
+      .cue {
+        position: absolute;
+        right: var(--gutter);
+        bottom: 1.6rem;
+        display: none;
+        align-items: center;
+        gap: 0.7rem;
+        font: 500 0.75rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        text-decoration: none;
+        color: var(--dim);
+        padding: 0.8rem 0;
+      }
+      .cue::after {
+        content: "";
+        width: 1px;
+        height: 2.6rem;
+        background: linear-gradient(var(--seal), transparent);
+        animation: drip 1.8s ease-in-out infinite;
+        transform-origin: 50% 0;
+      }
+      @keyframes drip {
+        0% {
+          transform: scaleY(0);
+        }
+        60% {
+          transform: scaleY(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scaleY(1);
+          opacity: 0;
+        }
+      }
+      @media (min-width: 60rem) {
+        .motion .cue {
+          display: inline-flex;
+        }
+      }
+      /* hero lines rise once the intro lifts */
+      .motion .rise {
+        opacity: 0;
+        transform: translateY(1.6rem);
+        transition:
+          opacity 0.9s ease,
+          transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .motion.ready .rise {
+        opacity: 1;
+        transform: none;
+      }
+      .motion .rise:nth-child(2) {
+        transition-delay: 0.08s;
+      }
+      .motion .rise:nth-child(3) {
+        transition-delay: 0.18s;
+      }
+      .motion .rise:nth-child(4) {
+        transition-delay: 0.26s;
+      }
+      .motion .rise:nth-child(5) {
+        transition-delay: 0.34s;
+      }
 
-      /* ── the film ── */
-      .film {
-        border: 1px solid var(--line);
+      /* chapter 1: the terminal */
+      .term {
+        margin-top: 1.5rem;
+        border: 1px solid rgb(168 85 247 / 0.4);
         border-radius: 14px;
-        background: var(--panel);
+        background: rgb(13 12 18 / 0.86);
+        backdrop-filter: blur(8px);
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.03) inset,
+          0 0 80px -28px #a855f7;
         overflow: hidden;
-        box-shadow: 0 30px 60px -40px rgb(0 0 0 / 0.7);
       }
-      .film-stage {
-        display: grid;
-        grid-template-columns: 1fr;
-      }
-      @media (min-width: 46rem) {
-        .film-stage {
-          grid-template-columns: 1.15fr 1fr 1.05fr;
-        }
-      }
-      .lane {
-        padding: 1rem 1.1rem 1.2rem;
-        min-width: 0;
-        border-bottom: 1px solid var(--line);
-      }
-      @media (min-width: 46rem) {
-        .lane {
-          border-bottom: 0;
-          border-right: 1px solid var(--line);
-          min-height: 19rem;
-        }
-        .lane:last-child {
-          border-right: 0;
-        }
-      }
-      .lane h3 {
-        font: 600 0.95rem/1.2 var(--sans);
-        letter-spacing: 0;
+      .term-bar {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.85rem;
+        gap: 0.45rem;
+        padding: 0.6rem 0.9rem;
+        border-bottom: 1px solid var(--line);
+        font: 500 0.75rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--dim);
       }
-      .lane h3 i {
-        width: 0.6rem;
-        height: 0.6rem;
+      .term-bar i {
+        width: 0.55rem;
+        height: 0.55rem;
         border-radius: 50%;
-        background: var(--dim);
-        flex: none;
+        background: var(--line);
       }
-      .lane.agent h3 i {
-        background: var(--agent);
-      }
-      .lane.gate h3 i {
-        background: var(--text);
-      }
-      .lane.you h3 i {
+      .term-bar i:first-child {
         background: var(--seal);
+      }
+      .term-bar span {
+        margin-left: 0.4rem;
       }
       .tape {
         margin: 0;
-        padding: 0;
+        padding: 1rem 1.1rem 1.15rem;
         list-style: none;
-        font: 0.82rem/1.55 var(--mono);
+        font: 0.84rem/1.55 var(--mono);
         display: grid;
         gap: 0.5rem;
-        min-height: 6rem;
       }
       .tape li {
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+        transition: opacity 0.25s;
       }
       .tape .req {
         color: var(--agent);
       }
-      .tape .hdr {
-        color: var(--dim);
+      .tape .req .rest {
+        opacity: 0;
       }
-      .tape .res {
-        border-left: 2px solid var(--line);
-        padding-left: 0.6rem;
-      }
-      .tape .res.ok {
-        border-color: var(--ok);
-      }
-      .tape .res.no {
-        border-color: var(--no);
-      }
-      .tape .res.wait {
-        border-color: var(--wait);
-      }
-      .caret::after {
-        content: "▍";
+      .tape .req .caret {
+        color: var(--seal);
         animation: blink 1s steps(2) infinite;
-        color: var(--agent);
       }
       @keyframes blink {
         50% {
           opacity: 0;
         }
       }
-      .checks {
-        margin: 0;
+      .tape .hdr {
+        color: var(--dim);
+      }
+      .tape .res {
+        border-left: 2px solid var(--ok);
+        padding-left: 0.6rem;
+      }
+      .tape li.off {
+        opacity: 0;
+      }
+
+      /* chapter 2: what it added */
+      .got {
+        margin: 1.4rem 0 0;
         padding: 0;
         list-style: none;
         display: grid;
-        gap: 0.45rem;
-        font-size: 0.9rem;
+        gap: 0.4rem;
       }
-      .checks li {
+      .got li {
         display: grid;
-        grid-template-columns: 1.4rem 1fr;
-        gap: 0.5rem;
-        align-items: start;
-        padding: 0.45rem 0.55rem;
+        grid-template-columns: 6.2rem 1fr;
+        gap: 0.75rem;
+        align-items: baseline;
+        padding: 0.5rem 0.8rem;
         border: 1px solid var(--line);
-        border-radius: 8px;
-        transition:
-          border-color 0.25s,
-          background 0.25s;
-      }
-      @media (max-width: 45.99rem) {
-        .checks {
-          grid-template-columns: 1fr 1fr;
-        }
-        .tape {
-          min-height: 4.5rem;
-        }
-      }
-      .checks b {
-        font-weight: 600;
-        display: block;
-      }
-      .checks span.note {
-        color: var(--dim);
-        font-size: 0.82rem;
-        display: block;
-        min-height: 1.2em;
-        overflow-wrap: anywhere;
-      }
-      .checks .mark {
-        font: 700 0.95rem/1.5 var(--mono);
-        color: var(--dim);
-      }
-      .checks li[data-s="pass"] {
-        border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
-      }
-      .checks li[data-s="pass"] .mark {
-        color: var(--ok);
-      }
-      .checks li[data-s="fail"] {
-        border-color: var(--no);
-        background: color-mix(in srgb, var(--no) 9%, transparent);
-      }
-      .checks li[data-s="fail"] .mark {
-        color: var(--no);
-      }
-      .checks li[data-s="wait"] {
-        border-color: var(--wait);
-        background: color-mix(in srgb, var(--wait) 9%, transparent);
-      }
-      .checks li[data-s="wait"] .mark {
-        color: var(--wait);
-      }
-      .checks li[data-s="skip"] {
-        opacity: 0.45;
-      }
-      .verdict {
-        margin-top: 0.9rem;
-        min-height: 2.6rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .stamp {
-        display: inline-block;
-        font: 800 1.05rem/1 var(--mono);
-        letter-spacing: 0.08em;
-        padding: 0.45rem 0.7rem 0.4rem;
-        border: 3px solid currentColor;
-        border-radius: 7px;
-        transform: rotate(-5deg);
-        filter: url(#ink);
-        color: var(--ok);
-      }
-      .stamp.no {
-        color: var(--no);
-        transform: rotate(4deg);
-      }
-      .stamp.wait {
-        color: var(--wait);
-      }
-      .stamp.seal {
-        color: var(--seal);
-        transform: rotate(-8deg);
-      }
-      .stamp.land {
-        animation: land 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both;
-      }
-      @keyframes land {
-        0% {
-          opacity: 0;
-          scale: 2.1;
-        }
-        60% {
-          opacity: 1;
-          scale: 0.94;
-        }
-        100% {
-          scale: 1;
-        }
-      }
-      .inbox {
-        display: grid;
-        gap: 0.7rem;
-      }
-      .empty {
-        color: var(--dim);
-        font-size: 0.9rem;
-        border: 1px dashed var(--line);
-        border-radius: 8px;
-        padding: 0.7rem 0.8rem;
-      }
-      .proposal {
-        position: relative;
-        border: 1px solid var(--wait);
         border-radius: 10px;
-        padding: 0.8rem 0.85rem 0.85rem;
-        background: color-mix(in srgb, var(--wait) 7%, var(--panel));
-        font-size: 0.92rem;
-        animation: slip 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+        background: rgb(13 12 18 / 0.78);
+        transition:
+          opacity 0.35s,
+          border-color 0.35s,
+          transform 0.35s;
       }
-      @keyframes slip {
-        from {
-          opacity: 0;
-          translate: -1.5rem 0;
-        }
+      .got li.off {
+        opacity: 0.32;
+        transform: translateX(-0.5rem);
       }
-      .proposal p {
-        margin: 0 0 0.5rem;
+      .got li:not(.off) {
+        border-color: rgb(0 230 118 / 0.5);
       }
-      .proposal .diff {
-        font: 0.8rem/1.5 var(--mono);
-        background: color-mix(in srgb, var(--no) 12%, transparent);
-        border-radius: 6px;
-        padding: 0.35rem 0.5rem;
-        margin-bottom: 0.7rem;
+      .got b {
+        font: 600 0.78rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--agent);
+      }
+      .got span {
+        font: 0.86rem/1.45 var(--mono);
         overflow-wrap: anywhere;
       }
-      .proposal .acts {
-        display: flex;
-        gap: 0.5rem;
+      .got span em {
+        font-style: normal;
+        font-weight: 700;
+        color: var(--ok);
       }
-      .proposal .acts button {
-        flex: 1;
-        min-height: 2.75rem;
-        border-radius: 8px;
-        border: 1px solid var(--line);
-        background: var(--panel);
-        color: var(--text);
-        font: 600 0.95rem var(--sans);
-        cursor: pointer;
-      }
-      .proposal .acts button.yes {
-        background: var(--seal);
-        border-color: var(--seal);
-        color: var(--on-seal);
-      }
-      .proposal .acts button.yes.nudge {
-        animation: nudge 1.6s ease-in-out infinite;
-      }
-      @keyframes nudge {
-        50% {
-          box-shadow: 0 0 0 7px color-mix(in srgb, var(--seal) 28%, transparent);
-        }
-      }
-      .proposal .acts button:disabled {
-        opacity: 0.5;
-        cursor: default;
-        animation: none;
-      }
-      .proposal .stamp {
-        position: absolute;
-        right: 0.6rem;
-        top: 0.5rem;
-        background: color-mix(in srgb, var(--panel) 80%, transparent);
-      }
-      .proposal[data-done] {
-        border-color: var(--line);
-        background: var(--panel);
-      }
-      .audit {
-        margin: 0.9rem 0 0;
-        padding: 0.7rem 0 0;
-        border-top: 1px solid var(--line);
-        list-style: none;
-        font: 0.78rem/1.5 var(--mono);
-        color: var(--dim);
-        display: grid;
-        gap: 0.25rem;
-      }
-      .audit::before {
-        content: "Audit log";
-        font: 600 0.8rem var(--sans);
-        color: var(--text);
-      }
-      .audit li {
-        overflow-wrap: anywhere;
-      }
-      .film-foot {
-        border-top: 1px solid var(--line);
-        background: var(--panel-2);
-        padding: 0.85rem 1.1rem 1rem;
-      }
-      .caption {
-        margin: 0 0 0.8rem;
-        max-width: none;
-        font-size: 0.98rem;
-        min-height: 3.1em;
-      }
-      .controls {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 0.5rem;
-      }
-      .controls .play {
-        width: 2.75rem;
-        height: 2.75rem;
-        border-radius: 50%;
-        border: 1px solid var(--line);
-        background: var(--panel);
-        color: var(--text);
-        cursor: pointer;
-        display: grid;
-        place-items: center;
-        flex: none;
-      }
-      .controls .play svg {
-        width: 1rem;
-        height: 1rem;
-      }
-      .scenes {
+      .pick {
         display: flex;
         flex-wrap: wrap;
         gap: 0.4rem;
-        flex: 1;
+        align-items: center;
+        margin-top: 1.1rem;
       }
-      .scenes button {
-        position: relative;
-        overflow: hidden;
-        min-height: 2.75rem;
-        padding: 0.4rem 0.8rem;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel);
+      .pick > span {
+        font: 500 0.78rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
         color: var(--dim);
-        font: 600 0.9rem var(--sans);
-        cursor: pointer;
-        text-align: left;
+        margin-right: 0.3rem;
       }
-      .scenes button[aria-pressed="true"] {
+      .pick button,
+      .filters button {
+        min-height: 2.75rem;
+        padding: 0.4rem 0.9rem;
+        border: 1px solid var(--line);
+        border-radius: 99px;
+        background: color-mix(in srgb, var(--panel) 85%, transparent);
+        color: var(--dim);
+        font: 600 0.88rem var(--mono);
+        cursor: pointer;
+        transition:
+          color 0.2s,
+          border-color 0.2s;
+      }
+      .filters button {
+        font-family: var(--sans);
+      }
+      .pick button:hover,
+      .filters button:hover {
         color: var(--text);
-        border-color: var(--dim);
+      }
+      .pick button[aria-pressed="true"],
+      .filters button[aria-pressed="true"] {
+        color: var(--text);
+        border-color: var(--seal);
+        box-shadow: 0 0 22px -8px var(--seal);
       }
 
-      /* ── sections ── */
+      /* chapter 3: any of the thirty */
+      .probe {
+        margin-top: 1.4rem;
+        border: 1px solid rgb(168 85 247 / 0.4);
+        border-radius: 14px;
+        background: rgb(13 12 18 / 0.86);
+        backdrop-filter: blur(8px);
+        padding: 1rem 1.1rem 1.1rem;
+      }
+      .probe-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem 0.8rem;
+      }
+      .probe-head h3 {
+        font-size: 1.35rem;
+      }
+      .probe-head code {
+        color: var(--dim);
+        font-size: 0.8rem;
+        margin-right: auto;
+      }
+      .probe p {
+        margin-top: 0.6rem;
+        color: var(--dim);
+        font-size: 0.95rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .probe .nums {
+        margin: 0.7rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 1.1rem;
+        font: 0.82rem var(--mono);
+      }
+      .probe .nums b {
+        color: var(--ok);
+      }
+      .probe .acts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.9rem;
+      }
+      .probe .acts .btn[data-step] {
+        width: 2.75rem;
+        padding: 0;
+        font-family: var(--mono);
+      }
+      .legend {
+        margin: 1rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 1.2rem;
+        font: 500 0.78rem var(--mono);
+        color: var(--dim);
+      }
+      .legend i {
+        display: inline-block;
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        margin-right: 0.45rem;
+        background: currentColor;
+      }
+      .legend .s i {
+        color: var(--ok);
+      }
+      .legend .b i {
+        color: var(--violet);
+      }
+      .legend .e i {
+        color: var(--wait);
+      }
+      @media (max-width: 59.99rem) {
+        .motion .got {
+          margin-top: 1rem;
+          gap: 0.3rem;
+        }
+        .motion .got li {
+          grid-template-columns: 5.6rem 1fr;
+          padding: 0.32rem 0.6rem;
+        }
+        .motion .got b {
+          font-size: 0.7rem;
+        }
+        .motion .got span {
+          font-size: 0.78rem;
+          line-height: 1.35;
+        }
+        .motion .pick {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          margin-inline: calc(-1 * var(--gutter));
+          padding: 0.3rem var(--gutter);
+          scrollbar-width: none;
+        }
+        .motion .pick > * {
+          flex: none;
+        }
+      }
+      @media (max-height: 700px), (max-width: 380px) {
+        .motion .probe p,
+        .motion .legend {
+          display: none;
+        }
+        .motion .lede {
+          font-size: 0.95rem;
+          margin-top: 1rem;
+        }
+        .motion .got li {
+          padding-block: 0.32rem;
+        }
+        .motion .got span {
+          font-size: 0.8rem;
+        }
+      }
+
+      /* the card that follows the pointer over a kon */
+      .tip {
+        position: fixed;
+        z-index: 25;
+        left: 0;
+        top: 0;
+        pointer-events: none;
+        max-width: 17rem;
+        padding: 0.6rem 0.8rem 0.7rem;
+        border: 1px solid rgb(168 85 247 / 0.55);
+        border-radius: 10px;
+        background: rgb(13 12 18 / 0.94);
+        color: var(--text);
+        font-size: 0.9rem;
+        line-height: 1.35;
+        box-shadow: 0 12px 40px -12px #000;
+      }
+      .tip b {
+        display: block;
+        font-weight: 700;
+      }
+      .tip code {
+        color: var(--dim);
+        font-size: 0.78rem;
+      }
+      .tip span {
+        display: block;
+        margin-top: 0.3rem;
+        font: 0.78rem var(--mono);
+        color: var(--agent);
+      }
+
+      /* the chapter rail */
+      .rail {
+        display: none;
+      }
+      @media (min-width: 60rem) {
+        .motion .rail {
+          position: fixed;
+          right: 0.9rem;
+          top: 50%;
+          z-index: 20;
+          transform: translateY(-50%);
+          display: grid;
+          gap: 0.1rem;
+          opacity: 0;
+          visibility: hidden;
+          transition:
+            opacity 0.3s,
+            visibility 0.3s;
+        }
+        .motion.on-stage .rail {
+          opacity: 1;
+          visibility: visible;
+        }
+      }
+      .rail a {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.6rem;
+        min-height: 1.75rem;
+        padding-inline: 0.4rem;
+        font: 500 0.72rem var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        text-decoration: none;
+        color: #fafafa;
+      }
+      .rail a span {
+        opacity: 0;
+        transition: opacity 0.2s;
+        background: rgb(9 9 11 / 0.8);
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+      }
+      .rail a:hover span,
+      .rail a:focus-visible span {
+        opacity: 1;
+      }
+      .rail a::after {
+        content: "";
+        width: 1.1rem;
+        height: 2px;
+        background: #71717a;
+        transition:
+          width 0.25s,
+          background 0.25s;
+      }
+      .rail a[aria-current="true"]::after {
+        width: 2rem;
+        background: #ff2d6f;
+      }
+
+      /* ── below the stage ── */
+      .marquee {
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        padding-block: clamp(1rem, 2.4vw, 1.8rem);
+        mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+      }
+      .marquee ul {
+        display: flex;
+        gap: clamp(1.4rem, 3vw, 3rem);
+        width: max-content;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font: 700 clamp(2.2rem, 6vw, 5rem) / 1 var(--sans);
+        letter-spacing: -0.04em;
+        color: transparent;
+        -webkit-text-stroke: 1px var(--dim);
+        animation: slide 70s linear infinite;
+      }
+      .marquee li:nth-child(4n + 1) {
+        color: var(--text);
+        -webkit-text-stroke: 0;
+      }
+      @keyframes slide {
+        to {
+          transform: translateX(-50%);
+        }
+      }
       section.block {
-        padding-block: clamp(3.5rem, 7vw, 6rem);
+        padding-block: clamp(4rem, 9vw, 8rem);
         border-top: 1px solid var(--line);
       }
+      section.block:first-of-type,
+      .marquee + section.block {
+        border-top: 0;
+      }
+      .block > .wrap > h2::before {
+        content: "";
+        display: block;
+        width: 3.2rem;
+        height: 4px;
+        border-radius: 2px;
+        margin-bottom: 1.4rem;
+        background: linear-gradient(90deg, var(--violet), var(--seal));
+        box-shadow: 0 0 16px var(--violet);
+      }
       .block > .wrap > h2 + p {
-        margin-top: 1rem;
-        font-size: 1.15rem;
+        margin-top: 1.2rem;
+        font-size: clamp(1.05rem, 1.5vw, 1.25rem);
         color: var(--dim);
+      }
+      .glass {
+        border: 1px solid color-mix(in srgb, var(--violet) 38%, var(--line));
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.03) inset,
+          0 0 90px -30px var(--violet),
+          0 30px 60px -40px #000;
+      }
+      .clip {
+        position: relative;
+        margin-top: 2.4rem;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #09090b;
+        aspect-ratio: 16 / 9;
+      }
+      .clip video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .clip-toggle {
+        position: absolute;
+        right: 0.8rem;
+        bottom: 0.8rem;
+        min-height: 2.75rem;
+        padding: 0.4rem 0.9rem;
+        border-radius: 99px;
+        border: 1px solid rgb(255 255 255 / 0.25);
+        background: rgb(9 9 11 / 0.78);
+        color: #fafafa;
+        font: 600 0.88rem var(--sans);
+        cursor: pointer;
       }
       .two {
         display: grid;
@@ -702,21 +1128,6 @@
         overflow-x: auto;
         tab-size: 2;
       }
-      pre.code .k {
-        color: var(--agent);
-      }
-      pre.code .s {
-        color: var(--ok);
-      }
-      pre.code .c {
-        color: var(--dim);
-      }
-      pre.code mark {
-        background: color-mix(in srgb, var(--seal) 22%, transparent);
-        color: inherit;
-        border-radius: 3px;
-        padding: 0.05em 0.15em;
-      }
       .tabs {
         display: flex;
         flex-wrap: wrap;
@@ -736,7 +1147,7 @@
       }
       .tabs button[aria-selected="true"] {
         color: var(--text);
-        border-bottom-color: var(--seal);
+        border-bottom-color: var(--violet);
       }
       .tabpanel {
         padding-top: 1.2rem;
@@ -745,64 +1156,31 @@
         margin-bottom: 0.9rem;
         color: var(--dim);
       }
-      .mini-form {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: var(--panel);
-        padding: 1.1rem 1.2rem;
-        display: grid;
-        gap: 0.85rem;
+      /* without scripts the three ways to install read one after another */
+      html:not(.js) .tabs {
+        display: none;
       }
-      .mini-form label {
-        display: grid;
-        gap: 0.3rem;
-        font-size: 0.88rem;
-        font-weight: 600;
-      }
-      .mini-form input[type="text"],
-      .mini-form textarea {
-        font: inherit;
-        font-weight: 400;
-        color: var(--text);
-        background: var(--ink);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 0.55rem 0.7rem;
-        min-height: 2.75rem;
-        width: 100%;
-      }
-      .mini-form .row {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        font-size: 0.95rem;
-        font-weight: 600;
-      }
-      .mini-form input[type="checkbox"] {
-        width: 1.25rem;
-        height: 1.25rem;
-        accent-color: var(--seal);
-      }
-
-      /* default checks list */
       .ledger {
-        margin: 2.5rem 0 0;
+        margin: 0;
         display: grid;
         border-top: 1px solid var(--line);
       }
       .ledger div {
         display: grid;
-        gap: 0.3rem 2rem;
-        padding: 1.15rem 0;
+        gap: 0.3rem;
+        padding: 1.15rem 0.4rem;
         border-bottom: 1px solid var(--line);
+        transition: background 0.25s;
       }
-      @media (min-width: 52rem) {
-        .ledger div {
-          grid-template-columns: 19rem 1fr;
-        }
+      .ledger div:hover {
+        background: linear-gradient(90deg, color-mix(in srgb, var(--violet) 9%, transparent), transparent 70%);
       }
       .ledger dt {
-        font: 600 1.15rem/1.3 var(--serif);
+        font: 600 1.15rem/1.3 var(--sans);
+      }
+      .ledger dt::before {
+        content: "▸ ";
+        color: var(--violet);
       }
       .ledger dd {
         margin: 0;
@@ -812,94 +1190,9 @@
       .ledger dd code {
         color: var(--text);
       }
-
-      /* tokens */
-      .meter {
-        margin-top: 1.4rem;
-        display: grid;
-        gap: 0.7rem;
-      }
-      .meter .line {
-        display: grid;
-        grid-template-columns: 7.5rem 1fr 6.5rem;
-        gap: 0.75rem;
-        align-items: center;
-        font-size: 0.92rem;
-      }
-      .meter .track {
-        display: block;
-        height: 0.8rem;
-        border-radius: 99px;
-        background: var(--panel-2);
-        overflow: hidden;
-      }
-      .meter .fill {
-        display: block;
-        height: 100%;
-        border-radius: 99px;
-        background: var(--dim);
-        transition: width 0.3s;
-      }
-      .meter .line.win .fill {
-        background: var(--ok);
-      }
-      .meter .n {
-        font: 0.86rem var(--mono);
-        text-align: right;
-      }
-      .range {
-        display: grid;
-        gap: 0.4rem;
-        margin-top: 1.4rem;
-        font-weight: 600;
-        font-size: 0.95rem;
-      }
-      .range input {
-        width: 100%;
-        accent-color: var(--seal);
-        height: 2.75rem;
-      }
-
-      /* kons */
-      .konlist {
-        margin-top: 2.2rem;
-        display: grid;
-        gap: 1.4rem;
-      }
-      .konlist h3 {
-        font: 600 0.95rem var(--sans);
-        letter-spacing: 0;
-        color: var(--dim);
-        margin-bottom: 0.6rem;
-      }
-      .chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.45rem;
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-      .chips a {
-        display: inline-flex;
-        align-items: center;
-        min-height: 2.5rem;
-        padding: 0.3rem 0.8rem;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        font: 0.88rem var(--mono);
-        text-decoration: none;
-        background: var(--panel);
-      }
-      .chips a:hover {
-        border-color: var(--seal);
-      }
-
-      /* start */
       .start {
-        margin-top: 2.2rem;
-        border: 1px solid var(--line);
-        border-radius: 14px;
+        margin-top: 2.4rem;
+        border-radius: 16px;
         background: var(--panel);
         padding: 0.4rem 1.2rem 1.3rem;
       }
@@ -917,41 +1210,8 @@
         top: 0.6rem;
         right: 0.6rem;
         min-height: 2.5rem;
-        padding: 0.4rem 0.8rem;
+        padding: 0.4rem 0.9rem;
         font-size: 0.88rem;
-      }
-      ol.steps {
-        margin: 2rem 0 0;
-        padding: 0;
-        list-style: none;
-        counter-reset: s;
-        display: grid;
-        gap: 1.3rem;
-      }
-      @media (min-width: 56rem) {
-        ol.steps {
-          grid-template-columns: repeat(3, 1fr);
-          gap: 2rem;
-        }
-      }
-      ol.steps li {
-        counter-increment: s;
-        border-top: 2px solid var(--line);
-        padding-top: 0.9rem;
-      }
-      ol.steps li::before {
-        content: counter(s);
-        font: 600 1.6rem/1 var(--serif);
-        color: var(--seal);
-        display: block;
-        margin-bottom: 0.5rem;
-      }
-      ol.steps p {
-        color: var(--dim);
-        font-size: 0.98rem;
-      }
-      ol.steps b {
-        color: var(--text);
       }
       .notice {
         margin-top: 2rem;
@@ -963,12 +1223,10 @@
       .notice b {
         color: var(--text);
       }
-
-      /* faq */
       .faq {
-        margin-top: 2rem;
+        margin-top: 2.4rem;
         border-top: 1px solid var(--line);
-        max-width: 50rem;
+        max-width: 54rem;
       }
       .faq details {
         border-bottom: 1px solid var(--line);
@@ -976,29 +1234,32 @@
       .faq summary {
         cursor: pointer;
         list-style: none;
-        padding: 1.1rem 2.5rem 1.1rem 0;
-        font: 600 1.15rem/1.35 var(--serif);
+        padding: 1.2rem 2.5rem 1.2rem 0;
+        font: 600 clamp(1.15rem, 2vw, 1.5rem) / 1.3 var(--sans);
+        letter-spacing: -0.02em;
         position: relative;
       }
-      .faq summary::-webkit-details-marker {
+      .faq summary::-webkit-details-marker,
+      .catalog summary::-webkit-details-marker {
         display: none;
       }
-      .faq summary::after {
+      .faq summary::after,
+      .catalog summary::after {
         content: "+";
         position: absolute;
         right: 0.4rem;
-        top: 0.9rem;
+        top: 1rem;
         font: 400 1.6rem/1 var(--sans);
         color: var(--dim);
       }
-      .faq details[open] summary::after {
+      .faq details[open] summary::after,
+      .catalog details[open] summary::after {
         content: "–";
       }
       .faq details p {
         color: var(--dim);
-        padding-bottom: 1.2rem;
+        padding-bottom: 1.3rem;
       }
-
       footer {
         border-top: 1px solid var(--line);
         padding-block: 2.2rem 3rem;
@@ -1018,347 +1279,9 @@
         margin-right: auto;
       }
 
-      @media (prefers-reduced-motion: reduce) {
-        html {
-          scroll-behavior: auto;
-        }
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-        }
-      }
-
-      /* ── futuristic layer: grid, glow, gradient type, clips ── */
-      body {
-        background:
-          linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 56px 56px,
-          linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 56px 56px,
-          radial-gradient(60rem 34rem at 10% -6rem, var(--glow-a), transparent 65%),
-          radial-gradient(52rem 34rem at 100% 28rem, var(--glow-b), transparent 65%),
-          var(--ink);
-        background-attachment: fixed, fixed, scroll, scroll, scroll;
-      }
-      h1,
-      h2,
-      h3 {
-        font-weight: 700;
-        letter-spacing: -0.035em;
-      }
-      h1 {
-        font-size: clamp(2.5rem, 4.9vw, 4.1rem);
-        line-height: 1;
-      }
-      .grad {
-        background: linear-gradient(92deg, var(--agent), var(--seal));
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-      .hero {
-        position: relative;
-        overflow: hidden;
-      }
-      #sky {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        pointer-events: none;
-        opacity: 0.7;
-      }
-      .hero > .wrap {
-        position: relative;
-      }
-      .tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.55rem;
-        font: 500 0.82rem var(--mono);
-        color: var(--agent);
-        border: 1px solid color-mix(in srgb, var(--violet) 45%, transparent);
-        background: color-mix(in srgb, var(--violet) 10%, transparent);
-        border-radius: 99px;
-        padding: 0.35rem 0.8rem;
-        margin-bottom: 1.3rem;
-      }
-      .tag i {
-        width: 0.5rem;
-        height: 0.5rem;
-        border-radius: 50%;
-        background: var(--ok);
-        box-shadow: 0 0 0 0 var(--ok);
-        animation: ping 2s ease-out infinite;
-      }
-      @keyframes ping {
-        to {
-          box-shadow: 0 0 0 0.6rem transparent;
-        }
-      }
-      .btn.primary {
-        background: linear-gradient(92deg, var(--fill-a), var(--fill-b));
-        border-color: transparent;
-        color: #fff;
-        box-shadow:
-          0 0 0 1px rgb(255 255 255 / 0.08) inset,
-          0 12px 34px -12px var(--seal);
-      }
-      .btn.primary:hover {
-        color: #fff;
-        filter: brightness(1.15);
-      }
-      .btn {
-        backdrop-filter: blur(6px);
-      }
-      .film,
-      .start,
-      .clip {
-        border-color: color-mix(in srgb, var(--violet) 38%, var(--line));
-        box-shadow:
-          0 0 0 1px rgb(255 255 255 / 0.03) inset,
-          0 0 70px -22px var(--violet),
-          0 30px 60px -40px #000;
-      }
-      .film {
-        background: color-mix(in srgb, var(--panel) 88%, transparent);
-        backdrop-filter: blur(8px);
-      }
-      .proposal .acts button.yes {
-        background: linear-gradient(92deg, var(--fill-a), var(--fill-b));
-        border-color: transparent;
-        color: #fff;
-      }
-      .scenes button[aria-pressed="true"] {
-        border-color: var(--violet);
-        box-shadow: 0 0 18px -6px var(--violet);
-      }
-      .tabs button[aria-selected="true"] {
-        border-bottom-color: var(--violet);
-      }
-      section.block {
-        border-top-color: color-mix(in srgb, var(--violet) 22%, var(--line));
-      }
-      .block > .wrap > h2::before {
-        content: "";
-        display: block;
-        width: 3.2rem;
-        height: 4px;
-        border-radius: 2px;
-        margin-bottom: 1.2rem;
-        background: linear-gradient(90deg, var(--violet), var(--seal));
-        box-shadow: 0 0 16px var(--violet);
-      }
-      .clip {
-        position: relative;
-        margin-top: 2.2rem;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        overflow: hidden;
-        background: #09090b;
-        aspect-ratio: 16 / 9;
-      }
-      .clip video {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-      .clip-toggle {
-        position: absolute;
-        right: 0.8rem;
-        bottom: 0.8rem;
-        min-height: 2.75rem;
-        padding: 0.4rem 0.9rem;
-        border-radius: 99px;
-        border: 1px solid rgb(255 255 255 / 0.25);
-        background: rgb(9 9 11 / 0.72);
-        color: #fafafa;
-        font: 600 0.88rem var(--sans);
-        cursor: pointer;
-        backdrop-filter: blur(6px);
-      }
-      .watch {
-        padding-block: 0 clamp(3rem, 6vw, 5rem);
-      }
-      .watch h2 {
-        font-size: clamp(1.5rem, 2.4vw, 2rem);
-      }
-      .watch p {
-        color: var(--dim);
-        margin-top: 0.5rem;
-      }
-      .ticker {
-        overflow: hidden;
-        border-block: 1px solid var(--line);
-        margin-top: clamp(2.5rem, 5vw, 4rem);
-        mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-      }
-      .ticker ul {
-        display: flex;
-        gap: 2.6rem;
-        width: max-content;
-        margin: 0;
-        padding: 0.9rem 0;
-        list-style: none;
-        font: 500 0.9rem var(--mono);
-        color: var(--dim);
-        animation: slide 38s linear infinite;
-      }
-      .ticker li::before {
-        content: "◆";
-        color: var(--violet);
-        margin-right: 0.7rem;
-        font-size: 0.6rem;
-        vertical-align: middle;
-      }
-      @keyframes slide {
-        to {
-          transform: translateX(-50%);
-        }
-      }
-      .js .reveal {
-        opacity: 0;
-        translate: 0 1.6rem;
-        transition:
-          opacity 0.7s ease,
-          translate 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
-      }
-      .js .reveal.in {
-        opacity: 1;
-        translate: 0 0;
-      }
-      .ledger div {
-        transition: background 0.25s;
-      }
-      .ledger div:hover {
-        background: linear-gradient(90deg, color-mix(in srgb, var(--violet) 9%, transparent), transparent 70%);
-      }
-      .ledger dt::before {
-        content: "▸ ";
-        color: var(--violet);
-      }
-      ol.steps li {
-        border-top-color: var(--violet);
-      }
-      ol.steps li::before {
-        background: linear-gradient(92deg, var(--agent), var(--seal));
-        -webkit-background-clip: text;
-        background-clip: text;
-        color: transparent;
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .js .reveal {
-          opacity: 1;
-          translate: none;
-        }
-        #sky {
-          display: none;
-        }
-      }
-    
-      /* ── kons page ── */
-      .term {
-        border: 1px solid color-mix(in srgb, var(--violet) 38%, var(--line));
-        border-radius: 14px;
-        background: var(--panel);
-        overflow: hidden;
-        box-shadow: 0 30px 60px -40px rgb(0 0 0 / 0.7);
-      }
-      .hero .term {
-        margin-top: clamp(2.2rem, 4vw, 3.2rem);
-      }
-      .term-grid {
-        display: grid;
-      }
-      @media (min-width: 52rem) {
-        .term-grid {
-          grid-template-columns: 1.1fr 1fr;
-        }
-      }
-      .term-out {
-        padding: 1.1rem 1.2rem 1.3rem;
-        min-height: 13.5rem;
-        border-bottom: 1px solid var(--line);
-      }
-      @media (min-width: 52rem) {
-        .term-out {
-          border-bottom: 0;
-          border-right: 1px solid var(--line);
-        }
-      }
-      .term-got {
-        padding: 1.1rem 1.2rem 1.3rem;
-      }
-      .term-got h3,
-      .term-out h3 {
-        font: 600 0.95rem/1.2 var(--sans);
-        letter-spacing: 0;
-        margin-bottom: 0.85rem;
-        color: var(--dim);
-      }
-      .got {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        display: grid;
-        gap: 0.5rem;
-      }
-      .got li {
-        display: grid;
-        grid-template-columns: 5.5rem 1fr;
-        gap: 0.75rem;
-        align-items: baseline;
-        padding: 0.5rem 0.65rem;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        opacity: 0.35;
-        transition: opacity 0.3s, border-color 0.3s;
-      }
-      .got li[data-on] {
-        opacity: 1;
-        border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
-      }
-      .got b {
-        font-weight: 600;
-        font-size: 0.9rem;
-      }
-      .got span {
-        font: 0.84rem/1.45 var(--mono);
-        overflow-wrap: anywhere;
-      }
-      .pick {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        align-items: center;
-      }
-      .pick > span {
-        font-weight: 600;
-        font-size: 0.95rem;
-        margin-right: 0.3rem;
-      }
-      .pick button,
-      .filters button {
-        min-height: 2.75rem;
-        padding: 0.4rem 0.85rem;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel);
-        color: var(--dim);
-        font: 600 0.9rem var(--mono);
-        cursor: pointer;
-      }
-      .filters button {
-        font-family: var(--sans);
-      }
-      .pick button[aria-pressed="true"],
-      .filters button[aria-pressed="true"] {
-        color: var(--text);
-        border-color: var(--seal);
-      }
+      /* the catalogue */
       .tools {
-        margin-top: 2.2rem;
+        margin-top: 2.4rem;
         display: grid;
         gap: 0.9rem;
       }
@@ -1367,17 +1290,20 @@
         gap: 0.35rem;
         font-weight: 600;
         font-size: 0.95rem;
-        max-width: 28rem;
+        max-width: 30rem;
       }
       .search input {
-        font: 400 1rem var(--sans);
+        font: 400 1.05rem var(--sans);
         color: var(--text);
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 0.6rem 0.8rem;
-        min-height: 2.9rem;
+        border-radius: 12px;
+        padding: 0.7rem 0.95rem;
+        min-height: 3.1rem;
         width: 100%;
+      }
+      .search input:focus {
+        border-color: var(--violet);
       }
       .filters {
         display: flex;
@@ -1395,6 +1321,11 @@
       }
       .catalog details {
         border-bottom: 1px solid var(--line);
+        transition: background 0.25s;
+      }
+      .catalog details:hover,
+      .catalog details[open] {
+        background: linear-gradient(90deg, color-mix(in srgb, var(--violet) 8%, transparent), transparent 75%);
       }
       .catalog summary {
         cursor: pointer;
@@ -1402,35 +1333,23 @@
         display: grid;
         grid-template-columns: 1fr auto;
         gap: 0.2rem 1rem;
-        padding: 1rem 2.2rem 1rem 0;
+        padding: 1rem 2.4rem 1rem 0.4rem;
         position: relative;
       }
       @media (min-width: 52rem) {
         .catalog summary {
-          grid-template-columns: 15rem 1fr 7.5rem;
+          grid-template-columns: 16rem 1fr 7.5rem;
           align-items: baseline;
         }
       }
-      .catalog summary::-webkit-details-marker {
-        display: none;
-      }
-      .catalog summary::after {
-        content: "+";
-        position: absolute;
-        right: 0.3rem;
-        top: 0.85rem;
-        font: 400 1.5rem/1 var(--sans);
-        color: var(--dim);
-      }
-      .catalog details[open] summary::after {
-        content: "–";
-      }
       .catalog .kname {
-        font: 600 1.15rem/1.3 var(--serif);
+        font: 600 1.2rem/1.3 var(--sans);
+        letter-spacing: -0.02em;
       }
       .catalog .kname code {
         display: block;
         font: 0.8rem var(--mono);
+        letter-spacing: 0;
         color: var(--dim);
         margin-top: 0.15rem;
       }
@@ -1453,7 +1372,7 @@
         white-space: nowrap;
       }
       @media (min-width: 52rem) {
-        .mat {
+        .catalog .mat {
           justify-self: end;
         }
       }
@@ -1467,14 +1386,13 @@
         color: var(--wait);
       }
       .kbody {
-        padding: 0 0 1.3rem;
+        padding: 0 0.4rem 1.3rem;
         display: grid;
         gap: 1rem;
       }
       @media (min-width: 52rem) {
         .kbody {
-          grid-template-columns: 15rem 1fr;
-          gap: 1rem;
+          grid-template-columns: 16rem 1fr;
         }
       }
       .facts {
@@ -1510,7 +1428,7 @@
         color: var(--dim);
       }
       .levels {
-        margin-top: 2.2rem;
+        margin-top: 2.4rem;
         display: grid;
         gap: 1.4rem;
       }
@@ -1522,19 +1440,54 @@
       }
       .levels div {
         border-top: 2px solid var(--line);
-        padding-top: 0.9rem;
+        padding-top: 1rem;
       }
       .levels p {
-        margin-top: 0.6rem;
+        margin-top: 0.7rem;
         color: var(--dim);
         font-size: 0.98rem;
+      }
+      .js .reveal {
+        opacity: 0;
+        translate: 0 1.6rem;
+        transition:
+          opacity 0.7s ease,
+          translate 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .js .reveal.in {
+        opacity: 1;
+        translate: 0 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+        .js .reveal {
+          opacity: 1;
+          translate: none;
+        }
       }
     </style>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
 
-    <header class="top">
+    <div id="intro" aria-hidden="true">
+      <div>
+        <div class="n" id="intro-n">00</div>
+        <div class="bar"><i id="intro-bar"></i></div>
+        <div class="cap"><span>Kitsuden kons</span><span>entering orbit</span></div>
+      </div>
+    </div>
+
+    <header class="top on-stage" id="bar">
       <div class="wrap">
         <a class="brand" href="#top" aria-label="Kitsuden kons, home">
           <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -1557,63 +1510,124 @@
       </div>
     </header>
 
+    <nav class="rail" id="rail" aria-label="Chapters of the demo">
+      <a href="#top"><span>Start</span></a>
+      <a href="#dock"><span>One command</span></a>
+      <a href="#gains"><span>What it adds</span></a>
+      <a href="#orbit"><span>Any of the 30</span></a>
+    </nav>
+
     <main id="main">
-      <section class="hero" id="top">
-        <div class="wrap hero-grid">
-          <div>
-            <span class="tag"><i></i>30 kons · MIT</span>
-            <h1>Add a blog, a CRM or payments <span class="grad">with one command.</span></h1>
-          </div>
-          <div>
-            <p class="lede">
-              Kons are optional modules for <a href="https://kitsuden.github.io/kitsuden/">Kitsuden</a>, the backend
-              for apps that AI agents use. <b>Each kon brings its tables, API routes, MCP tools and permissions.</b>
-              Install the ones you need; the rest never touch your project.
-            </p>
-            <div class="cta">
-              <a class="btn primary" href="#catalog">Browse the 30 kons</a>
-              <a class="btn" href="#install">Install one</a>
-            </div>
-            <p class="fineprint">MIT licensed. Beta, version 0.9.0. Needs a Kitsuden project.</p>
-          </div>
-        </div>
+      <div class="stage" id="stage">
+        <div class="scene-wrap" id="scene-wrap" aria-hidden="true"><canvas id="scene"></canvas></div>
 
-        <div class="wrap">
-          <div class="term" id="term" role="group" aria-label="Demo: what installing a kon adds to your backend">
-            <div class="term-grid">
-              <div class="term-out">
-                <h3>In your Kitsuden folder</h3>
-                <ol class="tape" id="tape" aria-live="polite"></ol>
+        <div class="chapters">
+        <section class="ch ch-hero" id="top" data-ch>
+          <div class="ch-pin">
+            <div class="wrap">
+              <div class="ch-col">
+                <span class="tag rise"><i></i>30 kons · MIT</span>
+                <h1 class="rise">Add a blog, a CRM or payments <span class="grad">with one command.</span></h1>
+                <p class="lede rise">
+                  Kons are optional modules for <a href="https://kitsuden.github.io/kitsuden/">Kitsuden</a>, the backend
+                  for apps that AI agents use. <b>Each kon brings its tables, API routes, MCP tools and permissions.</b>
+                  Install the ones you need; the rest never touch your project.
+                </p>
+                <div class="cta rise">
+                  <a class="btn primary" href="#catalog">Browse the 30 kons</a>
+                  <a class="btn" href="#install">Install one</a>
+                </div>
+                <p class="fineprint rise">MIT licensed. Beta, version 0.9.0. Needs a Kitsuden project.</p>
               </div>
-              <div class="term-got">
-                <h3>What your backend has now</h3>
+            </div>
+            <a class="cue" href="#dock">Scroll</a>
+          </div>
+        </section>
+
+        <section class="ch ch-dock" id="dock" data-ch aria-labelledby="dock-h">
+          <div class="ch-pin">
+            <div class="wrap">
+              <div class="ch-col">
+                <p class="eyebrow"><b>01</b> One command</p>
+                <h2 id="dock-h">What one command does</h2>
+                <p class="lede">It copies the kon, installs it and runs its migrations. After a restart your backend has the feature.</p>
+                <div class="term" role="group" aria-label="Demo: the command that installs a kon, and what it prints">
+                  <div class="term-bar"><i></i><i></i><i></i><span>In your Kitsuden folder</span></div>
+                  <ol class="tape" id="tape">
+                    <li class="req">$ pnpm kitsuden kon add blog --from ../kitsuden-kons</li>
+                    <li class="res">copied to packages/kons/kon-blog</li>
+                    <li class="res">dependencies installed</li>
+                    <li class="res">migrations applied</li>
+                    <li class="hdr">restart the API</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ch ch-gains" id="gains" data-ch aria-labelledby="gains-h">
+          <div class="ch-pin">
+            <div class="wrap">
+              <div class="ch-col">
+                <p class="eyebrow"><b>02</b> After the restart</p>
+                <h2 id="gains-h">What your backend has now</h2>
                 <ul class="got" id="got">
-                  <li data-k="tables"><b>Tables</b><span></span></li>
-                  <li data-k="routes"><b>REST API</b><span></span></li>
-                  <li data-k="mcp"><b>MCP tools</b><span></span></li>
-                  <li data-k="scopes"><b>Permissions</b><span></span></li>
-                  <li data-k="views"><b>Panel</b><span></span></li>
+                  <li data-k="tables"><b>Tables</b><span>its own tables, with row security</span></li>
+                  <li data-k="routes"><b>REST API</b><span>its routes, documented in OpenAPI</span></li>
+                  <li data-k="mcp"><b>MCP tools</b><span>its operations, as tools at /api/mcp</span></li>
+                  <li data-k="scopes"><b>Permissions</b><span>its own scopes, so each agent key gets only what you grant</span></li>
+                  <li data-k="views"><b>Panel</b><span>views for setup and oversight, when the kon has them</span></li>
                 </ul>
-              </div>
-            </div>
-            <div class="film-foot">
-              <div class="pick" id="pick">
-                <span>Try another:</span>
+                <div class="pick" id="pick" hidden>
+                  <span>Try another:</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="watch" id="watch">
+        <section class="ch ch-orbit" id="orbit" data-ch aria-labelledby="orbit-h">
+          <div class="ch-pin">
+            <div class="wrap">
+              <div class="ch-col">
+                <p class="eyebrow"><b>03</b> Any of the 30</p>
+                <h2 id="orbit-h">Install the ones you need. <span class="grad">The rest never touch your project.</span></h2>
+                <div class="probe" id="probe" hidden>
+                  <div class="probe-head">
+                    <h3 id="probe-name"></h3>
+                    <code id="probe-id"></code>
+                    <span class="mat" id="probe-mat"></span>
+                  </div>
+                  <p id="probe-desc"></p>
+                  <ul class="nums" id="probe-nums"></ul>
+                  <div class="acts">
+                    <button class="btn small" type="button" data-step="-1" aria-label="Previous kon">←</button>
+                    <button class="btn small" type="button" data-step="1" aria-label="Next kon">→</button>
+                    <button class="btn small" type="button" id="probe-copy"><span>Copy the command</span></button>
+                    <button class="btn small" type="button" id="probe-open">Open in the catalogue</button>
+                  </div>
+                </div>
+                <ul class="legend" id="legend" hidden></ul>
+              </div>
+            </div>
+          </div>
+        </section>
+        </div>
+        <p class="sr" id="say" aria-live="polite"></p>
+      </div>
+
+      <div class="marquee" id="marquee" aria-hidden="true" hidden><ul></ul></div>
+
+      <section class="block" id="watch">
         <div class="wrap">
-          <h2>What one command does</h2>
-          <p>It copies the kon, installs it and runs its migrations. After a restart your backend has the feature.</p>
-          <div class="clip reveal">
-            <video autoplay loop muted playsinline preload="auto" poster="media/kon-add.jpg" width="1280" height="720" aria-label="Animation: the command pnpm kitsuden kon add blog installs the kon, and the backend gains tables, a REST API, MCP tools, permissions and panel views">
+          <h2>The same install, as a clip</h2>
+          <p>The command <code>pnpm kitsuden kon add blog</code>, and what the backend gains from it.</p>
+          <div class="clip glass reveal">
+            <video controls loop muted playsinline preload="metadata" poster="media/kon-add.jpg" width="1280" height="720" aria-label="Animation: the command pnpm kitsuden kon add blog installs the kon, and the backend gains tables, a REST API, MCP tools, permissions and panel views">
               <source src="media/kon-add.mp4" type="video/mp4" />
             </video>
-            <button class="clip-toggle" type="button" aria-pressed="false">Pause</button>
+            <button class="clip-toggle" type="button" aria-pressed="true" hidden>Play</button>
           </div>
         </div>
       </section>
@@ -1622,10 +1636,17 @@
         <div class="wrap">
           <h2>The 30 kons</h2>
           <p>Business, content, gaming and documents. Open one to see what it adds and how to install it.</p>
-          <div class="tools">
+          <noscript>
+            <p class="notice">
+              <b>This list needs JavaScript.</b> Without it, read the catalogue in the repository:
+              <a href="https://github.com/Kitsuden/kitsuden-kons/tree/main/kons">every kon has a folder and a README</a>,
+              or run <code>pnpm kitsuden kon list --available --from ../kitsuden-kons</code> in your Kitsuden folder.
+            </p>
+          </noscript>
+          <div class="tools" id="tools" hidden>
             <label class="search">
-              Search by name or by what it does
-              <input type="search" id="q" autocomplete="off" placeholder="newsletter, tournaments, invoices…" />
+              <span>Search by name or by what it does <kbd aria-hidden="true">/</kbd></span>
+              <input type="search" id="q" autocomplete="off" placeholder="newsletter, tournaments, invoices…" aria-keyshortcuts="/" />
             </label>
             <div class="filters" id="cats" role="group" aria-label="Category"></div>
             <div class="filters" id="mats" role="group" aria-label="Maturity"></div>
@@ -1664,7 +1685,7 @@
             (<a href="https://kitsuden.github.io/kitsuden/#start">install Kitsuden</a>). Then clone this repository
             next to it and add the kon.
           </p>
-          <div class="reveal start">
+          <div class="reveal start glass">
             <div class="tabs" role="tablist" aria-label="How do you want to install a kon" id="how">
               <button role="tab" id="h-agent" aria-controls="q-agent" aria-selected="true">With my coding agent</button>
               <button role="tab" id="h-term" aria-controls="q-term" aria-selected="false" tabindex="-1">In a terminal</button>
@@ -1687,7 +1708,7 @@
                 <button class="btn" type="button" data-copy-from="prompt"><span>Copy</span></button>
               </div>
             </div>
-            <div class="tabpanel" role="tabpanel" id="q-term" aria-labelledby="h-term" hidden>
+            <div class="tabpanel" role="tabpanel" id="q-term" aria-labelledby="h-term">
               <p>From your Kitsuden folder. The CLI isn't on npm yet, so it runs from the repository.</p>
               <div class="copyblock">
                 <pre class="code" id="termcmd"><code>git clone https://github.com/Kitsuden/kitsuden-kons.git ../kitsuden-kons
@@ -1697,7 +1718,7 @@ pnpm kitsuden kon add blog --from ../kitsuden-kons</code></pre>
                 <button class="btn" type="button" data-copy-from="termcmd"><span>Copy</span></button>
               </div>
             </div>
-            <div class="tabpanel" role="tabpanel" id="q-docker" aria-labelledby="h-docker" hidden>
+            <div class="tabpanel" role="tabpanel" id="q-docker" aria-labelledby="h-docker">
               <p>The API image installs the kons you list when it builds. The build stops if one of them needs a kon that isn't in the list.</p>
               <div class="copyblock">
                 <pre class="code" id="dockercmd"><code>services:
@@ -1733,12 +1754,12 @@ pnpm kon:sync
 pnpm test</code></pre>
               <button class="btn" type="button" data-copy-from="makecmd"><span>Copy</span></button>
             </div>
-            <dl class="ledger" style="margin-top: 0">
-              <div style="grid-template-columns: 1fr">
+            <dl class="ledger">
+              <div>
                 <dt>Your coding agent already knows the rules</dt>
                 <dd>The repository ships an <code>AGENTS.md</code> for the whole repo and one per kon, plus step-by-step skills for a new kon, a fix and the release check.</dd>
               </div>
-              <div style="grid-template-columns: 1fr">
+              <div>
                 <dt>Guards catch what reviews miss</dt>
                 <dd>Tests check every kon: a valid manifest, tables created only by its own migrations, docs that match its routes, and a declared maturity.</dd>
               </div>
@@ -1787,6 +1808,8 @@ pnpm test</code></pre>
       </div>
     </footer>
 
+    <div class="tip" id="tip" hidden></div>
+
     <script>
       /* KONS:START (generated by scripts/site.mjs, do not edit by hand) */
       const KONS = [{"id":"blog","name":"Blog & Content Publishing","description":"Complete CMS publishing platform. Includes all content management features: rich text editing, SEO metadata, slugs, editorial workflow, scheduling, and public content API.","maturity":"stable","version":"2.0.2","category":"core","mount":"/api/blog","tables":5,"views":6,"needs":[]},{"id":"members","name":"Members","description":"Paid memberships: tiers, members and content access control","maturity":"stable","version":"1.0.1","category":"core","mount":"/api/members","tables":5,"views":2,"needs":[]},{"id":"academy-lms","name":"Academy LMS","description":"Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment groups, Learning Paths, satisfaction surveys, PDF certificates and Excel export.","maturity":"beta","version":"1.1.1","category":"business","mount":"/api/academy","tables":25,"views":11,"needs":[]},{"id":"agile","name":"Agile Tracker","description":"Agile management where agents work as teammates: projects, customizable states, issues with unique keys, sprints with carry-over, epics, initiatives, labels, checklists, custom fields, saved views, calendar, timeline and dashboard. Agents are members with a work queue; an agent writes only on its own issues, or its squad's as scrum master, and an inbox keeps AI triage under human approval.","maturity":"beta","version":"1.3.1","category":"business","mount":"/api/agile","tables":23,"views":6,"needs":[]},{"id":"analytics","name":"Analytics","description":"Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments.","maturity":"beta","version":"1.0.2","category":"content","mount":"/api/analytics","tables":1,"views":1,"needs":[]},{"id":"autobattler","name":"Autobattler","description":"Autobattler compositions: units, traits with thresholds, items and board. TFT set included.","maturity":"beta","version":"1.0.1","category":"gaming","mount":"/api/autobattler","tables":3,"views":3,"needs":[]},{"id":"booking","name":"Booking System","description":"Room and resource reservation system with availability tracking, amenities management and conflict detection.","maturity":"beta","version":"1.0.1","category":"business","mount":"/api/booking","tables":6,"views":3,"needs":[]},{"id":"broadcast","name":"Broadcast","description":"Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games, draft with Fearless and live telemetry. Multi-game through profiles.","maturity":"beta","version":"1.0.2","category":"gaming","mount":"/api/broadcast","tables":3,"views":6,"needs":[]},{"id":"cardsim","name":"CardSim","description":"Card simulator builder: data-defined games, validated decks, rooms with a clock and deterministic sessions with replay; also a deck showcase and a hand generator over card datasets","maturity":"beta","version":"2.3.1","category":"gaming","mount":"/api/cardsim","tables":12,"views":9,"needs":[]},{"id":"character-builder","name":"Character Builder","description":"Character builder engine: per-game definitions, validation, final stats and shareable build codes","maturity":"beta","version":"1.1.0","category":"gaming","mount":"/api/builder","tables":3,"views":3,"needs":["formulas"]},{"id":"collection","name":"Collection","description":"What each reader already has: marks the records of an index that they have obtained and keeps count","maturity":"beta","version":"1.0.1","category":"gaming","mount":"/api/collection","tables":1,"views":1,"needs":[]},{"id":"comments","name":"Comments","description":"Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the thread","maturity":"beta","version":"1.0.0","category":"content","mount":"/api/comments","tables":2,"views":3,"needs":[]},{"id":"conta","name":"Accounting","description":"General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a business that bills clients runs through it: invoices, payments, work billed as quantity times rate, recurring fees, success fees, client funds, bank reconciliation, period close and an audit trail.","maturity":"beta","version":"1.0.1","category":"business","mount":"/api/conta","tables":21,"views":14,"needs":[]},{"id":"crm","name":"Kitsuden CRM","description":"Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view, activities, and sales automation.","maturity":"beta","version":"1.0.2","category":"business","mount":"/api/crm","tables":23,"views":6,"needs":[]},{"id":"directory","name":"Employee Directory","description":"Employee profiles, departments, positions, and organizational hierarchy.","maturity":"beta","version":"1.0.0","category":"business","mount":"/api/directory","tables":6,"views":4,"needs":[]},{"id":"dms","name":"Document Management System","description":"Versioned document management with hierarchical categories, approval workflows, semantic versioning, and comprehensive audit trail. Optimized for manuals and corporate documentation.","maturity":"beta","version":"2.0.0","category":"business","mount":"/api/dms","tables":11,"views":1,"needs":[]},{"id":"ecommerce","name":"Shop","description":"Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes and order emails. It is not a large-catalog ecommerce: it covers what Shopify makes expensive and Etsy charges for.","maturity":"beta","version":"1.1.2","category":"business","mount":"/api/shop","tables":9,"views":4,"needs":[]},{"id":"esports","name":"Esports","description":"Complete esports competitive ecosystem with players, teams, tournaments, and match tracking.","maturity":"beta","version":"1.0.2","category":"gaming","mount":"/api/esports","tables":16,"views":7,"needs":["games"]},{"id":"formulas","name":"Formulas","description":"Game formula engine: safe allowlist evaluator, derived stat systems with dependency resolution","maturity":"beta","version":"1.0.1","category":"gaming","mount":"/api/formulas","tables":1,"views":1,"needs":[]},{"id":"games","name":"Games","description":"Full game catalog with metadata, screenshots, specs, platforms, tags, and collections. Cover art, screenshots and platform icons come from the core media library (/api/media).","maturity":"beta","version":"2.1.2","category":"gaming","mount":"/api/games","tables":7,"views":3,"needs":[]},{"id":"maps","name":"Maps","description":"Interactive game maps: layers, categories, markers with normalized coordinates and clustering","maturity":"beta","version":"1.0.1","category":"gaming","mount":"/api/maps","tables":3,"views":3,"needs":[]},{"id":"newsletter","name":"Newsletter","description":"Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP","maturity":"beta","version":"1.0.1","category":"content","mount":"/api/newsletter","tables":8,"views":4,"needs":[]},{"id":"streamers","name":"Streamers","description":"Live streamer tracking across Twitch, YouTube, and Kick with real-time status sync.","maturity":"beta","version":"1.0.2","category":"gaming","mount":"/api/streamers","tables":2,"views":1,"needs":["games"]},{"id":"tierlist","name":"TierList","description":"Tier lists with two surfaces: editorial templates with diff between patches, and personal lists shareable by code","maturity":"beta","version":"1.0.0","category":"gaming","mount":"/api/tierlist","tables":1,"views":2,"needs":[]},{"id":"wiki","name":"Wiki","description":"Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with backlinks","maturity":"beta","version":"1.1.1","category":"content","mount":"/api/wiki","tables":4,"views":2,"needs":[]},{"id":"chat","name":"Chat","description":"Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what you teach them","maturity":"experimental","version":"1.0.1","category":"content","mount":"/api/chat","tables":5,"views":1,"needs":[]},{"id":"ingest","name":"Document ingestion","description":"Extracts text from documents (text, markdown, HTML; PDF with the optional 'unpdf'; images through an OCR sidecar), splits it into chunks and embeds them for semantic search. Heavy work runs on the Postgres queue, never in a request.","maturity":"experimental","version":"0.1.1","category":"documents","mount":"/api/ingest","tables":2,"views":0,"needs":[]},{"id":"ocr-training","name":"OCR Training + Vision LLM","description":"OCR model operation (template proposals, /train, vocabulary against vekocr) and vision LLM governance: knobs in ocr_vision_config, provider key in KITSUDEN Secrets. The OCR job lifecycle lives in konusagi, outside this kon.","maturity":"experimental","version":"1.1.1","category":"documents","mount":"/api/ocr-training","tables":1,"views":1,"needs":[]},{"id":"payments","name":"Payments","description":"Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal","maturity":"experimental","version":"1.1.1","category":"business","mount":"/api/payments","tables":3,"views":0,"needs":[]},{"id":"vekstudio","name":"VekStudio","description":"Bridge to the vekocr OCR stack: enqueues documents in konusagi (Go/Python gateway + RabbitMQ + worker), queries statuses/results in real time (SSE) and links each job to KITSUDEN records. Exposes the full gateway contract under /api/ocr/gateway so that vekstudio works unchanged.","maturity":"experimental","version":"1.0.1","category":"documents","mount":"/api/ocr","tables":1,"views":1,"needs":[]}];
@@ -1795,18 +1818,26 @@ pnpm test</code></pre>
         "use strict";
         const $ = (s, r = document) => r.querySelector(s);
         const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+        const root = document.documentElement;
         const still = matchMedia("(prefers-reduced-motion: reduce)");
         const el = (tag, props = {}, ...kids) => {
           const n = Object.assign(document.createElement(tag), props);
           n.append(...kids);
           return n;
         };
+        const clamp = (v, a = 0, b = 1) => (v < a ? a : v > b ? b : v);
+        const smooth = (a, b, v) => {
+          const t = clamp((v - a) / (b - a));
+          return t * t * (3 - 2 * t);
+        };
+        const mix = (a, b, t) => a + (b - a) * t;
+        const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
+        const addCmd = (id) => "pnpm kitsuden kon add " + id + " --from ../kitsuden-kons";
+        const byId = Object.fromEntries(KONS.map((k) => [k.id, k]));
 
         /* ── theme ── */
         $("#theme").addEventListener("click", () => {
-          const root = document.documentElement;
-          const now = root.dataset.theme || "dark";
-          const next = now === "light" ? "dark" : "light";
+          const next = (root.dataset.theme || "dark") === "light" ? "dark" : "light";
           root.dataset.theme = next;
           try {
             localStorage.setItem("kitsuden-site-theme", next);
@@ -1847,37 +1878,40 @@ pnpm test</code></pre>
           }, 2200);
         });
 
-        /* ── motion: reveals and the clip ── */
-        document.documentElement.classList.add("js");
-        const io2 = new IntersectionObserver((entries) => {
-          for (const e of entries)
-            if (e.isIntersecting) {
-              e.target.classList.add("in");
-              io2.unobserve(e.target);
-            }
-        }, { threshold: 0.12 });
+        /* ── reveals and the clip ── */
+        const io2 = new IntersectionObserver(
+          (entries) => {
+            for (const e of entries)
+              if (e.isIntersecting) {
+                e.target.classList.add("in");
+                io2.unobserve(e.target);
+              }
+          },
+          { threshold: 0.12 }
+        );
         for (const node of $$(".reveal")) io2.observe(node);
         for (const box of $$(".clip")) {
           const video = $("video", box);
           const btn = $(".clip-toggle", box);
+          video.controls = false;
+          btn.hidden = false;
           const sync = () => {
             btn.textContent = video.paused ? "Play" : "Pause";
             btn.setAttribute("aria-pressed", String(video.paused));
           };
-          if (still.matches) {
-            video.removeAttribute("autoplay");
-            video.pause();
-          }
           btn.addEventListener("click", () => {
             btn.dataset.user = "1";
             video.paused ? video.play() : video.pause();
           });
           video.addEventListener("play", sync);
           video.addEventListener("pause", sync);
-          new IntersectionObserver(([e]) => {
-            if (still.matches || btn.dataset.user) return;
-            e.isIntersecting ? video.play().catch(() => {}) : video.pause();
-          }, { threshold: 0.25 }).observe(box);
+          new IntersectionObserver(
+            ([e]) => {
+              if (still.matches || btn.dataset.user) return;
+              e.isIntersecting ? video.play().catch(() => {}) : video.pause();
+            },
+            { threshold: 0.25 }
+          ).observe(box);
           sync();
         }
 
@@ -1893,95 +1927,18 @@ pnpm test</code></pre>
             }
             if (focus) tab.focus();
           };
+          select(tabs.find((t) => t.getAttribute("aria-selected") === "true") || tabs[0], false);
           tabs.forEach((t, i) => {
             t.addEventListener("click", () => select(t, false));
             t.addEventListener("keydown", (e) => {
               const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-              if (d) {
+              const to = d ? tabs[(i + d + tabs.length) % tabs.length] : e.key === "Home" ? tabs[0] : e.key === "End" ? tabs[tabs.length - 1] : null;
+              if (to) {
                 e.preventDefault();
-                select(tabs[(i + d + tabs.length) % tabs.length], true);
+                select(to, true);
               }
             });
           });
-        }
-
-        const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
-        const addCmd = (id) => "pnpm kitsuden kon add " + id + " --from ../kitsuden-kons";
-        const byId = Object.fromEntries(KONS.map((k) => [k.id, k]));
-
-        /* ── the demo: what installing a kon adds ── */
-        const tape = $("#tape"), got = $("#got"), pick = $("#pick");
-        let run = 0;
-        const sleep = (ms, r) =>
-          new Promise((resolve, reject) =>
-            setTimeout(() => (r === run ? resolve() : reject(new Error("cancel"))), still.matches ? 0 : ms)
-          );
-        const say = (cls, text) => tape.append(el("li", { className: cls, textContent: text }));
-        const fill = (k, text) => {
-          const li = $('[data-k="' + k + '"]', got);
-          $("span", li).textContent = text;
-          li.dataset.on = "";
-        };
-        async function install(id) {
-          const r = ++run;
-          const k = byId[id];
-          for (const b of $$("button", pick)) b.setAttribute("aria-pressed", String(b.dataset.id === id));
-          tape.textContent = "";
-          for (const li of $$("li", got)) {
-            delete li.dataset.on;
-            $("span", li).textContent = "";
-          }
-          try {
-            const cmd = el("li", { className: "req caret" });
-            tape.append(cmd);
-            const text = "$ " + addCmd(id);
-            if (still.matches) cmd.textContent = text;
-            else
-              for (const ch of text) {
-                cmd.textContent += ch;
-                await sleep(16, r);
-              }
-            cmd.classList.remove("caret");
-            await sleep(450, r);
-            say("res ok", "copied to packages/kons/kon-" + id);
-            await sleep(500, r);
-            say("res ok", "dependencies installed");
-            await sleep(500, r);
-            say("res ok", "migrations applied");
-            fill("tables", plural(k.tables, "table", "tables") + ", with row security");
-            await sleep(600, r);
-            say("hdr", "restart the API");
-            await sleep(500, r);
-            fill("routes", k.mount + "/…  documented in OpenAPI");
-            await sleep(450, r);
-            fill("mcp", "its operations, as tools at /api/mcp");
-            await sleep(450, r);
-            fill("scopes", "its own scopes, so each agent key gets only what you grant");
-            await sleep(450, r);
-            fill("views", k.views ? plural(k.views, "view", "views") + " for setup and oversight" : "no views: it is API only");
-          } catch (e) {}
-        }
-        for (const id of ["blog", "crm", "wiki", "newsletter", "payments"].filter((x) => byId[x])) {
-          const b = el("button", { type: "button", textContent: id });
-          b.dataset.id = id;
-          b.setAttribute("aria-pressed", "false");
-          b.addEventListener("click", () => install(id));
-          pick.append(b);
-        }
-        if (byId.blog) {
-          if (still.matches) install("blog");
-          else {
-            const io = new IntersectionObserver(
-              (entries) => {
-                if (entries.some((e) => e.isIntersecting)) {
-                  io.disconnect();
-                  install("blog");
-                }
-              },
-              { threshold: 0.3 }
-            );
-            io.observe($("#term"));
-          }
         }
 
         /* ── the catalogue ── */
@@ -1995,11 +1952,13 @@ pnpm test</code></pre>
         ];
         const MATS = [["all", "Any maturity"], ["stable", "Stable"], ["beta", "Beta"], ["experimental", "Experimental"]];
         const state = { q: "", cat: "all", mat: "all" };
-        const list = $("#list"), count = $("#count");
+        const list = $("#list"), count = $("#count"), q = $("#q");
+        $("#tools").hidden = false;
 
         function group(host, options, key) {
           for (const [value, label] of options) {
             const b = el("button", { type: "button", textContent: label });
+            b.dataset.v = value;
             b.setAttribute("aria-pressed", String(value === state[key]));
             b.addEventListener("click", () => {
               state[key] = value;
@@ -2011,9 +1970,15 @@ pnpm test</code></pre>
         }
         group($("#cats"), CATS, "cat");
         group($("#mats"), MATS, "mat");
-        $("#q").addEventListener("input", (e) => {
+        q.addEventListener("input", (e) => {
           state.q = e.target.value.trim().toLowerCase();
           render();
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+          e.preventDefault();
+          q.focus();
         });
 
         const mat = (m) => {
@@ -2028,7 +1993,7 @@ pnpm test</code></pre>
           copyBtn.dataset.copyFrom = cmdId;
           return el(
             "details",
-            {},
+            { id: "k-" + k.id },
             el(
               "summary",
               {},
@@ -2081,6 +2046,867 @@ pnpm test</code></pre>
             shown.length === KONS.length ? "Showing all " + KONS.length + " kons." : "Showing " + plural(shown.length, "kon", "kons") + " of " + KONS.length + ".";
         }
         render();
+        function openInCatalog(id) {
+          state.q = "";
+          state.cat = state.mat = "all";
+          q.value = "";
+          for (const host of [$("#cats"), $("#mats")])
+            for (const b of $$("button", host)) b.setAttribute("aria-pressed", String(b.dataset.v === "all"));
+          render();
+          const d = $("#k-" + id);
+          if (!d) return;
+          d.open = true;
+          d.scrollIntoView({ block: "center", behavior: still.matches ? "auto" : "smooth" });
+          $("summary", d).focus({ preventScroll: true });
+        }
+
+        /* ── the marquee of names ── */
+        {
+          const m = $("#marquee"), ul = $("ul", m);
+          for (let i = 0; i < 2; i++) for (const k of KONS) ul.append(el("li", { textContent: k.id }));
+          m.hidden = KONS.length === 0;
+        }
+
+        /* ══ the stage ══════════════════════════════════════════════════════════
+           One scene behind four chapters. The scroll position is the only clock the
+           story has: it types the command, docks the kon and lights what it added. */
+        const stage = $("#stage"), bar = $("#bar"), tip = $("#tip"), say = $("#say");
+        const tape = $("#tape"), got = $("#got"), pick = $("#pick");
+        const chapters = $$("[data-ch]", stage).map((node) => ({ el: node, pin: $(".ch-pin", node), top: 0, h: 1, tp: 0, u: 1, leave: 0, op: 1, shown: "" }));
+        const railLinks = $$("#rail a");
+        let motion = root.classList.contains("motion");
+        let sel = byId.blog ? "blog" : KONS[0] ? KONS[0].id : "";
+        let vh = innerHeight;
+        let cT = 0; // where the scroll says we are: chapter index + progress through it
+        let cS = 0; // the same, eased: what the scene and the text follow
+
+        /* text that depends on the kon */
+        let cmdTyped, cmdRest, cmdText = "";
+        function fillText() {
+          const k = byId[sel];
+          if (!k) return;
+          cmdText = "$ " + addCmd(k.id);
+          cmdTyped = el("span", { textContent: cmdText });
+          cmdRest = el("span", { className: "rest" });
+          tape.replaceChildren(
+            el("li", { className: "req" }, cmdTyped, el("span", { className: "caret", textContent: "▍", ariaHidden: "true" }), cmdRest),
+            el("li", { className: "res", textContent: "copied to packages/kons/kon-" + k.id }),
+            el("li", { className: "res", textContent: "dependencies installed" }),
+            el("li", { className: "res", textContent: "migrations applied" }),
+            el("li", { className: "hdr", textContent: "restart the API" })
+          );
+          const set = (key, strong, text) => {
+            const span = $('[data-k="' + key + '"] span', got);
+            span.replaceChildren(...(strong ? [el("em", { textContent: strong }), " "] : []), text);
+          };
+          set("tables", plural(k.tables, "table", "tables") + ",", "with row security");
+          set("routes", k.mount + "/…", "documented in OpenAPI");
+          set("mcp", "", "its operations, as tools at /api/mcp");
+          set("scopes", "", "its own scopes, so each agent key gets only what you grant");
+          k.views ? set("views", plural(k.views, "view", "views"), "for setup and oversight") : set("views", "", "no views: it is API only");
+          for (const b of $$("button", pick)) b.setAttribute("aria-pressed", String(b.dataset.id === k.id));
+          $("#probe-name").textContent = k.name;
+          $("#probe-id").textContent = "kon-" + k.id;
+          const pm = $("#probe-mat");
+          pm.textContent = pm.dataset.m = k.maturity;
+          $("#probe-desc").textContent = k.description;
+          $("#probe-nums").replaceChildren(
+            el("li", {}, el("b", { textContent: String(k.tables) }), k.tables === 1 ? " table" : " tables"),
+            el("li", {}, el("b", { textContent: k.views ? String(k.views) : "no" }), k.views === 1 ? " panel view" : " panel views"),
+            el("li", { textContent: k.mount }),
+            ...(k.needs.length ? [el("li", { textContent: "also installs " + k.needs.join(", ") })] : [])
+          );
+          $("#probe-copy").dataset.copy = addCmd(k.id);
+          lastType = -1;
+        }
+        function select(id, announce) {
+          if (!byId[id] || id === sel) return;
+          sel = id;
+          fillText();
+          scene.dock(id);
+          applyDom(true);
+          const k = byId[id];
+          if (announce)
+            say.textContent = k.name + ": " + plural(k.tables, "table", "tables") + ", " + (k.views ? plural(k.views, "panel view", "panel views") : "no panel views") + ", " + k.maturity + ".";
+        }
+        for (const id of ["blog", "crm", "wiki", "newsletter", "payments"].filter((x) => byId[x])) {
+          const b = el("button", { type: "button", textContent: id });
+          b.dataset.id = id;
+          b.setAttribute("aria-pressed", "false");
+          b.addEventListener("click", () => select(id, true));
+          pick.append(b);
+        }
+        pick.hidden = !pick.querySelector("button");
+        $("#probe").hidden = !sel;
+        for (const b of $$("#probe [data-step]"))
+          b.addEventListener("click", () => {
+            const i = KONS.findIndex((k) => k.id === sel);
+            select(KONS[(i + Number(b.dataset.step) + KONS.length) % KONS.length].id, true);
+          });
+        $("#probe-open").addEventListener("click", () => openInCatalog(sel));
+        {
+          const n = (m) => KONS.filter((k) => k.maturity === m).length;
+          const item = (cls, m) => el("li", { className: cls }, el("i"), m + " " + n(m));
+          const lg = $("#legend");
+          lg.append(item("s", "stable"), item("b", "beta"), item("e", "experimental"), el("li", { textContent: "dot size: number of tables" }));
+          lg.hidden = false;
+        }
+
+        /* where each chapter is, and how far the scroll is through it */
+        function measure() {
+          vh = innerHeight;
+          const y = scrollY;
+          for (const ch of chapters) {
+            const r = ch.el.getBoundingClientRect();
+            ch.top = r.top + y;
+            ch.h = Math.max(1, r.height);
+            ch.tp = clamp((ch.h - vh) / ch.h);
+            ch.colTop = ($(".ch-col", ch.el).getBoundingClientRect().top - ch.pin.getBoundingClientRect().top) / vh;
+          }
+          readScroll();
+        }
+        function readScroll() {
+          const y = scrollY;
+          let i = 0;
+          for (let j = 1; j < chapters.length; j++) if (y >= chapters[j].top - 0.5) i = j;
+          cT = i + clamp((y - chapters[i].top) / chapters[i].h);
+          const onStage = y < stage.offsetTop + stage.offsetHeight - 72;
+          bar.classList.toggle("on-stage", onStage);
+          root.classList.toggle("on-stage", onStage);
+        }
+        /* the scroll position where a chapter has said everything it has to say */
+        const restOf = (ch) => (ch === chapters[0] ? 0 : ch.top + Math.max(0, ch.h - vh) * 0.82);
+
+        let lastType = -1, lastRail = -1, textTop = 0.42;
+        function applyDom(force) {
+          const c = motion ? cS : chapters.length;
+          const last = chapters.length - 1;
+          chapters.forEach((ch, i) => {
+            const local = c - i;
+            ch.u = !motion ? 1 : ch.tp > 0.02 ? clamp(local / ch.tp) : local >= 0 ? 1 : 0;
+            ch.leave = !motion ? 0 : clamp((local - ch.tp) / Math.max(0.001, 1 - ch.tp));
+            const enter = i === 0 ? 1 : chapters[i - 1].leave;
+            ch.op = !motion ? 1 : smooth(0.35, 0.92, enter) * (i === last ? 1 : 1 - smooth(0.06, 0.6, ch.leave));
+            const shown = motion ? ch.op.toFixed(2) : "";
+            if (shown !== ch.shown || force) {
+              ch.shown = shown;
+              ch.pin.style.opacity = shown;
+              ch.pin.style.transform = motion && i > 0 ? "translateY(" + ((1 - smooth(0.3, 1, enter)) * 28).toFixed(1) + "px)" : "";
+              ch.pin.style.pointerEvents = motion && ch.op < 0.5 ? "none" : "";
+            }
+          });
+          /* on a narrow screen the scene lives above the text: tell it, and the scrim, where the text starts */
+          let sum = 0, weight = 0;
+          for (const ch of motion ? chapters : chapters.slice(0, 1)) {
+            sum += ch.op * ch.colTop;
+            weight += ch.op;
+          }
+          const st = weight > 0.01 ? clamp(sum / weight, 0.12, 0.7) : textTop;
+          if (Math.abs(st - textTop) > 0.002 || force) {
+            textTop = st;
+            stage.style.setProperty("--st", (st * 100).toFixed(1) + "%");
+          }
+          /* chapter 1: the command types itself, then its output */
+          const u1 = chapters[1] ? chapters[1].u : 1;
+          const typed = Math.round(cmdText.length * clamp(u1 / 0.4));
+          if (typed !== lastType || force) {
+            lastType = typed;
+            cmdTyped.textContent = cmdText.slice(0, typed);
+            cmdRest.textContent = cmdText.slice(typed);
+            cmdTyped.nextSibling.hidden = typed >= cmdText.length;
+          }
+          $$("li", tape).forEach((li, j) => j && li.classList.toggle("off", u1 < 0.36 + j * 0.1));
+          /* chapter 2: what it added, one line at a time */
+          const u2 = chapters[2] ? chapters[2].u : 1;
+          $$("li", got).forEach((li, j) => li.classList.toggle("off", cS < 2.999 && motion && u2 < 0.06 + j * 0.11));
+          const at = clamp(Math.floor(c + 0.35), 0, last);
+          if (at !== lastRail) {
+            lastRail = at;
+            railLinks.forEach((a, j) => a.setAttribute("aria-current", String(j === at)));
+          }
+        }
+
+        /* ── the scene: a core, and thirty kons in orbit around it ── */
+        const scene = (() => {
+          const wrap = $("#scene-wrap"), cv = $("#scene");
+          const ctx = cv.getContext("2d");
+          const TAU = Math.PI * 2, F = 8;
+          const MAT = { stable: [0, 230, 118], beta: [168, 85, 247], experimental: [255, 171, 0] };
+          const PINK = [255, 45, 111], VIOLET = [168, 85, 247], WHITE = [250, 250, 250];
+          const css = (c, a = 1) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+          const sprites = new Map();
+          const sprite = (c) => {
+            const key = c.join();
+            let s = sprites.get(key);
+            if (!s) {
+              s = el("canvas", { width: 96, height: 96 });
+              const g = s.getContext("2d");
+              const grad = g.createRadialGradient(48, 48, 0, 48, 48, 48);
+              grad.addColorStop(0, css(c, 0.9));
+              grad.addColorStop(0.18, css(c, 0.42));
+              grad.addColorStop(0.5, css(c, 0.1));
+              grad.addColorStop(1, css(c, 0));
+              g.fillStyle = grad;
+              g.fillRect(0, 0, 96, 96);
+              sprites.set(key, s);
+            }
+            return s;
+          };
+          /* a ring per category; an unknown category joins the outer one */
+          const RINGS = [
+            ["core", 1.0, 0.17, 0.12, 0.3],
+            ["documents", 1.42, 0.125, -0.15, 1.4],
+            ["content", 1.86, 0.095, 0.1, 2.6],
+            ["business", 2.34, 0.075, -0.08, 4.0],
+            ["gaming", 2.84, 0.06, 0.06, 5.2],
+          ].map(([cat, R, w, inc, om]) => ({ cat, R, w, si: Math.sin(inc), ci: Math.cos(inc), so: Math.sin(om), co: Math.cos(om) }));
+          const nodes = [];
+          RINGS.forEach((ring, ri) => {
+            const ks = KONS.filter((k) => {
+              const at = RINGS.findIndex((r) => r.cat === k.category);
+              return (at < 0 ? RINGS.length - 1 : at) === ri;
+            });
+            ks.forEach((k, j) =>
+              nodes.push({ k, ring, a0: (j / ks.length) * TAU + ri * 1.1, size: 2.4 + Math.sqrt(k.tables) * 1.1, col: MAT[k.maturity] || MAT.beta, dk: 0, want: false, port: 0, x: 0, y: 0, r: 0, z: 0, e: 0, born: nodes.length })
+            );
+          });
+          const nodeOf = Object.fromEntries(nodes.map((n) => [n.k.id, n]));
+          /* a fixed sky, so the still page always draws the same picture */
+          let seed = 7;
+          const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+          const stars = Array.from({ length: 130 }, () => {
+            const a = rnd() * TAU, b = Math.acos(rnd() * 2 - 1), R = 7 + rnd() * 7;
+            return [R * Math.sin(b) * Math.cos(a), R * Math.cos(b) * 0.7, R * Math.sin(b) * Math.sin(a), 0.2 + rnd() * 0.6, rnd() * TAU];
+          });
+
+          let W = 0, H = 0, res = 1, wide = true;
+          let time = 0, last = 0, raf = 0, visible = true, intro = 1;
+          let mx = 0, my = 0, pxS = 0, pyS = 0, hover = null, pointer = null;
+          let cx = 0, cy = 0, unit = 100, sy = 0, cyw = 1, sp = 0, cp = 1, labels = 1, facetLabels = 1;
+          const facet = [0, 0, 0, 0, 0];
+          const shocks = [];
+          let slow = 0, frames = 0, tipTimer = 0;
+
+          /* never more than about three million pixels: glow does not need them, a laptop GPU cannot fill them */
+          let cap = 2;
+          function resize() {
+            const w = wrap.clientWidth, h = wrap.clientHeight;
+            if (!w || !h) return;
+            W = w;
+            H = h;
+            res = Math.max(1, Math.min(devicePixelRatio || 1, cap, Math.sqrt(3.2e6 / (W * H))));
+            wide = W >= 960;
+            cv.width = Math.round(W * res);
+            cv.height = Math.round(H * res);
+          }
+          function quality(next) {
+            cap = next;
+            resize();
+          }
+
+          const KEYS_WIDE = [
+            [0.685, 0.52, 1.06, 0.66, 1],
+            [0.69, 0.5, 1.4, 0.5, 0.3],
+            [0.69, 0.5, 1.62, 0.8, 0.12],
+            [0.7, 0.53, 1.08, 0.6, 1],
+          ];
+          const KEYS_TALL = [
+            [0.5, 0, 1, 0.5, 0.85],
+            [0.5, 0, 1.3, 0.46, 0.25],
+            [0.5, 0, 1.12, 0.7, 0.1],
+            [0.5, 0, 1, 0.5, 0.85],
+          ];
+          function camera(c) {
+            const keys = wide ? KEYS_WIDE : KEYS_TALL;
+            const i = clamp(Math.floor(c), 0, keys.length - 1);
+            const j = Math.min(i + 1, keys.length - 1);
+            const b = motion && chapters[i] ? smooth(0, 1, chapters[i].leave) : 0;
+            const k = keys[i].map((v, n) => mix(v, keys[j][n], b));
+            /* narrow: the scene takes the room between the bar and the text */
+            const free = Math.max(60, textTop * H - 64);
+            const base = wide ? Math.min(W * 0.62, H) * 0.15 : Math.max(W * 0.1, Math.min(W * 0.158, free * 0.27));
+            cx = W * k[0];
+            cy = wide ? H * k[1] : 64 + free * 0.5;
+            unit = base * k[2];
+            const yaw = pxS * 0.5, pitch = k[3] + pyS * 0.1;
+            sy = Math.sin(yaw);
+            cyw = Math.cos(yaw);
+            sp = Math.sin(pitch);
+            cp = Math.cos(pitch);
+            labels = unit < 46 ? 0 : k[4];
+            facetLabels = !motion || unit < 52 ? 0 : c >= 3 ? 0 : c >= 2 ? 1 - b : 1;
+          }
+          const out = [0, 0, 0, 0];
+          function proj(x, y, z) {
+            const x1 = x * cyw + z * sy, z1 = -x * sy + z * cyw;
+            const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+            const s = F / (F + z2);
+            out[0] = cx + x1 * s * unit;
+            out[1] = cy + y2 * s * unit;
+            out[2] = s;
+            out[3] = z2;
+            return out;
+          }
+          function onRing(ring, a, R) {
+            const lx = R * Math.cos(a), lz = R * Math.sin(a);
+            const y = -lz * ring.si, z = lz * ring.ci;
+            return proj(lx * ring.co + z * ring.so, y, -lx * ring.so + z * ring.co);
+          }
+          function rrect(x, y, w, h, r) {
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+          }
+          const glow = (c, x, y, r, a) => {
+            ctx.globalAlpha = a;
+            ctx.drawImage(sprite(c), x - r, y - r, r * 2, r * 2);
+          };
+
+          function draw(dt) {
+            const c = motion ? cS : 3;
+            camera(motion ? cS : 0);
+            const u1 = chapters[1] ? chapters[1].u : 1, u2 = chapters[2] ? chapters[2].u : 1;
+            const D = !motion ? 1 : c >= 2 ? 1 : c < 1 ? 0 : smooth(0.34, 0.62, u1);
+            const ease = motion ? 1 - Math.exp(-dt * 5.5) : 1;
+            for (let k = 0; k < 5; k++) {
+              const want = !motion || c >= 2.999 ? 1 : c < 2 ? 0 : u2 >= 0.06 + k * 0.11 ? 1 : 0;
+              facet[k] += (want - facet[k]) * (motion ? 1 - Math.exp(-dt * 7) : 1);
+            }
+
+            ctx.setTransform(res, 0, 0, res, 0, 0);
+            ctx.clearRect(0, 0, W, H);
+
+            /* sky */
+            ctx.fillStyle = "#fff";
+            for (const s of stars) {
+              const p = proj(s[0], s[1], s[2]);
+              if (p[0] < 0 || p[0] > W || p[1] < 0 || p[1] > H) continue;
+              ctx.globalAlpha = s[3] * (0.6 + 0.4 * Math.sin(time * 0.8 + s[4])) * intro;
+              ctx.fillRect(p[0], p[1], 1.3, 1.3);
+            }
+
+            /* a haze lying in the plane of the orbits */
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(1, Math.max(0.25, sp));
+            ctx.globalCompositeOperation = "lighter";
+            ctx.globalAlpha = 0.55 * intro;
+            ctx.drawImage(sprite(VIOLET), -unit * 3.6, -unit * 3.6, unit * 7.2, unit * 7.2);
+            ctx.restore();
+
+            /* orbits */
+            ctx.lineWidth = 1;
+            for (const ring of RINGS) {
+              ctx.beginPath();
+              for (let i = 0; i <= 72; i++) {
+                const p = onRing(ring, (i / 72) * TAU, ring.R * intro);
+                i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+              }
+              ctx.globalAlpha = 0.2 * intro;
+              ctx.strokeStyle = "#c084fc";
+              ctx.stroke();
+            }
+
+            /* where every kon is this frame */
+            const portR = unit * 0.6;
+            let primary = null;
+            for (const n of nodes) {
+              const born = smooth(0, 1, intro * 1.7 - (n.born / nodes.length) * 0.7);
+              const p = onRing(n.ring, n.a0 + time * n.ring.w, n.ring.R * (0.15 + 0.85 * born));
+              n.z = p[3];
+              n.dk += ((n.want ? D : 0) - n.dk) * ease;
+              const e = (n.e = n.dk < 0.001 ? 0 : n.dk * n.dk * (3 - 2 * n.dk));
+              const orbR = n.size * p[2] * (unit / 100) * (wide ? 1.15 : 1.5);
+              if (e > 0) {
+                const th = -0.62 + n.port * 0.72;
+                const tx = cx + Math.cos(th) * portR, ty = cy + Math.sin(th) * portR;
+                const dx = tx - p[0], dy = ty - p[1];
+                const bump = Math.sin(Math.PI * e) * 0.22;
+                n.x = p[0] + dx * e - dy * bump;
+                n.y = p[1] + dy * e + dx * bump;
+                n.r = mix(orbR, Math.max(5, unit * (n.port ? 0.055 : 0.075)), e);
+                if (n.port === 0 && n.want) primary = n;
+              } else {
+                n.x = p[0];
+                n.y = p[1];
+                n.r = Math.max(1.6, orbR);
+              }
+              /* a kon dims as it passes behind the text, so the text always wins */
+              const veil = wide ? 0.1 + 0.9 * smooth(W * 0.4, W * 0.52, n.x) : 1 - 0.92 * smooth(textTop * H - 30, textTop * H + 24, n.y);
+              n.a = born * mix(veil, 1, e);
+            }
+            if (primary) {
+              if (primary.e > 0.97 && !primary.fired && motion) shocks.push(0);
+              primary.fired = primary.e > 0.97;
+            }
+
+            /* a short wake behind each kon */
+            ctx.lineCap = "round";
+            for (const n of nodes) {
+              if (n.e > 0.3 || n.a < 0.05) continue;
+              const a1 = n.a0 + time * n.ring.w;
+              let p = onRing(n.ring, a1, n.ring.R);
+              let px0 = p[0], py0 = p[1];
+              ctx.strokeStyle = css(n.col);
+              ctx.lineWidth = Math.max(1, n.r * 0.7);
+              for (let i = 1; i <= 5; i++) {
+                p = onRing(n.ring, a1 - i * 0.045, n.ring.R);
+                ctx.globalAlpha = 0.34 * n.a * (1 - i / 6) * (1 - n.e) * (n.z > 0 ? 0.5 : 1);
+                ctx.beginPath();
+                ctx.moveTo(px0, py0);
+                ctx.lineTo(p[0], p[1]);
+                ctx.stroke();
+                px0 = p[0];
+                py0 = p[1];
+              }
+            }
+
+            /* what needs what */
+            ctx.strokeStyle = "#c084fc";
+            ctx.lineCap = "butt";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 5]);
+            for (const n of nodes)
+              for (const need of n.k.needs) {
+                const m = nodeOf[need];
+                if (!m) continue;
+                ctx.globalAlpha = 0.28 * intro;
+                ctx.beginPath();
+                ctx.moveTo(n.x, n.y);
+                ctx.lineTo(m.x, m.y);
+                ctx.stroke();
+              }
+            ctx.setLineDash([]);
+
+            const pass = (far) => {
+              ctx.globalCompositeOperation = "lighter";
+              for (const n of nodes)
+                if (n.z > 0 === far && n.e < 0.5) glow(n.col, n.x, n.y, n.r * 4.4, (far ? 0.3 : 0.55) * n.a);
+              ctx.globalCompositeOperation = "source-over";
+              for (const n of nodes) {
+                if (n.z > 0 !== far || n.e >= 0.5) continue;
+                ctx.globalAlpha = (far ? 0.6 : 1) * n.a;
+                ctx.fillStyle = css(n.col);
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.r, 0, TAU);
+                ctx.fill();
+                ctx.globalAlpha = 0.55 * n.a;
+                ctx.fillStyle = "#fff";
+                ctx.beginPath();
+                ctx.arc(n.x - n.r * 0.25, n.y - n.r * 0.25, n.r * 0.32, 0, TAU);
+                ctx.fill();
+              }
+            };
+            pass(true);
+
+            /* the core */
+            const hs = unit * 0.3, beat = 0.5 + 0.5 * Math.sin(time * 1.6);
+            ctx.globalCompositeOperation = "lighter";
+            glow(VIOLET, cx, cy, unit * (1.9 + 0.12 * beat), 0.75 * intro);
+            glow(PINK, cx, cy, unit * (0.95 + 0.1 * beat), 0.5 * intro);
+            ctx.globalCompositeOperation = "source-over";
+            const dockA = primary ? primary.e : 0;
+            ctx.lineCap = "round";
+            for (let k = 0; k < 5; k++) {
+              const mid = -Math.PI / 2 + k * (TAU / 5), half = TAU / 10 - 0.09, R = unit * 0.9, f = facet[k] * dockA;
+              ctx.globalAlpha = 0.16 * intro + 0.84 * f;
+              ctx.strokeStyle = f > 0.02 ? css([Math.round(mix(168, 255, k / 4)), Math.round(mix(85, 45, k / 4)), Math.round(mix(247, 111, k / 4))]) : "#71717a";
+              ctx.lineWidth = Math.max(1.2, unit * mix(0.012, 0.035, f));
+              ctx.beginPath();
+              ctx.arc(cx, cy, R, mid - half, mid + half);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 0.5 * intro;
+            ctx.strokeStyle = "#c084fc";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 7]);
+            ctx.beginPath();
+            ctx.arc(cx, cy, unit * 0.46, time * 0.25, time * 0.25 + TAU);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            for (let i = shocks.length - 1; i >= 0; i--) {
+              const t = (shocks[i] += dt / 0.9);
+              if (t >= 1) {
+                shocks.splice(i, 1);
+                continue;
+              }
+              ctx.globalAlpha = (1 - t) * 0.8;
+              ctx.strokeStyle = "#ff2d6f";
+              ctx.lineWidth = 2 + (1 - t) * 3;
+              ctx.beginPath();
+              ctx.arc(cx, cy, unit * (0.4 + t * 1.5), 0, TAU);
+              ctx.stroke();
+            }
+            /* docked kons and their links to the core */
+            for (const n of nodes) {
+              if (n.e < 0.02) continue;
+              const dx = n.x - cx, dy = n.y - cy, d = Math.hypot(dx, dy) || 1;
+              const x0 = cx + (dx / d) * hs * 1.1, y0 = cy + (dy / d) * hs * 1.1;
+              ctx.globalAlpha = n.e;
+              ctx.strokeStyle = "#ff2d6f";
+              ctx.lineWidth = Math.max(1.5, unit * 0.014);
+              ctx.beginPath();
+              ctx.moveTo(x0, y0);
+              ctx.lineTo(n.x, n.y);
+              ctx.stroke();
+              if (n.e > 0.9 && motion) {
+                ctx.fillStyle = "#fff";
+                for (let j = 0; j < 3; j++) {
+                  const t = 1 - ((time * 0.7 + j / 3) % 1);
+                  ctx.globalAlpha = 0.9 * Math.sin(Math.PI * t);
+                  ctx.beginPath();
+                  ctx.arc(mix(x0, n.x, t), mix(y0, n.y, t), Math.max(1.2, unit * 0.012), 0, TAU);
+                  ctx.fill();
+                }
+              }
+            }
+            ctx.globalAlpha = intro;
+            rrect(cx - hs, cy - hs, hs * 2, hs * 2, hs * 0.52);
+            ctx.fillStyle = "#0c0a12";
+            ctx.fill();
+            const rim = ctx.createLinearGradient(cx - hs, cy - hs, cx + hs, cy + hs);
+            rim.addColorStop(0, "#c084fc");
+            rim.addColorStop(1, "#ff2d6f");
+            ctx.strokeStyle = rim;
+            ctx.lineWidth = Math.max(1.5, unit * 0.022);
+            ctx.stroke();
+            const k = (hs * 2) / 32;
+            ctx.strokeStyle = "#ff2d6f";
+            ctx.lineWidth = 2.8 * k;
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(cx - 5 * k, cy - 7 * k);
+            ctx.lineTo(cx - 5 * k, cy + 7 * k);
+            ctx.moveTo(cx - 5 * k, cy);
+            ctx.lineTo(cx + 4 * k, cy - 7 * k);
+            ctx.moveTo(cx - 2.5 * k, cy - 2 * k);
+            ctx.lineTo(cx + 5 * k, cy + 7 * k);
+            ctx.stroke();
+
+            pass(false);
+            ctx.globalCompositeOperation = "lighter";
+            for (const n of nodes) if (n.e >= 0.5) glow(PINK, n.x, n.y, n.r * 3.6, 0.7 * n.e);
+            ctx.globalCompositeOperation = "source-over";
+            for (const n of nodes) {
+              if (n.e < 0.5) continue;
+              ctx.globalAlpha = 1;
+              ctx.fillStyle = css(n.col);
+              ctx.beginPath();
+              ctx.arc(n.x, n.y, n.r, 0, TAU);
+              ctx.fill();
+              ctx.strokeStyle = "#fafafa";
+              ctx.lineWidth = Math.max(1.5, n.r * 0.22);
+              ctx.stroke();
+            }
+
+            /* names */
+            const fs = wide ? 11 : 10;
+            ctx.textBaseline = "middle";
+            for (const n of nodes) {
+              const docked = n.e >= 0.5, isHover = n === hover, isSel = n.k.id === sel;
+              let a = docked || isHover ? 1 : labels * (n.z > 0 ? 0.42 : 0.9) * n.a * (wide || n.z <= 0.4 ? 1 : 0);
+              if (wide && !docked && !isHover) a *= smooth(W * 0.47, W * 0.6, n.x);
+              if (isSel && !docked) a = Math.max(a, 0.9 * n.a);
+              if (isHover || (isSel && !docked)) {
+                ctx.globalAlpha = n.a;
+                ctx.strokeStyle = isHover ? "#fafafa" : "#ff2d6f";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, n.r + 5, 0, TAU);
+                ctx.stroke();
+              }
+              if (a < 0.03) continue;
+              const strong = docked || isHover;
+              ctx.font = (strong ? "700 " : "500 ") + (strong ? fs + 2 : fs) + 'px "JetBrains Mono", ui-monospace, monospace';
+              ctx.textAlign = n.x >= cx ? "left" : "right";
+              const tx = n.x + (n.x >= cx ? 1 : -1) * (n.r + 7);
+              if (strong) {
+                ctx.globalAlpha = 0.8;
+                ctx.fillStyle = "#09090b";
+                const tw = ctx.measureText(n.k.id).width;
+                ctx.fillRect(n.x >= cx ? tx - 4 : tx - tw - 4, n.y - fs, tw + 8, fs * 2);
+              }
+              ctx.globalAlpha = a;
+              ctx.fillStyle = strong ? "#fafafa" : "#d4d4d8";
+              ctx.fillText(n.k.id, tx, n.y);
+            }
+
+            /* what the docked kon added, around the core */
+            const kon = byId[sel];
+            if (kon && dockA > 0.05 && facetLabels > 0.02) {
+              const texts = [
+                ["TABLES", plural(kon.tables, "table", "tables")],
+                ["REST API", kon.mount],
+                ["MCP TOOLS", "/api/mcp"],
+                ["PERMISSIONS", "own scopes"],
+                ["PANEL", kon.views ? plural(kon.views, "view", "views") : "API only"],
+              ];
+              for (let j = 0; j < 5; j++) {
+                const f = facet[j] * dockA * facetLabels;
+                if (f < 0.03) continue;
+                const mid = -Math.PI / 2 + j * (TAU / 5), R = unit * 0.9;
+                const ex = Math.cos(mid), ey = Math.sin(mid);
+                const x1 = cx + ex * (R + unit * 0.05), y1 = cy + ey * (R + unit * 0.05);
+                const x2 = cx + ex * (R + unit * 0.2), y2 = cy + ey * (R + unit * 0.2);
+                ctx.globalAlpha = f * 0.8;
+                ctx.strokeStyle = "#fafafa";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+                ctx.textAlign = ex > 0.3 ? "left" : ex < -0.3 ? "right" : "center";
+                const lx = x2 + ex * 6, ly = y2 + ey * 14 - (ey < -0.5 ? 6 : 0);
+                ctx.globalAlpha = f;
+                ctx.font = '700 ' + (wide ? 11 : 9) + 'px "JetBrains Mono", ui-monospace, monospace';
+                ctx.fillStyle = "#c084fc";
+                ctx.fillText(texts[j][0], lx, ly - (wide ? 8 : 6));
+                ctx.font = '500 ' + (wide ? 13 : 10) + 'px "JetBrains Mono", ui-monospace, monospace';
+                ctx.fillStyle = "#fafafa";
+                ctx.fillText(texts[j][1], lx, ly + (wide ? 8 : 6));
+              }
+            }
+            ctx.globalAlpha = 1;
+          }
+
+          function frame(now) {
+            raf = 0;
+            const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+            last = now;
+            time += dt;
+            cS += (cT - cS) * (1 - Math.exp(-dt * 9));
+            if (Math.abs(cT - cS) < 0.0004) cS = cT;
+            pxS += (mx - pxS) * (1 - Math.exp(-dt * 3));
+            pyS += (my - pyS) * (1 - Math.exp(-dt * 3));
+            if (intro < 1) intro = Math.min(1, intro + dt / 1.5);
+            applyDom(false);
+            draw(dt);
+            /* a weak GPU gets fewer pixels, not fewer frames */
+            if (++frames > 20) {
+              slow = slow * 0.95 + (dt > 0.024 ? 1 : 0) * 0.05;
+              if (slow > 0.3 && res > 1 && frames > 90) {
+                quality(Math.max(1, res - 0.4));
+                slow = 0;
+                frames = 0;
+              }
+            }
+            if (visible && motion && !document.hidden) raf = requestAnimationFrame(frame);
+          }
+          function kick() {
+            if (!W) return;
+            if (!motion) {
+              applyDom(true);
+              draw(1);
+              return;
+            }
+            if (!raf && visible && !document.hidden) {
+              last = performance.now();
+              raf = requestAnimationFrame(frame);
+            }
+          }
+          function dock(id) {
+            const n = nodeOf[id];
+            if (!n) return;
+            const set = [n, ...n.k.needs.map((x) => nodeOf[x]).filter(Boolean)];
+            for (const m of nodes) m.want = false;
+            set.forEach((m, i) => {
+              m.want = true;
+              m.port = i;
+            });
+            n.fired = false;
+            kick();
+          }
+          function hit(x, y) {
+            let best = null, bd = 1e9;
+            for (const n of nodes) {
+              const d = Math.hypot(n.x - x, n.y - y) - n.r;
+              if (d < bd) {
+                bd = d;
+                best = n;
+              }
+            }
+            return bd < (pointer === "touch" ? 20 : 12) ? best : null;
+          }
+          function showTip(n) {
+            if (n === hover) return;
+            hover = n;
+            stage.style.cursor = n ? "pointer" : "";
+            tip.hidden = !n;
+            if (n)
+              tip.replaceChildren(
+                el("b", { textContent: n.k.name }),
+                el("code", { textContent: "kon-" + n.k.id + " · " + n.k.maturity }),
+                el("span", { textContent: plural(n.k.tables, "table", "tables") + " · " + (n.k.views ? plural(n.k.views, "panel view", "panel views") : "API only") })
+              );
+            if (!motion) kick();
+          }
+          function placeTip(x, y) {
+            const w = tip.offsetWidth, h = tip.offsetHeight;
+            tip.style.transform = "translate(" + Math.round(clamp(x + 16, 8, innerWidth - w - 8)) + "px," + Math.round(y + 20 + h > innerHeight ? y - h - 14 : y + 20) + "px)";
+          }
+          const local = (ev) => {
+            const r = cv.getBoundingClientRect();
+            return [ev.clientX - r.left, ev.clientY - r.top, ev.clientY >= r.top && ev.clientY <= r.bottom];
+          };
+          stage.addEventListener("pointermove", (ev) => {
+            pointer = ev.pointerType;
+            const [x, y, inside] = local(ev);
+            if (ev.pointerType !== "touch") {
+              mx = clamp(x / W) - 0.5;
+              my = clamp(y / H) - 0.5;
+            }
+            const n = inside && !ev.target.closest("a, button, input, pre, .probe, .term") ? hit(x, y) : null;
+            showTip(n);
+            if (n) placeTip(ev.clientX, ev.clientY);
+          });
+          stage.addEventListener("pointerdown", (ev) => {
+            pointer = ev.pointerType;
+          });
+          stage.addEventListener("pointerleave", (ev) => ev.pointerType !== "touch" && showTip(null));
+          stage.addEventListener("click", (ev) => {
+            if (ev.target.closest("a, button, input, pre, .probe, .term")) return;
+            const [x, y, inside] = local(ev);
+            const n = inside ? hit(x, y) : null;
+            if (!n) return showTip(null);
+            if (pointer === "touch") {
+              showTip(n);
+              placeTip(ev.clientX, ev.clientY);
+              clearTimeout(tipTimer);
+              tipTimer = setTimeout(() => showTip(null), 2600);
+            }
+            select(n.k.id, true);
+            /* from the opening shot, go and watch it install */
+            if (motion && cS < 0.6 && chapters[1]) scrollTo({ top: restOf(chapters[1]), behavior: "smooth" });
+          });
+
+          new ResizeObserver(() => {
+            resize();
+            measure();
+            kick();
+          }).observe(wrap);
+          new IntersectionObserver(([e]) => {
+            visible = e.isIntersecting;
+            kick();
+          }).observe(wrap);
+          document.addEventListener("visibilitychange", kick);
+          return {
+            kick,
+            dock,
+            resize,
+            start(withIntro) {
+              intro = withIntro ? 0 : 1;
+              resize();
+              kick();
+            },
+          };
+        })();
+
+        /* ── wiring: scroll, anchors, focus, the intro ── */
+        fillText();
+        scene.dock(sel);
+        measure();
+        cS = cT;
+        addEventListener("scroll", () => {
+          readScroll();
+          scene.kick();
+        }, { passive: true });
+        addEventListener("resize", () => {
+          measure();
+          scene.kick();
+        });
+        new ResizeObserver(measure).observe(stage);
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => scene.kick());
+
+        const setMotion = () => {
+          const next = !still.matches && innerHeight >= 560;
+          if (next === motion) return;
+          motion = next;
+          root.classList.toggle("motion", motion);
+          measure();
+          cS = cT;
+          applyDom(true);
+          scene.resize();
+          scene.kick();
+        };
+        still.addEventListener("change", setMotion);
+
+        /* a link to a chapter lands where that chapter has finished speaking */
+        const chapterOf = (hash) => chapters.find((ch) => hash === "#" + ch.el.id);
+        document.addEventListener("click", (ev) => {
+          const a = ev.target.closest('a[href^="#"]');
+          const ch = a && motion ? chapterOf(a.getAttribute("href")) : null;
+          if (!ch) return;
+          ev.preventDefault();
+          scrollTo({ top: restOf(ch), behavior: "smooth" });
+        });
+        stage.addEventListener("focusin", (ev) => {
+          if (!motion || !ev.target.matches(":focus-visible")) return;
+          const ch = chapters.find((c) => c.el.contains(ev.target));
+          if (ch && ch.op < 0.9) scrollTo({ top: restOf(ch), behavior: "instant" });
+        });
+        if (motion && chapterOf(location.hash)) scrollTo({ top: restOf(chapterOf(location.hash)), behavior: "instant" });
+
+        /* the wheel eases instead of stepping; keys, touch and the scrollbar stay native */
+        if (matchMedia("(pointer: fine)").matches) {
+          let to = 0, at = 0, seen = 0, on = false, then = 0;
+          const step = (now) => {
+            if (Math.abs(scrollY - seen) > 2) return (on = false);
+            const dt = Math.min(0.05, (now - then) / 1000);
+            then = now;
+            at += (to - at) * (1 - Math.exp(-dt * 11));
+            if (Math.abs(to - at) < 0.5) at = to;
+            scrollTo({ top: at, behavior: "instant" });
+            seen = scrollY;
+            if (at === to) return (on = false);
+            requestAnimationFrame(step);
+          };
+          addEventListener(
+            "wheel",
+            (e) => {
+              if (!motion || e.ctrlKey || e.metaKey || e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+              for (let n = e.target; n && n !== document.body; n = n.parentElement) {
+                if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return;
+              }
+              e.preventDefault();
+              const dy = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+              if (!on) at = to = scrollY;
+              to = clamp(to + dy, 0, root.scrollHeight - innerHeight);
+              if (!on) {
+                on = true;
+                seen = scrollY;
+                then = performance.now();
+                requestAnimationFrame(step);
+              }
+            },
+            { passive: false }
+          );
+        }
+
+        /* the intro: thirty kons counted into orbit, then the curtain lifts */
+        const curtain = $("#intro");
+        if (root.classList.contains("intro") && motion && scrollY < 40 && KONS.length) {
+          const num = $("#intro-n"), fill = $("#intro-bar"), t0 = performance.now();
+          const tick = (now) => {
+            const t = clamp((now - t0) / 1300);
+            const e = 1 - Math.pow(1 - t, 3);
+            num.textContent = String(Math.round(e * KONS.length)).padStart(2, "0");
+            fill.style.transform = "scaleX(" + e + ")";
+            if (t < 1) return requestAnimationFrame(tick);
+            curtain.classList.add("out");
+            root.classList.add("ready");
+            scene.start(true);
+            setTimeout(() => root.classList.remove("intro"), 800);
+          };
+          requestAnimationFrame(tick);
+        } else {
+          root.classList.remove("intro");
+          root.classList.add("ready");
+          scene.start(false);
+        }
       })();
     </script>
   </body>
