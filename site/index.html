@@ -28,59 +28,60 @@
       } catch (e) {}
     </script>
     <style>
+      @font-face {
+        font-family: "Space Grotesk";
+        src: url("fonts/space-grotesk.woff2") format("woff2");
+        font-weight: 300 700;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("fonts/jetbrains-mono.woff2") format("woff2");
+        font-weight: 100 800;
+        font-display: swap;
+      }
       :root {
-        --ink: #0f1520;
-        --panel: #161e2c;
-        --panel-2: #1c2636;
-        --line: #2a3446;
-        --text: #f1f5f9;
-        --dim: #a8b3c4;
-        --seal: #ff5a36;
-        --on-seal: #0f1520;
-        --agent: #7ab4ff;
-        --ok: #34d399;
-        --wait: #fbbf24;
-        --no: #ff8a8a;
-        --serif:
-          "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "URW Palladio L", P052,
-          Georgia, serif;
-        --sans:
-          system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial,
-          sans-serif;
-        --mono:
-          ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-        --wrap: 72rem;
+        --ink: #09090b;
+        --panel: #131318;
+        --panel-2: #1b1b22;
+        --line: #2e2e3a;
+        --text: #fafafa;
+        --dim: #a1a1aa;
+        --violet: #a855f7;
+        --seal: #ff2d6f;
+        --on-seal: #09090b;
+        --agent: #c084fc;
+        --ok: #00e676;
+        --wait: #ffab00;
+        --no: #ff6b8f;
+        --fill-a: #6d28d9;
+        --fill-b: #be185d;
+        --glow-a: rgb(168 85 247 / 0.24);
+        --glow-b: rgb(255 45 111 / 0.16);
+        --grid: rgb(255 255 255 / 0.035);
+        --serif: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+        --sans: "Space Grotesk", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+        --wrap: 74rem;
         --gutter: clamp(1rem, 4vw, 2.5rem);
       }
-      @media (prefers-color-scheme: light) {
-        :root:not([data-theme="dark"]) {
-          --ink: #f4f6f9;
-          --panel: #ffffff;
-          --panel-2: #e9edf4;
-          --line: #cfd6e2;
-          --text: #0f1520;
-          --dim: #465066;
-          --seal: #c9330f;
-          --on-seal: #ffffff;
-          --agent: #1a56c4;
-          --ok: #0a7049;
-          --wait: #8a5a00;
-          --no: #b82020;
-        }
-      }
       :root[data-theme="light"] {
-        --ink: #f4f6f9;
+        --ink: #f6f5fb;
         --panel: #ffffff;
-        --panel-2: #e9edf4;
-        --line: #cfd6e2;
-        --text: #0f1520;
-        --dim: #465066;
-        --seal: #c9330f;
+        --panel-2: #ece9f6;
+        --line: #d5d0e6;
+        --text: #14121c;
+        --dim: #4d4860;
+        --violet: #7e22ce;
+        --seal: #c2185b;
         --on-seal: #ffffff;
-        --agent: #1a56c4;
-        --ok: #0a7049;
+        --agent: #6d28d9;
+        --ok: #087443;
         --wait: #8a5a00;
-        --no: #b82020;
+        --no: #b3123f;
+        --glow-a: rgb(126 34 206 / 0.12);
+        --glow-b: rgb(194 24 91 / 0.08);
+        --grid: rgb(20 18 28 / 0.045);
       }
 
       *,
@@ -278,7 +279,7 @@
       }
       @media (min-width: 60rem) {
         .hero-grid {
-          grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+          grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
         }
       }
       .hero .film {
@@ -1028,10 +1029,237 @@
           transition: none !important;
         }
       }
+
+      /* ── futuristic layer: grid, glow, gradient type, clips ── */
+      body {
+        background:
+          linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 56px 56px,
+          linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 56px 56px,
+          radial-gradient(60rem 34rem at 10% -6rem, var(--glow-a), transparent 65%),
+          radial-gradient(52rem 34rem at 100% 28rem, var(--glow-b), transparent 65%),
+          var(--ink);
+        background-attachment: fixed, fixed, scroll, scroll, scroll;
+      }
+      h1,
+      h2,
+      h3 {
+        font-weight: 700;
+        letter-spacing: -0.035em;
+      }
+      h1 {
+        font-size: clamp(2.5rem, 4.9vw, 4.1rem);
+        line-height: 1;
+      }
+      .grad {
+        background: linear-gradient(92deg, var(--agent), var(--seal));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .hero {
+        position: relative;
+        overflow: hidden;
+      }
+      #sky {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        opacity: 0.7;
+      }
+      .hero > .wrap {
+        position: relative;
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.55rem;
+        font: 500 0.82rem var(--mono);
+        color: var(--agent);
+        border: 1px solid color-mix(in srgb, var(--violet) 45%, transparent);
+        background: color-mix(in srgb, var(--violet) 10%, transparent);
+        border-radius: 99px;
+        padding: 0.35rem 0.8rem;
+        margin-bottom: 1.3rem;
+      }
+      .tag i {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--ok);
+        box-shadow: 0 0 0 0 var(--ok);
+        animation: ping 2s ease-out infinite;
+      }
+      @keyframes ping {
+        to {
+          box-shadow: 0 0 0 0.6rem transparent;
+        }
+      }
+      .btn.primary {
+        background: linear-gradient(92deg, var(--fill-a), var(--fill-b));
+        border-color: transparent;
+        color: #fff;
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.08) inset,
+          0 12px 34px -12px var(--seal);
+      }
+      .btn.primary:hover {
+        color: #fff;
+        filter: brightness(1.15);
+      }
+      .btn {
+        backdrop-filter: blur(6px);
+      }
+      .film,
+      .start,
+      .clip {
+        border-color: color-mix(in srgb, var(--violet) 38%, var(--line));
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.03) inset,
+          0 0 70px -22px var(--violet),
+          0 30px 60px -40px #000;
+      }
+      .film {
+        background: color-mix(in srgb, var(--panel) 88%, transparent);
+        backdrop-filter: blur(8px);
+      }
+      .proposal .acts button.yes {
+        background: linear-gradient(92deg, var(--fill-a), var(--fill-b));
+        border-color: transparent;
+        color: #fff;
+      }
+      .scenes button[aria-pressed="true"] {
+        border-color: var(--violet);
+        box-shadow: 0 0 18px -6px var(--violet);
+      }
+      .tabs button[aria-selected="true"] {
+        border-bottom-color: var(--violet);
+      }
+      section.block {
+        border-top-color: color-mix(in srgb, var(--violet) 22%, var(--line));
+      }
+      .block > .wrap > h2::before {
+        content: "";
+        display: block;
+        width: 3.2rem;
+        height: 4px;
+        border-radius: 2px;
+        margin-bottom: 1.2rem;
+        background: linear-gradient(90deg, var(--violet), var(--seal));
+        box-shadow: 0 0 16px var(--violet);
+      }
+      .clip {
+        position: relative;
+        margin-top: 2.2rem;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        overflow: hidden;
+        background: #09090b;
+        aspect-ratio: 16 / 9;
+      }
+      .clip video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .clip-toggle {
+        position: absolute;
+        right: 0.8rem;
+        bottom: 0.8rem;
+        min-height: 2.75rem;
+        padding: 0.4rem 0.9rem;
+        border-radius: 99px;
+        border: 1px solid rgb(255 255 255 / 0.25);
+        background: rgb(9 9 11 / 0.72);
+        color: #fafafa;
+        font: 600 0.88rem var(--sans);
+        cursor: pointer;
+        backdrop-filter: blur(6px);
+      }
+      .watch {
+        padding-block: 0 clamp(3rem, 6vw, 5rem);
+      }
+      .watch h2 {
+        font-size: clamp(1.5rem, 2.4vw, 2rem);
+      }
+      .watch p {
+        color: var(--dim);
+        margin-top: 0.5rem;
+      }
+      .ticker {
+        overflow: hidden;
+        border-block: 1px solid var(--line);
+        margin-top: clamp(2.5rem, 5vw, 4rem);
+        mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+      }
+      .ticker ul {
+        display: flex;
+        gap: 2.6rem;
+        width: max-content;
+        margin: 0;
+        padding: 0.9rem 0;
+        list-style: none;
+        font: 500 0.9rem var(--mono);
+        color: var(--dim);
+        animation: slide 38s linear infinite;
+      }
+      .ticker li::before {
+        content: "◆";
+        color: var(--violet);
+        margin-right: 0.7rem;
+        font-size: 0.6rem;
+        vertical-align: middle;
+      }
+      @keyframes slide {
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      .js .reveal {
+        opacity: 0;
+        translate: 0 1.6rem;
+        transition:
+          opacity 0.7s ease,
+          translate 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .js .reveal.in {
+        opacity: 1;
+        translate: 0 0;
+      }
+      .ledger div {
+        transition: background 0.25s;
+      }
+      .ledger div:hover {
+        background: linear-gradient(90deg, color-mix(in srgb, var(--violet) 9%, transparent), transparent 70%);
+      }
+      .ledger dt::before {
+        content: "▸ ";
+        color: var(--violet);
+      }
+      ol.steps li {
+        border-top-color: var(--violet);
+      }
+      ol.steps li::before {
+        background: linear-gradient(92deg, var(--agent), var(--seal));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .js .reveal {
+          opacity: 1;
+          translate: none;
+        }
+        #sky {
+          display: none;
+        }
+      }
     
       /* ── kons page ── */
       .term {
-        border: 1px solid var(--line);
+        border: 1px solid color-mix(in srgb, var(--violet) 38%, var(--line));
         border-radius: 14px;
         background: var(--panel);
         overflow: hidden;
@@ -1332,7 +1560,10 @@
     <main id="main">
       <section class="hero" id="top">
         <div class="wrap hero-grid">
-          <h1>Add a blog, a CRM or payments with one command.</h1>
+          <div>
+            <span class="tag"><i></i>30 kons · MIT</span>
+            <h1>Add a blog, a CRM or payments <span class="grad">with one command.</span></h1>
+          </div>
           <div>
             <p class="lede">
               Kons are optional modules for <a href="https://kitsuden.github.io/kitsuden/">Kitsuden</a>, the backend
@@ -1374,6 +1605,19 @@
         </div>
       </section>
 
+      <section class="watch" id="watch">
+        <div class="wrap">
+          <h2>What one command does</h2>
+          <p>It copies the kon, installs it and runs its migrations. After a restart your backend has the feature.</p>
+          <div class="clip reveal">
+            <video autoplay loop muted playsinline preload="auto" poster="media/kon-add.jpg" width="1280" height="720" aria-label="Animation: the command pnpm kitsuden kon add blog installs the kon, and the backend gains tables, a REST API, MCP tools, permissions and panel views">
+              <source src="media/kon-add.mp4" type="video/mp4" />
+            </video>
+            <button class="clip-toggle" type="button" aria-pressed="false">Pause</button>
+          </div>
+        </div>
+      </section>
+
       <section class="block" id="catalog">
         <div class="wrap">
           <h2>The 30 kons</h2>
@@ -1395,7 +1639,7 @@
         <div class="wrap">
           <h2>Each kon says how far you can trust it.</h2>
           <p>Maturity is about real use, not about how many features a kon has.</p>
-          <div class="levels">
+          <div class="reveal levels">
             <div>
               <span class="mat" data-m="stable">stable</span>
               <p>Used in production from end to end. Reserved for the kons most sites install: the blog and memberships.</p>
@@ -1420,7 +1664,7 @@
             (<a href="https://kitsuden.github.io/kitsuden/#start">install Kitsuden</a>). Then clone this repository
             next to it and add the kon.
           </p>
-          <div class="start">
+          <div class="reveal start">
             <div class="tabs" role="tablist" aria-label="How do you want to install a kon" id="how">
               <button role="tab" id="h-agent" aria-controls="q-agent" aria-selected="true">With my coding agent</button>
               <button role="tab" id="h-term" aria-controls="q-term" aria-selected="false" tabindex="-1">In a terminal</button>
@@ -1561,7 +1805,7 @@ pnpm test</code></pre>
         /* ── theme ── */
         $("#theme").addEventListener("click", () => {
           const root = document.documentElement;
-          const now = root.dataset.theme || (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          const now = root.dataset.theme || "dark";
           const next = now === "light" ? "dark" : "light";
           root.dataset.theme = next;
           try {
@@ -1602,6 +1846,40 @@ pnpm test</code></pre>
             delete b.dataset.copied;
           }, 2200);
         });
+
+        /* ── motion: reveals and the clip ── */
+        document.documentElement.classList.add("js");
+        const io2 = new IntersectionObserver((entries) => {
+          for (const e of entries)
+            if (e.isIntersecting) {
+              e.target.classList.add("in");
+              io2.unobserve(e.target);
+            }
+        }, { threshold: 0.12 });
+        for (const node of $$(".reveal")) io2.observe(node);
+        for (const box of $$(".clip")) {
+          const video = $("video", box);
+          const btn = $(".clip-toggle", box);
+          const sync = () => {
+            btn.textContent = video.paused ? "Play" : "Pause";
+            btn.setAttribute("aria-pressed", String(video.paused));
+          };
+          if (still.matches) {
+            video.removeAttribute("autoplay");
+            video.pause();
+          }
+          btn.addEventListener("click", () => {
+            btn.dataset.user = "1";
+            video.paused ? video.play() : video.pause();
+          });
+          video.addEventListener("play", sync);
+          video.addEventListener("pause", sync);
+          new IntersectionObserver(([e]) => {
+            if (still.matches || btn.dataset.user) return;
+            e.isIntersecting ? video.play().catch(() => {}) : video.pause();
+          }, { threshold: 0.25 }).observe(box);
+          sync();
+        }
 
         /* ── tabs ── */
         for (const list of $$('[role="tablist"]')) {
