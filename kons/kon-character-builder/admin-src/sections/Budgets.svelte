@@ -1,17 +1,20 @@
 <!-- Points that options consume, and which slots consume them. -->
 <script lang="ts">
-  import { Button, Checkbox, Input } from "$lib/components";
+  import { Badge, Button, Checkbox, EmptyState, Field, Input } from "$lib/components";
 
   import { useEditor } from "../editor.svelte";
+  import FormGrid from "../ui/FormGrid.svelte";
   import Panel from "../ui/Panel.svelte";
 
   const editor = useEditor();
+  const uid = $props.id();
 
   let id = $state("");
   let name = $state("");
   // A number input gives a number or null: read through String().
   let total = $state("");
 
+  const count = $derived(editor.def.budgets.length);
   const totalNumber = $derived(String(total ?? "").trim() === "" ? NaN : Number(total));
   const canAdd = $derived(id.trim() !== "" && Number.isFinite(totalNumber));
 
@@ -24,12 +27,6 @@
     total = "";
   }
 
-  function key(e: KeyboardEvent) {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    add();
-  }
-
   // Slots are ticked from a list: pointing at a nonexistent slot is an error the engine rejects.
   function toggle(budget: number, slotId: string, on: boolean) {
     const b = editor.def.budgets[budget];
@@ -40,23 +37,32 @@
   }
 </script>
 
-<Panel title="Budgets">
-  {#if editor.def.budgets.length}
+<Panel title="Budgets" description="Points that options cost, and the slots that spend them.">
+  {#snippet status()}
+    <Badge>{count} {count === 1 ? "budget" : "budgets"}</Badge>
+  {/snippet}
+
+  {#if count}
     <div class="budgets">
       {#each editor.def.budgets as budget, i (budget)}
-        <div class="budget">
+        <section class="budget" aria-label={`Budget ${budget.name}`}>
           <div class="head">
-            <span class="title">{budget.name} ({budget.id}) — {budget.total}</span>
+            <div class="title">
+              <h3 class="sub">{budget.name}</h3>
+              <span class="id">{budget.id}</span>
+              <Badge>{budget.total} points</Badge>
+            </div>
             <Button
               variant="ghost"
               size="sm"
-              ariaLabel={`Remove ${budget.id}`}
+              ariaLabel={`Remove budget ${budget.name}`}
               onclick={() => editor.def.budgets.splice(i, 1)}
             >
               Remove
             </Button>
           </div>
-          <div class="slots" role="group" aria-label={`Slots that consume ${budget.name}`}>
+          <div class="slots" role="group" aria-labelledby={`${uid}-spent-${i}`}>
+            <span class="label" id={`${uid}-spent-${i}`}>Spent by</span>
             {#each editor.def.slots as slot (slot)}
               <Checkbox
                 checked={(budget.slots ?? []).includes(slot.id)}
@@ -64,45 +70,51 @@
                 onchange={(e: Event) => toggle(i, slot.id, (e.currentTarget as HTMLInputElement).checked)}
               />
             {:else}
-              <p class="empty">Add slots and you will be able to assign them here.</p>
+              <span class="none">no slot yet: add slots first</span>
             {/each}
           </div>
-        </div>
+        </section>
       {/each}
     </div>
   {:else}
-    <p class="empty">No budgets. Options will cost nothing.</p>
+    <EmptyState size="sm" level={3} title="No budgets" description="Options cost nothing. Add a budget with the form below." />
   {/if}
 
-  <div class="new">
-    <div class="field">
-      <Input bind:value={id} placeholder="talentos" aria-label="Budget id" autocomplete="off" onkeydown={key} />
-    </div>
-    <div class="field wide">
-      <Input bind:value={name} placeholder="Talent points" aria-label="Budget name" autocomplete="off" onkeydown={key} />
-    </div>
-    <div class="field">
-      <Input bind:value={total} type="number" placeholder="60" aria-label="Total points" onkeydown={key} />
-    </div>
-    <Button variant="secondary" size="sm" disabled={!canAdd} onclick={add}>Add budget</Button>
-  </div>
+  <h3 class="sub add">Add a budget</h3>
+  <FormGrid label="Add a budget" onsubmit={add}>
+    <Field label="Id" required>
+      <Input bind:value={id} placeholder="talents" autocomplete="off" spellcheck="false" />
+    </Field>
+    <Field label="Name">
+      <Input bind:value={name} placeholder="Talent points" autocomplete="off" />
+    </Field>
+    <Field label="Total points" required>
+      <Input bind:value={total} type="number" placeholder="60" />
+    </Field>
+    {#snippet actions()}
+      <Button type="submit" variant="secondary" disabled={!canAdd}>Add budget</Button>
+    {/snippet}
+  </FormGrid>
 </Panel>
 
 <style>
   .budgets {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 1rem;
   }
 
+  /* One budget of the list, not a card of its own: a rule between budgets. */
   .budget {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid rgb(var(--ta-border));
-    border-radius: var(--ta-radius);
-    background: rgb(var(--ta-bg));
+    min-width: 0;
+  }
+
+  .budget:not(:first-child) {
+    padding-top: 1rem;
+    border-top: 1px solid rgb(var(--ta-border));
   }
 
   .head {
@@ -113,36 +125,40 @@
   }
 
   .title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    min-width: 0;
+  }
+
+  .sub {
+    margin: 0;
     font-size: 0.875rem;
-    color: rgb(var(--ta-text));
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .sub.add {
+    margin-top: 0.5rem;
+  }
+
+  .id {
+    font-family: var(--ta-font-mono);
+    font-size: 0.75rem;
+    color: rgb(var(--ta-text-dim));
   }
 
   .slots {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem 1rem;
-  }
-
-  .new {
-    display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
+    gap: 0.25rem 1rem;
   }
 
-  .field {
-    flex: 0 1 9rem;
-    min-width: 7rem;
-  }
-
-  .field.wide {
-    flex: 1 1 12rem;
-  }
-
-  .empty {
-    margin: 0;
-    font-size: 0.875rem;
+  .label,
+  .none {
+    font-size: 0.8125rem;
     color: rgb(var(--ta-text-dim));
   }
 </style>

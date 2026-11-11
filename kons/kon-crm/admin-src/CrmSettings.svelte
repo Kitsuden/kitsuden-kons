@@ -15,15 +15,14 @@
 
   The admin mounts it with `context` ({ apiBase, theme, locale… }); calls go to the kon's REST routes
   with the browser's cookies. The theme comes from the admin's `--kitsuden-*` variables through
-  tallao's ThemeScope.
+  tallao's ThemeScope (ui/View.svelte), which also holds the Toaster the sections report to.
 -->
 <script lang="ts">
-  import { ThemeScope } from "$lib/components";
-
   import { createApi } from "./api";
   import AccessGrants from "./settings/AccessGrants.svelte";
   import EvidencePolicy from "./settings/EvidencePolicy.svelte";
   import ScoreModel from "./settings/ScoreModel.svelte";
+  import View from "./ui/View.svelte";
 
   interface ViewContext {
     apiBase?: string;
@@ -39,22 +38,16 @@
   const api = createApi(() => `${base}/crm`);
 </script>
 
-<ThemeScope class="crm-admin">
+<View>
   {#key base}
     <ScoreModel {api} />
     <EvidencePolicy {api} />
     <AccessGrants {api} />
   {/key}
-</ThemeScope>
+</View>
 
 <style>
   :host {
     display: block;
-  }
-
-  :global(.crm-admin) {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
   }
 </style>

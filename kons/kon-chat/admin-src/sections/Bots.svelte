@@ -1,51 +1,66 @@
-<!-- The bots: the list with their switches, and a form to create one. -->
+<!-- The bots: the list, what each row can do, and the dialog that creates one. -->
 <script lang="ts">
   import {
+    Badge,
     Button,
     ConfirmDialog,
+    DataTable,
+    Dialog,
+    EmptyState,
+    Field,
     Input,
     Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+    type DataColumn,
   } from "$lib/components";
   import { untrack } from "svelte";
 
-  import { fail, ok, seg, type Api, type Note } from "../api";
+  import { seg, type Api } from "../api";
   import type { Bot } from "../types";
-  import Actions from "../ui/Actions.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
+  import FormGrid from "../ui/FormGrid.svelte";
   import { CANCEL, CLOSE } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
+  import { failed, toast } from "../ui/notify";
   import Panel from "../ui/Panel.svelte";
-  import Result from "../ui/Result.svelte";
-  import Row from "../ui/Row.svelte";
+  import RowMenu from "../ui/RowMenu.svelte";
 
   const {
     api,
+    hidden = false,
     onOpen,
     onDeleted,
-  }: { api: Api; onOpen: (bot: Bot) => void; onDeleted: (bot: Bot) => void } = $props();
+  }: {
+    api: Api;
+    /** A bot is open: the list stays loaded, out of sight. */
+    hidden?: boolean;
+    onOpen: (bot: Bot) => void;
+    onDeleted: (bot: Bot) => void;
+  } = $props();
+
+  const blank = { name: "", slug: "", agentId: "", audience: "team", toolset: "", greeting: "" };
 
   let bots = $state<Bot[]>([]);
-  let note = $state<Note | null>(null);
-  let form = $state({ name: "", slug: "", agentId: "", audience: "team", toolset: "", greeting: "" });
+  let form = $state({ ...blank });
+  let adding = $state(false);
   let creating = $state(false);
   let deleting = $state<Bot | null>(null);
   let confirmDelete = $state(false);
 
-  async function load() {
-    try {
-      bots = (await api.get<{ data?: Bot[] }>("bots")).data ?? [];
-    } catch (e) {
-      note = fail(e);
-    }
-  }
+  const audience = (b: Bot) => (b.audience === "public" ? "Public" : "Team");
+
+  const columns: DataColumn<Bot>[] = [
+    { key: "name", header: "Bot", sortable: true, hideable: false },
+    { key: "audience", header: "Audience", sortable: true, value: audience },
+    { key: "toolset", header: "Tools", value: (b) => b.toolset || "None" },
+    { key: "dailyLimit", header: "Per day", sortable: true, align: "right" },
+    { key: "active", header: "State", sortable: true, value: (b) => (b.active ? "On" : "Off") },
+  ];
+
+  const data = createLoad(async () => {
+    bots = (await api.get<{ data?: Bot[] }>("bots")).data ?? [];
+  });
 
   $effect(() => {
-    untrack(load);
+    untrack(data.load);
   });
 
   async function create() {
@@ -60,10 +75,12 @@
     creating = true;
     try {
       await api.post("bots", body);
-      note = ok("Created.");
-      await load();
+      toast.success(`"${body.name}" created`);
+      adding = false;
+      form = { ...blank };
+      await data.load();
     } catch (e) {
-      note = fail(e);
+      failed("Could not create the bot", e);
     } finally {
       creating = false;
     }
@@ -72,9 +89,10 @@
   async function toggle(bot: Bot) {
     try {
       await api.patch(`bots/${seg(bot.id)}`, { active: !bot.active });
-      await load();
+      toast.success(`"${bot.name}" switched ${bot.active ? "off" : "on"}`);
+      await data.load();
     } catch (e) {
-      note = fail(e);
+      failed(`Could not switch "${bot.name}" ${bot.active ? "off" : "on"}`, e);
     }
   }
 
@@ -83,96 +101,136 @@
     try {
       await api.del(`bots/${seg(bot.id)}`);
     } catch (e) {
-      note = fail(e);
+      failed("Could not delete the bot", e);
       throw e;
     }
+    toast.success(`"${bot.name}" deleted`);
     onDeleted(bot);
-    await load();
+    await data.load();
   }
 </script>
 
-<Panel title="Chatbots">
-  <p class="lead">
-    A bot talks through one of the core's agents (its model, prompt and permissions). A <b>public</b> bot answers anyone on
-    a website from what you teach it, with no tools. A <b>team</b> bot may use one tool group, such as
-    <code>kon:crm/assistant</code>.
-  </p>
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Bot</TableHead>
-        <TableHead>Audience</TableHead>
-        <TableHead>Tools</TableHead>
-        <TableHead>Per day</TableHead>
-        <TableHead>On</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each bots as b (b.id)}
-        <TableRow>
-          <TableCell>{b.name} ({b.slug})</TableCell>
-          <TableCell>{b.audience === "public" ? "Public" : "Team"}</TableCell>
-          <TableCell>{b.toolset || "none"}</TableCell>
-          <TableCell>{b.dailyLimit}</TableCell>
-          <TableCell>{b.active ? "Yes" : "No"}</TableCell>
-          <TableCell>
-            <Actions>
-              <Button size="sm" variant="ghost" onclick={() => onOpen(b)}>Open</Button>
-              <Button size="sm" variant="ghost" onclick={() => toggle(b)}>{b.active ? "Switch off" : "Switch on"}</Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onclick={() => {
-                  deleting = b;
-                  confirmDelete = true;
-                }}>Delete</Button
-              >
-            </Actions>
-          </TableCell>
-        </TableRow>
-      {:else}
-        <EmptyRow columns={6} text="No bots" />
-      {/each}
-    </TableBody>
-  </Table>
-  <Row>
-    <Input bind:value={form.name} placeholder="Name" aria-label="Bot name" />
-    <Input bind:value={form.slug} placeholder="slug (help, sales-assistant)" aria-label="Bot slug" />
-    <Input bind:value={form.agentId} placeholder="Agent id" aria-label="Core agent id" />
-    <Select
-      bind:value={form.audience}
-      options={[
-        { value: "team", label: "Team" },
-        { value: "public", label: "Public" },
-      ]}
-      aria-label="Audience"
-    />
-    <Input bind:value={form.toolset} placeholder="kon:crm/assistant (team only)" aria-label="Tool group" />
-    <Input bind:value={form.greeting} placeholder="Greeting" aria-label="Greeting" />
-    <Button size="sm" loading={creating} onclick={create}>Create</Button>
-  </Row>
-  <Result {note} />
-</Panel>
+{#if !hidden}
+  <Panel title="Bots" description="A bot talks through one of the core's agents: its model, prompt and permissions.">
+    {#snippet status()}
+      {#if data.ready}<Badge>{bots.length} {bots.length === 1 ? "bot" : "bots"}</Badge>{/if}
+    {/snippet}
+    {#snippet actions()}
+      <Button size="sm" onclick={() => (adding = true)}>New bot</Button>
+    {/snippet}
+    <DataTable
+      caption="Chatbots"
+      rows={bots}
+      {columns}
+      rowKey="id"
+      rowLabel={(b) => b.name}
+      loading={data.loading}
+      error={data.error}
+      onRetry={data.load}
+    >
+      {#snippet cell(b, col)}
+        {#if col.key === "name"}
+          <span class="name">{b.name}</span> <span class="slug">{b.slug}</span>
+        {:else if col.key === "active"}
+          <Badge variant={b.active ? "success" : "default"} dot>{b.active ? "On" : "Off"}</Badge>
+        {:else if col.key === "dailyLimit"}
+          {b.dailyLimit}
+        {:else}
+          {col.value?.(b)}
+        {/if}
+      {/snippet}
+      {#snippet rowActions(b)}
+        <RowMenu
+          label={`Actions: ${b.name}`}
+          items={[
+            { label: "Open", onSelect: () => onOpen(b) },
+            { label: b.active ? "Switch off" : "Switch on", onSelect: () => toggle(b) },
+            {
+              label: "Delete",
+              danger: true,
+              separated: true,
+              onSelect: () => {
+                deleting = b;
+                confirmDelete = true;
+              },
+            },
+          ]}
+        />
+      {/snippet}
+      {#snippet empty()}
+        <EmptyState
+          size="sm"
+          level={null}
+          title="No bots yet"
+          description="Create the first one, then teach it and try it."
+          actionLabel="New bot"
+          onAction={() => (adding = true)}
+        />
+      {/snippet}
+    </DataTable>
+  </Panel>
+{/if}
+
+<Dialog
+  bind:open={adding}
+  title="New bot"
+  description="A public bot answers anyone on a website from what you teach it, with no tools. A team bot may use one tool group."
+  size="xl"
+  closeLabel={CLOSE}
+>
+  <FormGrid label="New bot" onsubmit={create}>
+    <Field label="Name" required>
+      <Input bind:value={form.name} autocomplete="off" />
+    </Field>
+    <Field label="Slug" required>
+      <Input bind:value={form.slug} placeholder="help" autocomplete="off" spellcheck="false" />
+    </Field>
+    <Field label="Core agent id" required>
+      <Input bind:value={form.agentId} autocomplete="off" spellcheck="false" />
+    </Field>
+    <Field label="Audience">
+      <Select
+        bind:value={form.audience}
+        options={[
+          { value: "team", label: "Team" },
+          { value: "public", label: "Public" },
+        ]}
+      />
+    </Field>
+    <Field label="Tool group (team only)" class="wide">
+      <Input bind:value={form.toolset} placeholder="kon:crm/assistant" autocomplete="off" spellcheck="false" />
+    </Field>
+    <Field label="Greeting" class="wide">
+      <Input bind:value={form.greeting} />
+    </Field>
+    {#snippet actions()}
+      <Button variant="ghost" onclick={() => (adding = false)}>{CANCEL}</Button>
+      <Button type="submit" loading={creating}>Create bot</Button>
+    {/snippet}
+  </FormGrid>
+</Dialog>
 
 <ConfirmDialog
   bind:open={confirmDelete}
-  title={`Delete "${deleting?.name ?? ""}" with what it knows and its conversations?`}
+  title={`Delete "${deleting?.name ?? ""}"?`}
+  description="What it knows and its conversations are deleted with it."
   confirmLabel="Delete"
   cancelLabel={CANCEL}
   closeLabel={CLOSE}
+  variant="danger"
   onConfirm={remove}
 />
 
 <style>
-  .lead {
-    margin: 0 0 0.5rem;
-    font-size: 0.875rem;
-    color: rgb(var(--ta-text-dim));
+  .name {
+    font-weight: 600;
   }
 
-  code {
+  .slug {
+    margin-left: 0.25rem;
+    white-space: nowrap;
     font-family: var(--ta-font-mono);
     font-size: 0.75rem;
+    color: rgb(var(--ta-text-dim));
   }
 </style>

@@ -89,7 +89,15 @@ summary. If a worker fails to start under load, rerun that file alone.
 - Build the UI with the tallao components in `admin-src/tallao/` (`$lib/components`) and its
   colour tokens (`rgb(var(--ta-…))`). If a component is missing, add it to
   [tallao](https://github.com/tallao-ui/tallao), list it in `admin-src/tallao.json` and run
-  `pnpm sync:tallao <kon>` (`TALLAO_DIR=<path>` if the checkout is not `../tallao`).
+  `pnpm sync:tallao <kon>` (`TALLAO_DIR=<path>` if the checkout is not `../tallao`). `"modules"`
+  in `tallao.json` lists tallao's other entry points (`motion`, `toast.svelte`).
+- Every view has the same frame, in the files of `admin-src/ui/` that are identical in every kon
+  (`kon-crm` is the reference; change them there and copy them): `View` (theme scope and the
+  Toaster), `Panel` (a section; its title is an h2, because the panel draws the page title),
+  `Loadable` and `load.svelte.ts` (a skeleton while loading, an empty state with the next action,
+  an error with Retry), `notify.ts` (every result is a toast), `RowMenu`, `FormGrid`. Lists are
+  the kit's `DataTable`, a form with a save action ends in a `SaveBar` with dirty state, a
+  destructive action goes through `ConfirmDialog`, and colours come only from `--ta-*` tokens.
 
 ## Adding a kon
 

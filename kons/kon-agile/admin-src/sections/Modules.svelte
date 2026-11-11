@@ -4,28 +4,26 @@
     Badge,
     Button,
     ConfirmDialog,
+    DataTable,
     Dialog,
+    EmptyState,
     Field,
     Input,
     Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
     Textarea,
+    type DataColumn,
   } from "$lib/components";
+  import { untrack } from "svelte";
 
   import { seg } from "../api";
   import { dateInput, day, nullable, options, statusVariant, words } from "../format";
   import { MODULE_STATUSES, type Initiative, type List, type Module } from "../types";
-  import Actions from "../ui/Actions.svelte";
-  import Dot from "../ui/Dot.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
   import FormGrid from "../ui/FormGrid.svelte";
   import { CANCEL, CLOSE } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
   import Panel from "../ui/Panel.svelte";
+  import RowMenu from "../ui/RowMenu.svelte";
+  import Swatch from "../ui/Swatch.svelte";
   import { useWorkspace } from "../store.svelte";
 
   const ws = useWorkspace();
@@ -36,7 +34,7 @@
   let form = $state({
     name: "",
     description: "",
-    color: "#64748b",
+    color: "",
     status: "backlog",
     leadId: "",
     startDate: "",
@@ -48,7 +46,18 @@
   let deleting = $state<Module | null>(null);
   let confirmDelete = $state(false);
 
-  async function load() {
+  const initiativeName = (id: string | null | undefined) => initiatives.find((i) => i.id === id)?.name ?? "—";
+
+  const columns: DataColumn<Module>[] = [
+    { key: "name", header: "Module", sortable: true, hideable: false },
+    { key: "status", header: "Status", sortable: true, value: (m) => words(m.status) },
+    { key: "leadId", header: "Lead", sortable: true, value: (m) => ws.memberLabel(m.leadId) },
+    { key: "startDate", header: "Starts", sortable: true, value: (m) => day(m.startDate) },
+    { key: "targetDate", header: "Target", sortable: true, value: (m) => day(m.targetDate) },
+    { key: "initiativeId", header: "Initiative", sortable: true, value: (m) => initiativeName(m.initiativeId) },
+  ];
+
+  const data = createLoad(async () => {
     const id = seg(ws.projectId!);
     const [m, i] = await Promise.all([
       ws.api.get<List<Module>>(`/${id}/modules`),
@@ -56,12 +65,12 @@
     ]);
     modules = m.docs;
     initiatives = i.docs;
-  }
+  });
 
   // Reload when the project changes or another section changed something.
   $effect(() => {
     void ws.version;
-    if (ws.projectId) ws.run(load);
+    if (ws.projectId) untrack(data.load);
   });
 
   function edit(m: Module | null) {
@@ -69,7 +78,7 @@
     form = {
       name: m?.name ?? "",
       description: m?.description ?? "",
-      color: m?.color ?? "#64748b",
+      color: m?.color ?? ws.neutralColor(),
       status: m?.status ?? "backlog",
       leadId: m?.leadId ?? "",
       startDate: dateInput(m?.startDate),
@@ -88,14 +97,15 @@
             ws.api.patch(`/modules/${seg(editing!.id)}`, {
               name: form.name.trim(),
               description: nullable(form.description),
-              color: form.color,
+              color: form.color || undefined,
               status: form.status,
               leadId: nullable(form.leadId),
               startDate: nullable(form.startDate),
               targetDate: nullable(form.targetDate),
               initiativeId: nullable(form.initiativeId),
             }),
-          "Module saved"
+          "Module saved",
+          "Could not save the module"
         );
       } else {
         await ws.act(
@@ -103,74 +113,78 @@
             ws.api.post(`/${seg(ws.projectId!)}/modules`, {
               name: form.name.trim(),
               description: form.description.trim() || undefined,
-              color: form.color,
+              color: form.color || undefined,
             }),
-          "Module created"
+          "Module created",
+          "Could not create the module"
         );
       }
       open = false;
-      await load();
+      await data.load();
     } catch {
-      // Shown in the notice.
+      // Shown in the toast.
     } finally {
       saving = false;
     }
   }
 
   async function remove() {
-    await ws.act(() => ws.api.del(`/modules/${seg(deleting!.id)}`), "Module deleted");
-    await load();
+    await ws.act(() => ws.api.del(`/modules/${seg(deleting!.id)}`), "Module deleted", "Could not delete the module");
+    await data.load();
   }
-
-  const initiativeName = (id: string | null | undefined) => initiatives.find((i) => i.id === id)?.name ?? "—";
 </script>
 
 <Panel title="Modules">
-  {#snippet actions()}
-    <Button size="sm" onclick={() => edit(null)}>New module</Button>
+  {#snippet status()}
+    {#if data.ready}<Badge>{modules.length} {modules.length === 1 ? "module" : "modules"}</Badge>{/if}
   {/snippet}
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Module</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Lead</TableHead>
-        <TableHead>Dates</TableHead>
-        <TableHead>Initiative</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each modules as m (m.id)}
-        <TableRow>
-          <TableCell><Dot color={m.color} />{m.name}</TableCell>
-          <TableCell><Badge variant={statusVariant(m.status)}>{words(m.status)}</Badge></TableCell>
-          <TableCell>{ws.memberLabel(m.leadId)}</TableCell>
-          <TableCell>{day(m.startDate)} → {day(m.targetDate)}</TableCell>
-          <TableCell>{initiativeName(m.initiativeId)}</TableCell>
-          <TableCell>
-            <Actions>
-              <Button size="sm" variant="ghost" onclick={() => edit(m)}>Edit</Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onclick={() => {
-                  deleting = m;
-                  confirmDelete = true;
-                }}>Delete</Button
-              >
-            </Actions>
-          </TableCell>
-        </TableRow>
+  {#snippet actions()}
+    <Button onclick={() => edit(null)}>New module</Button>
+  {/snippet}
+  <DataTable
+    caption="Modules"
+    rows={modules}
+    {columns}
+    rowKey="id"
+    rowLabel={(m) => m.name}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(m, col)}
+      {#if col.key === "name"}
+        <Swatch color={m.color} name={m.name} />
+      {:else if col.key === "status"}
+        <Badge variant={statusVariant(m.status)}>{words(m.status)}</Badge>
       {:else}
-        <EmptyRow columns={6} text="No modules" />
-      {/each}
-    </TableBody>
-  </Table>
+        <span class="nowrap">{col.value?.(m)}</span>
+      {/if}
+    {/snippet}
+    {#snippet rowActions(m)}
+      <RowMenu
+        label={`Actions: ${m.name}`}
+        items={[
+          { label: "Edit", onSelect: () => edit(m) },
+          {
+            label: "Delete",
+            danger: true,
+            separated: true,
+            onSelect: () => {
+              deleting = m;
+              confirmDelete = true;
+            },
+          },
+        ]}
+      />
+    {/snippet}
+    {#snippet empty()}
+      <EmptyState size="sm" level={null} title="No modules yet" actionLabel="New module" onAction={() => edit(null)} />
+    {/snippet}
+  </DataTable>
 </Panel>
 
 <Dialog bind:open title={editing ? `Edit ${editing.name}` : "New module"} closeLabel={CLOSE} size="lg">
-  <FormGrid>
+  <FormGrid label={editing ? `Edit ${editing.name}` : "New module"} onsubmit={() => form.name.trim() && !saving && save()}>
     <Field label="Name" required>
       <Input bind:value={form.name} maxlength={200} />
     </Field>
@@ -190,17 +204,13 @@
       <Field label="Target">
         <Input type="date" bind:value={form.targetDate} />
       </Field>
-      <div class="wide">
-        <Field label="Initiative">
-          <Select bind:value={form.initiativeId} options={initiatives.map((i) => ({ value: i.id, label: i.name }))} placeholder="None" />
-        </Field>
-      </div>
-    {/if}
-    <div class="wide">
-      <Field label="Description">
-        <Textarea bind:value={form.description} rows={2} maxlength={5000} />
+      <Field label="Initiative" class="wide">
+        <Select bind:value={form.initiativeId} options={initiatives.map((i) => ({ value: i.id, label: i.name }))} placeholder="None" />
       </Field>
-    </div>
+    {/if}
+    <Field label="Description" class="wide">
+      <Textarea bind:value={form.description} rows={2} maxlength={5000} />
+    </Field>
   </FormGrid>
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (open = false)}>{CANCEL}</Button>
@@ -215,5 +225,12 @@
   confirmLabel="Delete"
   cancelLabel={CANCEL}
   closeLabel={CLOSE}
+  variant="danger"
   onConfirm={remove}
 />
+
+<style>
+  .nowrap {
+    white-space: nowrap;
+  }
+</style>

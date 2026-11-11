@@ -52,6 +52,7 @@
     --ta-on-warning: 9 9 11;
     --ta-on-info: 9 9 11;
     --ta-on-danger: 9 9 11;
+    --ta-tone-ink: 0%;
     --ta-success: 52 211 153;
     --ta-warning: 251 191 36;
     --ta-info: 96 165 250;
@@ -82,8 +83,9 @@
 
   /*
    * Bridge to the Kitsuden admin (packages/admin/src/style.css). The admin
-   * calls `card` what tallao calls `surface`, and has no `info` or
-   * `elevated`: those keep tallao's value or their neighbour's.
+   * calls `card` what tallao calls `surface` and has no `elevated`, which takes
+   * the border tone. The text on a solid status fill is the admin's `on-status`
+   * (white on its light theme), and `tone-ink` is the admin's when it sets one.
    */
   .ta-scope--kitsuden {
     --ta-accent: var(--kitsuden-accent, 168 85 247);
@@ -92,14 +94,15 @@
     --ta-accent-dim: var(--kitsuden-accent-dim, 126 58 194);
     --ta-accent-2: var(--kitsuden-accent-2, 255 45 111);
     --ta-accent-2-dim: var(--kitsuden-accent-2-dim, 214 31 90);
-    --ta-on-accent-2: 255 255 255;
-    --ta-on-success: 9 9 11;
-    --ta-on-warning: 9 9 11;
-    --ta-on-info: 9 9 11;
-    --ta-on-danger: 9 9 11;
+    --ta-on-accent-2: var(--kitsuden-on-accent, 255 255 255);
+    --ta-on-success: var(--kitsuden-on-status, 9 9 11);
+    --ta-on-warning: var(--kitsuden-on-status, 9 9 11);
+    --ta-on-info: var(--kitsuden-on-status, 9 9 11);
+    --ta-on-danger: var(--kitsuden-on-status, 9 9 11);
+    --ta-tone-ink: var(--kitsuden-tone-ink, 0%);
     --ta-success: var(--kitsuden-green, 52 211 153);
     --ta-warning: var(--kitsuden-amber, 251 191 36);
-    --ta-info: 96 165 250;
+    --ta-info: var(--kitsuden-info, 96 165 250);
     --ta-danger: var(--kitsuden-danger, 248 113 113);
     --ta-bg: var(--kitsuden-bg, 9 9 11);
     --ta-surface: var(--kitsuden-card, 24 24 27);

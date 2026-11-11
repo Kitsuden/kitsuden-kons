@@ -120,10 +120,9 @@ export interface Dispute {
   evidence?: { reportedBy: string; items?: EvidenceItem[] }[];
 }
 
-/** A note (amber) and an error per section, as the booth always had. */
-export interface Messages {
-  note: string | null;
-  err: string | null;
+/** Something the server said that stays on screen until the TO dismisses it. */
+export interface Notice {
+  variant: "info" | "warning";
+  title: string;
+  text: string;
 }
-
-export type Scope = "pick" | "checkin" | "phase" | "sets" | "disputes" | "swiss" | "stations";

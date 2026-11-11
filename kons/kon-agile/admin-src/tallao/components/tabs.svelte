@@ -25,6 +25,7 @@
 </script>
 
 <script lang="ts">
+  import { tabIndicator } from "$lib/motion";
   import { cn } from "$lib/utils";
 
   let {
@@ -89,9 +90,16 @@
     e.preventDefault();
     select(items[target].id, true);
   }
+
+  // The sliding underline needs the browser to measure the tabs: it starts after mount.
+  let mounted = $state(false);
+  $effect(() => {
+    mounted = true;
+  });
+  const sliding = $derived(mounted && variant === "underline" && !wrap);
 </script>
 
-<div class={cn("ta-tabs", variant === "pills" && "ta-tabs--pills", wrap && "ta-tabs--wrap", className)}>
+<div class={cn("ta-tabs", variant === "pills" && "ta-tabs--pills", wrap && "ta-tabs--wrap", sliding && "ta-tabs--sliding", className)}>
   <div class="ta-tabs-row">
   <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div class="ta-tabs-list" role="tablist" aria-label={ariaLabel} bind:this={list} onkeydown={onKey}>
@@ -115,6 +123,7 @@
         {/if}
       </button>
     {/each}
+    {#if sliding}<span class="ta-tabs-indicator" role="presentation" {@attach tabIndicator(() => '[aria-selected="true"]', () => [value, items.length])}></span>{/if}
   </div>
   {#if end}<div class="ta-tabs-end">{@render end()}</div>{/if}
   </div>
@@ -183,6 +192,21 @@
     cursor: pointer;
     transition: color 0.15s, border-color 0.15s;
   }
+
+  /* After hydration the underline is one bar that slides between the tabs (`tabIndicator`);
+     on the server, and where it cannot slide (pills, wrapped rows), each tab draws its own. */
+  .ta-tabs-list { position: relative; }
+  .ta-tabs-indicator {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    opacity: 0;
+    background: rgb(var(--ta-accent));
+    border-radius: 1px;
+    pointer-events: none;
+  }
+  .ta-tabs--sliding .ta-tab[aria-selected="true"] { border-bottom-color: transparent; }
 
   .ta-tab:hover {
     color: rgb(var(--ta-text));

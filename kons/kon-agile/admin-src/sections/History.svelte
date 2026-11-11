@@ -1,11 +1,13 @@
 <!-- The project's history, newest first, a page at a time. -->
 <script lang="ts">
-  import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components";
+  import { Badge, Button, Timeline, type TimelineItem } from "$lib/components";
+  import { untrack } from "svelte";
 
   import { seg } from "../api";
   import { moment, words } from "../format";
   import type { Activity, List } from "../types";
-  import EmptyRow from "../ui/EmptyRow.svelte";
+  import Loadable from "../ui/Loadable.svelte";
+  import { createLoad } from "../ui/load.svelte";
   import Panel from "../ui/Panel.svelte";
   import { useWorkspace } from "../store.svelte";
 
@@ -22,14 +24,16 @@
     more = docs.length === PAGE;
   }
 
+  const data = createLoad(() => page());
+
   $effect(() => {
     void ws.version;
-    if (ws.projectId) ws.run(() => page());
+    if (ws.projectId) untrack(data.load);
   });
 
   async function next() {
     loadingMore = true;
-    await ws.run(() => page(rows.at(-1)?.createdAt));
+    await ws.run(() => page(rows.at(-1)?.createdAt), undefined, "Could not load older history");
     loadingMore = false;
   }
 
@@ -40,67 +44,48 @@
     const text = JSON.stringify(v);
     return text.length > 60 ? `${text.slice(0, 60)}…` : text;
   }
+
+  const tone = (action: string): TimelineItem["tone"] =>
+    /^(created|added)/.test(action) ? "success" : /^(deleted|removed)/.test(action) ? "error" : "default";
+
+  const items = $derived(
+    rows.map((r): TimelineItem => {
+      const change = r.field ? `${r.field}: ${show(r.oldValue)} → ${show(r.newValue)}` : "";
+      return {
+        date: moment(r.createdAt),
+        title: r.entityType ? `${words(r.action)} ${words(r.entityType).toLowerCase()}` : words(r.action),
+        description: [change, r.description].filter(Boolean).join(" · ") || undefined,
+        tag: ws.memberLabel(r.actorId),
+        tone: tone(r.action),
+      };
+    })
+  );
 </script>
 
 <Panel title="History">
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>When</TableHead>
-        <TableHead>Who</TableHead>
-        <TableHead>What</TableHead>
-        <TableHead>Field</TableHead>
-        <TableHead>Before</TableHead>
-        <TableHead>After</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each rows as r (r.id)}
-        <TableRow>
-          <TableCell>{moment(r.createdAt)}</TableCell>
-          <TableCell><code>{ws.memberLabel(r.actorId)}</code></TableCell>
-          <TableCell>
-            {words(r.action)}
-            {#if r.entityType}<span class="entity">{words(r.entityType)}</span>{/if}
-            {#if r.description}<div class="description">{r.description}</div>{/if}
-          </TableCell>
-          <TableCell>{r.field ?? "—"}</TableCell>
-          <TableCell>{show(r.oldValue)}</TableCell>
-          <TableCell>{show(r.newValue)}</TableCell>
-        </TableRow>
-      {:else}
-        <EmptyRow columns={6} text="No history" />
-      {/each}
-    </TableBody>
-  </Table>
-  {#if more}
-    <div class="more">
-      <Button variant="secondary" size="sm" loading={loadingMore} onclick={next}>Older</Button>
-    </div>
-  {/if}
+  {#snippet status()}
+    {#if data.ready && rows.length}<Badge>{more ? `Latest ${rows.length}` : `${rows.length} ${rows.length === 1 ? "event" : "events"}`}</Badge>{/if}
+  {/snippet}
+  <Loadable
+    load={data}
+    empty={!rows.length}
+    emptyTitle="No history yet"
+    emptyDescription="Every change to the project's issues is recorded here."
+    errorTitle="Could not load the history"
+    lines={6}
+  >
+    <Timeline {items} ariaLabel="Project history, newest first" />
+    {#if more}
+      <div class="more">
+        <Button variant="secondary" loading={loadingMore} onclick={next}>Older</Button>
+      </div>
+    {/if}
+  </Loadable>
 </Panel>
 
 <style>
-  code {
-    white-space: nowrap;
-    font-family: var(--ta-font-mono);
-    font-size: 0.8125rem;
-  }
-
-  .entity {
-    margin-left: 0.35rem;
-    font-size: 0.75rem;
-    color: rgb(var(--ta-text-dim));
-  }
-
-  .description {
-    font-size: 0.8125rem;
-    color: rgb(var(--ta-text-dim));
-  }
-
   .more {
     display: flex;
     justify-content: center;
-    margin-top: 0.75rem;
   }
 </style>

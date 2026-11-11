@@ -109,6 +109,146 @@ export interface Labels {
   noMatches: string;
   /** A navigation entry that is not available yet (NavMenu). */
   comingSoon: string;
+  /** Empty state of a chart or data block with nothing to show. */
+  noData: string;
+  /** The slice that groups what does not fit (DonutChart). */
+  other: string;
+  /** Sum of the values (DonutChart centre, stacked charts). */
+  total: string;
+  /** "Source" before a chart's source (ChartCard). */
+  source: string;
+  /** "Target" before a goal value (KpiCard, Gauge). */
+  target: string;
+  /** Direction of a change, read by screen readers (KpiCard). */
+  trendUp: string;
+  trendDown: string;
+  trendFlat: string;
+  /** Meaning of a change, independent of its direction (KpiCard). */
+  better: string;
+  worse: string;
+  /** "{n} of {total}" (IconArray). */
+  countOf: string;
+  /** A trend in words: "{first}", "{last}", "{min}", "{max}" are replaced (Sparkline). */
+  trendSummary: string;
+  /** "{percent} of the previous step" (Funnel). */
+  ofPreviousStep: string;
+  /** Column headers of the data table (ScatterChart). */
+  label: string;
+  group: string;
+  /** Accessible name of the filter bar (FilterBar). */
+  filters: string;
+  /** Menu with the filters that are not shown yet (FilterBar). */
+  addFilter: string;
+  /** Button that empties the search and every filter (FilterBar). */
+  clearAll: string;
+  /** How many filters apply, for screen readers: "{n}" is replaced (FilterBar). */
+  noActiveFilters: string;
+  activeFilterOne: string;
+  activeFilters: string;
+  /** Button that removes one filter: "{filter}" is replaced (FilterChip). */
+  removeFilter: string;
+  /** Values of a boolean filter (FilterChip). */
+  yes: string;
+  no: string;
+  /** Default titles of an empty state, by variant (EmptyState). */
+  emptyTitle: string;
+  noResultsTitle: string;
+  errorTitle: string;
+  /** Button that repeats a failed load (EmptyState). */
+  retry: string;
+  /** States of a form (SaveBar). */
+  unsavedChanges: string;
+  saving: string;
+  /** Accessible name of the bar (SaveBar). */
+  formActions: string;
+  /** Accessible name of a list of field changes (DiffView). */
+  changes: string;
+  /** Kind of a field change (DiffView). */
+  added: string;
+  removed: string;
+  changed: string;
+  /** Empty state of a diff (DiffView). */
+  noChanges: string;
+  /** A value that is not there, in words (DiffView). */
+  emptyValue: string;
+  /** Buttons that unfold and fold a long value (DiffView). */
+  showMore: string;
+  showLess: string;
+  /** Names of the modifier keys drawn as symbols on a Mac (Kbd). */
+  keyCommand: string;
+  keyOption: string;
+  keyShift: string;
+  keyControl: string;
+  /** Toolbar toggle for the row density (DataTable). */
+  compactRows: string;
+  /** Menu that shows and hides columns (DataTable). */
+  columns: string;
+  /** Menu of named views and its entries: "{name}" is replaced (SavedViews). */
+  savedViews: string;
+  saveView: string;
+  renameView: string;
+  deleteView: string;
+  deleteViewConfirm: string;
+  viewName: string;
+  noSavedViews: string;
+  delete: string;
+  /** Menu button and skip link of the application layout (AppShell). */
+  openNavigation: string;
+  skipToContent: string;
+  /** A model's reasoning while it runs, and once it is done: "{time}" is replaced (Thinking). */
+  thinking: string;
+  thoughtFor: string;
+  /** A duration in words: "{n}", "{m}" and "{s}" are replaced (Thinking, TaskList). */
+  secondsShort: string;
+  minutesShort: string;
+  /** Header of a run of tool calls: "{n}" is replaced (ToolChips). */
+  toolCallOne: string;
+  toolCalls: string;
+  messageOne: string;
+  messages: string;
+  /** Diff statistics of a file, read by screen readers: "{n}" is replaced (ToolChips). */
+  linesAdded: string;
+  linesRemoved: string;
+  /** Accessible name of a task list and its summary: "{done}" and "{total}" are replaced (TaskList). */
+  tasks: string;
+  tasksDone: string;
+  /** Button that unfolds the details of a row (TaskList, ToolChips). */
+  details: string;
+  /** Human-in-the-loop request and its outcome (ApprovalCard). */
+  approvalRequested: string;
+  approved: string;
+  editFirst: string;
+  expired: string;
+  /** Risk level of what is asked (ApprovalCard). */
+  riskLow: string;
+  riskMedium: string;
+  riskHigh: string;
+  /** Accessible name of what the model was given, and the button that removes one item: "{item}" is replaced (ContextCards). */
+  context: string;
+  removeItem: string;
+  /** How sure a suggestion is (RecommendationCard). */
+  confidenceLow: string;
+  confidenceMedium: string;
+  confidenceHigh: string;
+  /** Heading of the reasons behind a suggestion (RecommendationCard). */
+  reasons: string;
+  /** Ends of the shade scale of a calendar heatmap (CalendarHeatmap). */
+  less: string;
+  more: string;
+  /** The two fields of a date range, its button and its quick ranges: "{n}" is replaced (DateRangePicker). */
+  startDate: string;
+  endDate: string;
+  chooseDates: string;
+  lastDays: string;
+  thisMonth: string;
+  /** Accessible name of a stack of cards (CardStack). */
+  cards: string;
+  /** Column headers of the data table of a flow chart (SankeyChart). */
+  from: string;
+  to: string;
+  value: string;
+  /** Note under a flow chart: "{n}" is replaced (SankeyChart). */
+  flowsNotDrawn: string;
 }
 
 export const en: Labels = {
@@ -189,6 +329,99 @@ export const en: Labels = {
   clearFilters: "Clear filters",
   noMatches: "No rows match the filters",
   comingSoon: "Coming soon",
+  noData: "No data",
+  other: "Other",
+  total: "Total",
+  source: "Source",
+  target: "Target",
+  trendUp: "up",
+  trendDown: "down",
+  trendFlat: "no change",
+  better: "better",
+  worse: "worse",
+  countOf: "{n} of {total}",
+  trendSummary: "from {first} to {last}, low {min}, high {max}",
+  ofPreviousStep: "{percent} of the previous step",
+  label: "Label",
+  group: "Group",
+  filters: "Filters",
+  addFilter: "Add filter",
+  clearAll: "Clear all",
+  noActiveFilters: "No filters active",
+  activeFilterOne: "1 filter active",
+  activeFilters: "{n} filters active",
+  removeFilter: "Remove filter: {filter}",
+  yes: "Yes",
+  no: "No",
+  emptyTitle: "Nothing here yet",
+  noResultsTitle: "No results for these filters",
+  errorTitle: "Something went wrong",
+  retry: "Retry",
+  unsavedChanges: "Unsaved changes",
+  saving: "Saving…",
+  formActions: "Form actions",
+  changes: "Changes",
+  added: "Added",
+  removed: "Removed",
+  changed: "Changed",
+  noChanges: "No changes",
+  emptyValue: "empty",
+  showMore: "Show more",
+  showLess: "Show less",
+  keyCommand: "Command",
+  keyOption: "Option",
+  keyShift: "Shift",
+  keyControl: "Control",
+  compactRows: "Compact rows",
+  columns: "Columns",
+  savedViews: "Views",
+  saveView: "Save current view…",
+  renameView: "Rename “{name}”…",
+  deleteView: "Delete “{name}”",
+  deleteViewConfirm: "Delete the view “{name}”?",
+  viewName: "View name",
+  noSavedViews: "No saved views",
+  delete: "Delete",
+  openNavigation: "Open navigation",
+  skipToContent: "Skip to content",
+  thinking: "Thinking…",
+  thoughtFor: "Thought for {time}",
+  secondsShort: "{n} s",
+  minutesShort: "{m} min {s} s",
+  toolCallOne: "1 tool call",
+  toolCalls: "{n} tool calls",
+  messageOne: "1 message",
+  messages: "{n} messages",
+  linesAdded: "{n} lines added",
+  linesRemoved: "{n} lines removed",
+  tasks: "Tasks",
+  tasksDone: "{done} of {total} done",
+  details: "Details",
+  approvalRequested: "Approval requested",
+  approved: "Approved",
+  editFirst: "Edit first",
+  expired: "Expired",
+  riskLow: "Low risk",
+  riskMedium: "Medium risk",
+  riskHigh: "High risk",
+  context: "Context",
+  removeItem: "Remove {item}",
+  confidenceLow: "Low confidence",
+  confidenceMedium: "Medium confidence",
+  confidenceHigh: "High confidence",
+  reasons: "Why",
+  less: "Less",
+  more: "More",
+  startDate: "Start date",
+  endDate: "End date",
+  chooseDates: "Choose dates",
+  lastDays: "Last {n} days",
+  thisMonth: "This month",
+  cards: "Cards",
+  from: "From",
+  to: "To",
+  value: "Value",
+  flowsNotDrawn: "{n} not drawn: it would close a loop",
 };
 
 export const es: Labels = {
@@ -269,6 +502,99 @@ export const es: Labels = {
   clearFilters: "Quitar filtros",
   noMatches: "Ninguna fila cumple los filtros",
   comingSoon: "Próximamente",
+  noData: "Sin datos",
+  other: "Otros",
+  total: "Total",
+  source: "Fuente",
+  target: "Objetivo",
+  trendUp: "sube",
+  trendDown: "baja",
+  trendFlat: "sin cambios",
+  better: "mejor",
+  worse: "peor",
+  countOf: "{n} de {total}",
+  trendSummary: "de {first} a {last}, mínimo {min}, máximo {max}",
+  ofPreviousStep: "{percent} del paso anterior",
+  label: "Etiqueta",
+  group: "Grupo",
+  filters: "Filtros",
+  addFilter: "Añadir filtro",
+  clearAll: "Quitar todo",
+  noActiveFilters: "Ningún filtro activo",
+  activeFilterOne: "1 filtro activo",
+  activeFilters: "{n} filtros activos",
+  removeFilter: "Quitar filtro: {filter}",
+  yes: "Sí",
+  no: "No",
+  emptyTitle: "Aún no hay nada",
+  noResultsTitle: "Ningún resultado con estos filtros",
+  errorTitle: "Algo ha fallado",
+  retry: "Reintentar",
+  unsavedChanges: "Cambios sin guardar",
+  saving: "Guardando…",
+  formActions: "Acciones del formulario",
+  changes: "Cambios",
+  added: "Añadido",
+  removed: "Eliminado",
+  changed: "Modificado",
+  noChanges: "Sin cambios",
+  emptyValue: "vacío",
+  showMore: "Ver más",
+  showLess: "Ver menos",
+  keyCommand: "Comando",
+  keyOption: "Opción",
+  keyShift: "Mayúsculas",
+  keyControl: "Control",
+  compactRows: "Filas compactas",
+  columns: "Columnas",
+  savedViews: "Vistas",
+  saveView: "Guardar la vista actual…",
+  renameView: "Renombrar «{name}»…",
+  deleteView: "Eliminar «{name}»",
+  deleteViewConfirm: "¿Eliminar la vista «{name}»?",
+  viewName: "Nombre de la vista",
+  noSavedViews: "No hay vistas guardadas",
+  delete: "Eliminar",
+  openNavigation: "Abrir la navegación",
+  skipToContent: "Saltar al contenido",
+  thinking: "Pensando…",
+  thoughtFor: "Pensó durante {time}",
+  secondsShort: "{n} s",
+  minutesShort: "{m} min {s} s",
+  toolCallOne: "1 llamada a herramienta",
+  toolCalls: "{n} llamadas a herramientas",
+  messageOne: "1 mensaje",
+  messages: "{n} mensajes",
+  linesAdded: "{n} líneas añadidas",
+  linesRemoved: "{n} líneas eliminadas",
+  tasks: "Tareas",
+  tasksDone: "{done} de {total} hechas",
+  details: "Detalles",
+  approvalRequested: "Aprobación solicitada",
+  approved: "Aprobado",
+  editFirst: "Editar antes",
+  expired: "Caducado",
+  riskLow: "Riesgo bajo",
+  riskMedium: "Riesgo medio",
+  riskHigh: "Riesgo alto",
+  context: "Contexto",
+  removeItem: "Quitar {item}",
+  confidenceLow: "Confianza baja",
+  confidenceMedium: "Confianza media",
+  confidenceHigh: "Confianza alta",
+  reasons: "Por qué",
+  less: "Menos",
+  more: "Más",
+  startDate: "Fecha inicial",
+  endDate: "Fecha final",
+  chooseDates: "Elegir fechas",
+  lastDays: "Últimos {n} días",
+  thisMonth: "Este mes",
+  cards: "Tarjetas",
+  from: "Desde",
+  to: "Hasta",
+  value: "Valor",
+  flowsNotDrawn: "{n} sin dibujar: cerraría un ciclo",
 };
 
 const KEY = Symbol("tallao-labels");

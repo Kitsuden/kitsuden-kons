@@ -16,24 +16,34 @@
 
   The admin mounts it with `context` ({ apiBase, theme, locale… }); calls go to the kon's REST
   routes with the browser's cookies. The theme comes from the admin's `--kitsuden-*` variables
-  through tallao's ThemeScope.
+  through tallao's ThemeScope (ui/View.svelte), which also holds the Toaster every result of an
+  action goes to.
+
+  The panel draws the page title, so the view starts at the project bar (which project, and
+  "New project" last), then the tabs; each tab holds its sections one under another.
 -->
 <script lang="ts">
-  import { Alert, Button, Checkbox, Select, Tabs, ThemeScope } from "$lib/components";
+  import { Button, Checkbox, EmptyState, Select, Skeleton, Tabs } from "$lib/components";
 
   import { createApi } from "./api";
-  import NewProjectDialog from "./sections/NewProjectDialog.svelte";
-  import Catalog from "./sections/Catalog.svelte";
+  import Cycles from "./sections/Cycles.svelte";
+  import Estimates from "./sections/Estimates.svelte";
+  import Fields from "./sections/Fields.svelte";
   import History from "./sections/History.svelte";
+  import Initiatives from "./sections/Initiatives.svelte";
   import Intakes from "./sections/Intakes.svelte";
   import Issues from "./sections/Issues.svelte";
+  import Labels from "./sections/Labels.svelte";
   import Members from "./sections/Members.svelte";
-  import Planning from "./sections/Planning.svelte";
+  import Modules from "./sections/Modules.svelte";
+  import NewProjectDialog from "./sections/NewProjectDialog.svelte";
   import ProjectSettings from "./sections/ProjectSettings.svelte";
-  import Team from "./sections/Team.svelte";
+  import Schedules from "./sections/Schedules.svelte";
+  import Squads from "./sections/Squads.svelte";
   import Work from "./sections/Work.svelte";
   import Workflow from "./sections/Workflow.svelte";
   import { provideWorkspace, Workspace } from "./store.svelte";
+  import View from "./ui/View.svelte";
 
   interface ViewContext {
     apiBase?: string;
@@ -48,6 +58,11 @@
 
   let tab = $state("project");
   let creating = $state(false);
+  let bar = $state<HTMLElement>();
+
+  $effect(() => {
+    ws.scope = bar;
+  });
 
   // The host may set `context` before or after connecting, and again when the theme changes:
   // load once per API base.
@@ -85,8 +100,8 @@
   });
 </script>
 
-<ThemeScope class="agile-admin">
-  <header class="header">
+<View>
+  <div class="bar" bind:this={bar}>
     <div class="project">
       <Select
         aria-label="Project"
@@ -99,87 +114,135 @@
     </div>
     <Checkbox
       checked={ws.showArchived}
-      label="Archived"
+      label="Show archived"
       onchange={(e: Event) => {
         ws.showArchived = (e.currentTarget as HTMLInputElement).checked;
         ws.loadProjects();
       }}
     />
-    <Button size="sm" onclick={() => (creating = true)}>New project</Button>
-  </header>
+    <Button onclick={() => (creating = true)}>New project</Button>
+  </div>
 
-  {#if ws.notice}
-    <Alert
-      variant={ws.notice.kind}
-      dismissLabel="Dismiss"
-      onDismiss={() => (ws.notice = null)}
-    >
-      {ws.notice.text}
-    </Alert>
-  {/if}
-
-  {#if ws.project}
+  {#if ws.list.loading}
+    <div class="loading" aria-busy="true">
+      <span class="sr-only" role="status">Loading</span>
+      <Skeleton height="2.25rem" />
+      <Skeleton lines={6} />
+    </div>
+  {:else if ws.list.error !== null}
+    <EmptyState
+      variant="error"
+      level={2}
+      title="Could not load the projects"
+      description={ws.list.error}
+      onRetry={ws.list.load}
+      retrying={ws.list.retrying}
+    />
+  {:else if !ws.projects.length}
+    <EmptyState
+      level={2}
+      title={ws.showArchived ? "No projects yet" : "No active projects"}
+      description="A project holds its members, states, cycles and issues."
+      actionLabel="New project"
+      onAction={() => (creating = true)}
+    />
+  {:else if ws.current.error !== null}
+    <EmptyState
+      variant="error"
+      level={2}
+      title="Could not load the project"
+      description={ws.current.error}
+      onRetry={ws.current.load}
+      retrying={ws.current.retrying}
+    />
+  {:else if ws.project}
     <Tabs items={tabs} bind:value={tab} ariaLabel="Project administration">
       {#snippet children(active)}
-        {#if active === "project"}
-          <ProjectSettings />
-        {:else if active === "members"}
-          <Members />
-        {:else if active === "workflow"}
-          <Workflow />
-        {:else if active === "catalog"}
-          <Catalog />
-        {:else if active === "planning"}
-          <Planning />
-        {:else if active === "team"}
-          <Team />
-        {:else if active === "intakes"}
-          <Intakes />
-        {:else if active === "work"}
-          <Work />
-        {:else if active === "issues"}
-          <Issues />
-        {:else}
-          <History />
-        {/if}
+        <div class="sections">
+          {#if active === "project"}
+            <ProjectSettings />
+          {:else if active === "members"}
+            <Members />
+          {:else if active === "workflow"}
+            <Workflow />
+          {:else if active === "catalog"}
+            <Labels />
+            <Estimates />
+            <Fields />
+          {:else if active === "planning"}
+            <Cycles />
+            <Modules />
+            <Initiatives />
+          {:else if active === "team"}
+            <Squads />
+            <Schedules />
+          {:else if active === "intakes"}
+            <Intakes />
+          {:else if active === "work"}
+            <Work />
+          {:else if active === "issues"}
+            <Issues />
+          {:else}
+            <History />
+          {/if}
+        </div>
       {/snippet}
     </Tabs>
-  {:else if !ws.loading}
-    <p class="empty">No project</p>
   {/if}
 
   <NewProjectDialog bind:open={creating} />
-</ThemeScope>
+</View>
 
 <style>
   :host {
     display: block;
   }
 
-  :global(.agile-admin) {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .header {
+  .bar {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.75rem 1rem;
     flex-wrap: wrap;
   }
 
   .project {
     flex: 1 1 16rem;
     max-width: 28rem;
+    min-width: 0;
   }
 
-  .empty {
-    margin: 0;
-    padding: 2rem;
-    text-align: center;
-    color: rgb(var(--ta-text-dim));
-    border: 1px dashed rgb(var(--ta-border));
-    border-radius: var(--ta-radius-lg);
+  .bar :global(.ta-btn) {
+    margin-left: auto;
+  }
+
+  /* The sections of a tab, one under another with the view's gap. */
+  .sections {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .sections > :global(*) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .loading {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 </style>

@@ -11,12 +11,13 @@
  *
  * tallao (a Svelte 5 UI kit) is used the shadcn way: components are COPIED into the
  * project, not installed. A kon lists the ones it uses in `admin-src/tallao.json`
- * (`{ "components": ["button", "tabs", …] }`); this script copies them, the ones they import
- * (`./dialog.svelte` from `confirm-dialog.svelte`…), `utils.ts`, and writes an `index.ts` with
- * only those exports. The copy lives in `admin-src/tallao/` and is committed, so the kon builds
+ * (`{ "components": ["button", "tabs", …], "modules": ["motion"] }`; a module is one of tallao's
+ * other entry points, imported as `$lib/<module>`); this script copies them, the ones they import
+ * (`./dialog.svelte` from `confirm-dialog.svelte`, `$lib/motion`, `$lib/toast.svelte`…),
+ * `utils.ts`, and writes an `index.ts` with only those exports. The copy lives in `admin-src/tallao/` and is committed, so the kon builds
  * without tallao on disk. Do not edit it: change tallao and run this again.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -50,14 +51,26 @@ const index = read(join(source, "components", "index.ts")).split("\n");
 
 for (const kon of kons) {
   const adminSrc = join(root, "kons", kon, "admin-src");
-  const { components } = JSON.parse(readFileSync(join(adminSrc, "tallao.json"), "utf8"));
+  const { components, modules = [] } = JSON.parse(readFileSync(join(adminSrc, "tallao.json"), "utf8"));
 
   // Components plus what they import (sibling components and tallao's own `$lib/...` modules:
   // `internal/` helpers, `i18n`, `toast.svelte`…), until nothing new appears. A bare package
   // they import (`@floating-ui/dom` for the floating components) has to be installed in this repo.
   const files = new Set();
   const internals = new Set();
-  const pending = components.map((c) => `components/${c}.svelte`);
+  // `$lib/motion` is `motion/index.ts`, `$lib/toast.svelte` is `toast.svelte.ts`, and
+  // `$lib/internal/chart-figure.svelte` is that file: the first that exists.
+  const resolveLib = (name, from) => {
+    const found = [name, `${name}.ts`, `${name}/index.ts`].find(
+      (c) => existsSync(join(source, c)) && !statSync(join(source, c)).isDirectory()
+    );
+    if (!found) fail(`${kon}: tallao has no ${name} (imported by ${from})`);
+    return found;
+  };
+  const pending = [
+    ...components.map((c) => `components/${c}.svelte`),
+    ...modules.map((m) => resolveLib(m, "tallao.json")),
+  ];
   while (pending.length) {
     const file = pending.pop();
     if (files.has(file) || internals.has(file)) continue;
@@ -65,14 +78,13 @@ for (const kon of kons) {
     if (!existsSync(path)) fail(`${kon}: tallao has no ${file}`);
     (file.startsWith("components/") ? files : internals).add(file);
     const text = read(path);
-    for (const m of text.matchAll(/from "\.\/([a-z0-9-]+\.svelte)"/g)) pending.push(`components/${m[1]}`);
+    const dir = file.slice(0, file.lastIndexOf("/") + 1);
+    // Sibling components, and modules of `internal/` that import each other, by relative path.
+    for (const m of text.matchAll(/from "\.\/([a-z0-9.-]+)"/g)) pending.push(resolveLib(dir + m[1], file));
     for (const m of text.matchAll(/from "\$lib\/([a-z0-9/.-]+)"/g)) {
-      if (m[1] === "utils" || m[1].startsWith("components")) continue;
-      pending.push(m[1].endsWith(".ts") ? m[1] : `${m[1]}.ts`);
+      if (m[1] === "utils") continue;
+      pending.push(resolveLib(m[1], file));
     }
-    // Modules of `internal/` import each other with relative paths.
-    if (file.startsWith("internal/"))
-      for (const m of text.matchAll(/from "\.\/([a-z0-9-]+)"/g)) pending.push(`internal/${m[1]}.ts`);
   }
 
   const out = join(adminSrc, "tallao");

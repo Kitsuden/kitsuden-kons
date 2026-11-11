@@ -13,6 +13,7 @@
   import { cn } from "$lib/utils";
   import { restoreFocus, getActiveElement, tabbables } from "$lib/internal/focus";
   import { lockScroll } from "$lib/internal/scroll-lock";
+  import { scaleIn, slide } from "$lib/motion";
 
   interface Props {
     open?: boolean;
@@ -75,6 +76,9 @@
     onClose?.();
   }
 
+  // Leaving: a dialog shrinks back, a sheet slides out to its edge (nothing under reduced motion).
+  const exit = (node: Element) => (placement === "center" ? scaleIn(node, { duration: "fast" }) : slide(node, { from: placement, duration: "base" }));
+
   /** `autofocus` if there is one; otherwise the first control in the content; otherwise the panel. */
   function focusInitial(d: HTMLDialogElement) {
     const marked = d.querySelector<HTMLElement>("[autofocus]");
@@ -133,6 +137,7 @@
       class={cn("ta-dialog", bare && "ta-dialog--bare", className)}
       style:max-width={placement === "top" || placement === "bottom" ? undefined : widths[size]}
       tabindex="-1"
+      out:exit
     >
       {#if !title && showClose && showCloseAlone}
         <button type="button" class="ta-dialog-close ta-dialog-close--floating" onclick={close} aria-label={closeLabel}>
@@ -183,6 +188,29 @@
     overflow: hidden;
   }
 
+  /* Closing: where the browser can transition `display` and `overlay`, the closed dialog stays
+     painted (in the top layer) while it fades and its panel leaves; elsewhere it just goes. */
+  .ta-dialog-overlay {
+    opacity: 0;
+    transition:
+      opacity var(--ta-duration-base, 180ms) ease-out,
+      display var(--ta-duration-base, 180ms) allow-discrete,
+      overlay var(--ta-duration-base, 180ms) allow-discrete;
+  }
+  .ta-dialog-overlay[open] { opacity: 1; }
+  .ta-dialog-overlay:not([open]) { pointer-events: none; }
+  @starting-style {
+    .ta-dialog-overlay[open] { opacity: 0; }
+  }
+  .ta-dialog-overlay::backdrop {
+    opacity: 0;
+    transition:
+      opacity var(--ta-duration-base, 180ms) ease-out,
+      display var(--ta-duration-base, 180ms) allow-discrete,
+      overlay var(--ta-duration-base, 180ms) allow-discrete;
+  }
+  .ta-dialog-overlay[open]::backdrop { opacity: 1; }
+
   .ta-dialog-overlay[open] {
     display: flex;
     align-items: center;
@@ -219,6 +247,18 @@
   @keyframes ta-dialog-top { from { transform: translateY(-100%); } to { transform: none; } }
   @keyframes ta-dialog-bottom { from { transform: translateY(100%); } to { transform: none; } }
 
+  /* A sheet travels further than a dialog grows: it gets the slow duration. */
+  [data-placement="left"] .ta-dialog,
+  [data-placement="right"] .ta-dialog,
+  [data-placement="top"] .ta-dialog,
+  [data-placement="bottom"] .ta-dialog { animation-duration: var(--ta-duration-slow, 240ms); }
+
+  .ta-dialog-overlay[open]::backdrop { animation: ta-dialog-backdrop var(--ta-duration-base, 180ms) ease-out; }
+  @keyframes ta-dialog-backdrop {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   .ta-dialog-overlay::backdrop {
     background: rgb(var(--ta-backdrop, 0 0 0) / 0.7);
     backdrop-filter: blur(4px);
@@ -237,7 +277,7 @@
     border: 1px solid rgb(var(--ta-border));
     border-radius: var(--ta-radius-lg);
     box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5);
-    animation: ta-dialog-enter 0.15s ease-out;
+    animation: ta-dialog-enter var(--ta-duration-base, 180ms) var(--ta-ease-out, ease-out);
     outline: none;
   }
 
@@ -248,6 +288,9 @@
 
   @media (prefers-reduced-motion: reduce) {
     .ta-dialog { animation: none; }
+    .ta-dialog-overlay[open]::backdrop { animation: none; }
+    .ta-dialog-overlay,
+    .ta-dialog-overlay::backdrop { transition: none; }
   }
 
   .ta-dialog-header {

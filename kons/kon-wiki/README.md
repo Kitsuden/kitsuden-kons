@@ -6,7 +6,7 @@ keep a reference wiki for each game they cover.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.1.1 | `/api/wiki` | core `auth` |
+| beta | content | 1.1.2 | `/api/wiki` | core `auth` |
 
 ## Install
 

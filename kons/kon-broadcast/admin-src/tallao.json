@@ -5,11 +5,31 @@
     "button",
     "card",
     "card-content",
+    "card-footer",
+    "card-header",
+    "card-title",
     "checkbox",
     "confirm-dialog",
     "copy-button",
+    "data-table",
+    "description-list",
+    "dropdown-menu",
+    "empty-state",
+    "field",
+    "icon",
     "input",
+    "menu-item",
+    "menu-separator",
+    "page-header",
+    "save-bar",
     "select",
-    "theme-scope"
+    "skeleton",
+    "theme-scope",
+    "toaster",
+    "toggle"
+  ],
+  "modules": [
+    "motion",
+    "toast.svelte"
   ]
 }

@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-tierlist",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Editorial tier lists with diff between versions, and shareable personal lists",
   "type": "module",
   "main": "./index.ts",

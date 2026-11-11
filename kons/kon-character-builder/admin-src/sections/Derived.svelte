@@ -14,7 +14,7 @@
   }
 </script>
 
-<Panel title="Derived stats">
+<Panel title="Derived stats" description="Calculated from the base stats and the chosen options, in this order.">
   <KeyValueEditor
     {entries}
     onchange={change}

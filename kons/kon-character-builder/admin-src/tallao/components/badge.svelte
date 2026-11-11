@@ -5,6 +5,8 @@
     - `tone="solid"`: filled with the color and contrasting text, for what has to show
       on top of an image ("LIVE", "NEW"). `default` and `secondary` do not change.
   `accent` is the main accent; `accent-2`, the second one (pink by default).
+  On a light theme the soft tones take part of the text colour (`--ta-tone-ink`, 55% there, 0%
+  on dark) so the label reaches 4.5:1 on its tint; the dark theme is the plain tone.
   `dot` draws a leading dot in the variant's colour (a status: "Published", "Failed"); `pulse`
   makes it pulse for something live or running, except under `prefers-reduced-motion`.
 -->
@@ -83,33 +85,33 @@
   }
   .ta-badge--success {
     background: rgb(var(--ta-success) / 0.1);
-    color: rgb(var(--ta-success));
+    color: color-mix(in srgb, rgb(var(--ta-success)), rgb(var(--ta-text)) var(--ta-tone-ink, 0%));
     border-color: rgb(var(--ta-success) / 0.2);
   }
   .ta-badge--warning {
     background: rgb(var(--ta-warning) / 0.1);
-    color: rgb(var(--ta-warning));
+    color: color-mix(in srgb, rgb(var(--ta-warning)), rgb(var(--ta-text)) var(--ta-tone-ink, 0%));
     border-color: rgb(var(--ta-warning) / 0.2);
   }
   .ta-badge--error {
     background: rgb(var(--ta-danger) / 0.1);
-    color: rgb(var(--ta-danger));
+    color: color-mix(in srgb, rgb(var(--ta-danger)), rgb(var(--ta-text)) var(--ta-tone-ink, 0%));
     border-color: rgb(var(--ta-danger) / 0.2);
   }
   .ta-badge--info {
     background: rgb(var(--ta-info) / 0.1);
-    color: rgb(var(--ta-info));
+    color: color-mix(in srgb, rgb(var(--ta-info)), rgb(var(--ta-text)) var(--ta-tone-ink, 0%));
     border-color: rgb(var(--ta-info) / 0.2);
   }
   .ta-badge--purple,
   .ta-badge--accent {
     background: rgb(var(--ta-accent) / 0.1);
-    color: rgb(var(--ta-accent-hover));
+    color: color-mix(in srgb, rgb(var(--ta-accent-hover)), rgb(var(--ta-text)) var(--ta-tone-ink, 0%));
     border-color: rgb(var(--ta-accent) / 0.2);
   }
   .ta-badge--accent-2 {
     background: rgb(var(--ta-accent-2) / 0.1);
-    color: rgb(var(--ta-accent-2));
+    color: color-mix(in srgb, rgb(var(--ta-accent-2)), rgb(var(--ta-text)) var(--ta-tone-ink, 0%));
     border-color: rgb(var(--ta-accent-2) / 0.2);
   }
 

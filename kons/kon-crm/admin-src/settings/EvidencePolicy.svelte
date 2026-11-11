@@ -3,8 +3,10 @@
   import {
     Button,
     Checkbox,
+    EmptyState,
     Field,
     Input,
+    SaveBar,
     Table,
     TableBody,
     TableCell,
@@ -14,12 +16,12 @@
   } from "$lib/components";
   import { untrack } from "svelte";
 
-  import { fail, ok, type Api, type Note } from "../api";
+  import type { Api } from "../api";
   import type { EvidenceKind, EvidencePolicy } from "../types";
-  import EmptyRow from "../ui/EmptyRow.svelte";
+  import { createLoad } from "../ui/load.svelte";
+  import Loadable from "../ui/Loadable.svelte";
+  import { failed, toast } from "../ui/notify";
   import Panel from "../ui/Panel.svelte";
-  import Result from "../ui/Result.svelte";
-  import Row from "../ui/Row.svelte";
 
   const { api }: { api: Api } = $props();
 
@@ -36,7 +38,7 @@
 
   let applyAt = $state("");
   let kinds = $state<KindRow[]>([]);
-  let note = $state<Note | null>(null);
+  let loaded = $state<EvidencePolicy | null>(null);
   let saving = $state(false);
   let keys = 0;
 
@@ -50,87 +52,103 @@
     description: k.description ?? "",
   });
 
+  const body = () => ({
+    applyAt: Number(applyAt),
+    kinds: kinds.map((k) => ({ key: k.key.trim(), label: k.label.trim(), weight: Number(k.weight), active: k.active })),
+  });
+
+  let saved = $state("");
+  const dirty = $derived(saved !== "" && JSON.stringify(body()) !== saved);
+
   function paint(policy: EvidencePolicy) {
+    loaded = policy;
     applyAt = String(policy.applyAt);
     kinds = policy.kinds.map(toRow);
+    saved = JSON.stringify(body());
   }
 
+  const data = createLoad(async () => {
+    paint(await api.get<EvidencePolicy>("evidence-policy"));
+  });
+
   $effect(() => {
-    untrack(async () => {
-      try {
-        paint(await api.get<EvidencePolicy>("evidence-policy"));
-      } catch (e) {
-        note = fail(e);
-      }
-    });
+    untrack(data.load);
   });
 
   async function save() {
     saving = true;
     try {
-      const policy = await api.put<EvidencePolicy>("evidence-policy", {
-        applyAt: Number(applyAt),
-        kinds: kinds.map((k) => ({ key: k.key.trim(), label: k.label.trim(), weight: Number(k.weight), active: k.active })),
-      });
-      paint(policy);
-      note = ok("Saved. It applies to what is observed from now on.");
+      paint(await api.put<EvidencePolicy>("evidence-policy", body()));
+      toast.success("Evidence weights saved", { description: "They apply to what is observed from now on." });
     } catch (e) {
-      note = fail(e);
+      failed("Could not save the evidence weights", e);
     } finally {
       saving = false;
     }
   }
+
+  const addKind = () => kinds.push(toRow({ weight: 0, active: true }));
 </script>
 
-<Panel title="Observed data">
-  <p class="lead">
-    Whoever records a value says what kind of evidence it saw, never how sure it is. The weights of different sources
-    that saw the same value add up; from the threshold on, the value is written to the record, below it, it waits for a
-    person. A value a person typed is never overwritten.
-  </p>
-  <div class="threshold">
-    <Field label="Written to the record from">
-      <Input type="number" min="1" max="100" bind:value={applyAt} />
-    </Field>
-  </div>
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Key</TableHead>
-        <TableHead>Kind of evidence</TableHead>
-        <TableHead>Weight</TableHead>
-        <TableHead>On</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each kinds as kind (kind.rowKey)}
-        <TableRow>
-          <TableCell>
-            <Input bind:value={kind.key} readonly={kind.saved} title={kind.description || undefined} aria-label="Key" />
-          </TableCell>
-          <TableCell><Input bind:value={kind.label} aria-label="Kind of evidence" /></TableCell>
-          <TableCell><Input type="number" bind:value={kind.weight} aria-label="Weight" /></TableCell>
-          <TableCell><Checkbox bind:checked={kind.active} ariaLabel="On" /></TableCell>
-        </TableRow>
-      {:else}
-        <EmptyRow columns={4} text="No kinds of evidence" />
-      {/each}
-    </TableBody>
-  </Table>
-  <Row>
-    <Button size="sm" variant="outline" onclick={() => kinds.push(toRow({ weight: 0, active: true }))}>Add kind</Button>
-    <Button size="sm" loading={saving} onclick={save}>Save</Button>
-  </Row>
-  <Result {note} />
+<Panel
+  title="Observed data"
+  description="Whoever records a value says what kind of evidence it saw, never how sure it is. The weights of different sources that saw the same value add up; from the threshold on, the value is written to the record, below it, it waits for a person. A value a person typed is never overwritten."
+>
+  <Loadable load={data} errorTitle="The evidence weights did not load" lines={5}>
+    <div class="threshold">
+      <Field label="Written to the record from">
+        <Input type="number" min="1" max="100" bind:value={applyAt} />
+      </Field>
+    </div>
+    {#if kinds.length}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Key</TableHead>
+            <TableHead>Kind of evidence</TableHead>
+            <TableHead>Weight</TableHead>
+            <TableHead>On</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {#each kinds as kind (kind.rowKey)}
+            <TableRow>
+              <TableCell>
+                <Input bind:value={kind.key} readonly={kind.saved} title={kind.description || undefined} aria-label="Key" />
+              </TableCell>
+              <TableCell><Input bind:value={kind.label} aria-label="Kind of evidence" /></TableCell>
+              <TableCell><Input type="number" bind:value={kind.weight} aria-label="Weight" /></TableCell>
+              <TableCell><Checkbox bind:checked={kind.active} ariaLabel={`${kind.label || kind.key || "New kind"}: on`} /></TableCell>
+            </TableRow>
+          {/each}
+        </TableBody>
+      </Table>
+      <div><Button size="sm" variant="outline" onclick={addKind}>Add kind</Button></div>
+    {:else}
+      <EmptyState
+        size="sm"
+        level={3}
+        title="No kinds of evidence yet"
+        description="Without kinds, nothing observed can be written to a record."
+        actionLabel="Add kind"
+        onAction={addKind}
+      />
+    {/if}
+    <SaveBar
+      sticky={false}
+      savedText="No unsaved changes"
+      {dirty}
+      {saving}
+      saveLabel="Save"
+      cancelLabel="Discard"
+      ariaLabel="Save the evidence weights"
+      onSave={save}
+      onCancel={dirty && loaded ? () => paint(loaded!) : undefined}
+    />
+  </Loadable>
 </Panel>
 
 <style>
-  .lead {
-    margin: 0 0 0.75rem;
-    font-size: 0.875rem;
-    color: rgb(var(--ta-text-dim));
-  }
-
   .threshold {
     max-width: 16rem;
   }

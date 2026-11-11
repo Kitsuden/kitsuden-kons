@@ -7,27 +7,25 @@
     Badge,
     Button,
     ConfirmDialog,
+    DataTable,
     Dialog,
+    EmptyState,
     Field,
     Input,
     Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
     Textarea,
+    type DataColumn,
   } from "$lib/components";
+  import { untrack } from "svelte";
 
   import { seg } from "../api";
   import { dateInput, day, nullable, options, statusVariant, words } from "../format";
   import { CYCLE_STATUSES, type Cycle, type List } from "../types";
-  import Actions from "../ui/Actions.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
   import FormGrid from "../ui/FormGrid.svelte";
   import { CANCEL, CLOSE } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
   import Panel from "../ui/Panel.svelte";
+  import RowMenu, { type RowAction } from "../ui/RowMenu.svelte";
   import { useWorkspace } from "../store.svelte";
 
   const ws = useWorkspace();
@@ -44,14 +42,22 @@
   let confirmComplete = $state(false);
   let confirmDelete = $state(false);
 
-  async function load() {
+  const columns: DataColumn<Cycle>[] = [
+    { key: "name", header: "Cycle", sortable: true, hideable: false },
+    { key: "startDate", header: "Starts", sortable: true, value: (c) => day(c.startDate) },
+    { key: "endDate", header: "Ends", sortable: true, value: (c) => day(c.endDate) },
+    { key: "status", header: "Status", sortable: true, value: (c) => words(c.status) },
+    { key: "capacity", header: "Capacity", sortable: true, align: "right", value: (c) => c.capacity ?? null },
+  ];
+
+  const data = createLoad(async () => {
     cycles = (await ws.api.get<List<Cycle>>(`/${seg(ws.projectId!)}/cycles`)).docs;
-  }
+  });
 
   // Reload when the project changes or another section changed something.
   $effect(() => {
     void ws.version;
-    if (ws.projectId) ws.run(load);
+    if (ws.projectId) untrack(data.load);
   });
 
   function edit(c: Cycle | null) {
@@ -69,6 +75,7 @@
   }
 
   const datesError = $derived(form.startDate && form.endDate && form.endDate < form.startDate ? "Ends before it starts" : undefined);
+  const valid = $derived(!!form.name.trim() && !!form.startDate && !!form.endDate && !datesError);
 
   async function save() {
     saving = true;
@@ -86,7 +93,8 @@
               endDate: form.endDate,
               status: form.status,
             }),
-          "Cycle saved"
+          "Cycle saved",
+          "Could not save the cycle"
         );
       } else {
         await ws.act(
@@ -97,32 +105,33 @@
               startDate: form.startDate,
               endDate: form.endDate,
             }),
-          "Cycle created"
+          "Cycle created",
+          "Could not create the cycle"
         );
       }
       open = false;
-      await load();
+      await data.load();
     } catch {
-      // Shown in the notice.
+      // Shown in the toast.
     } finally {
       saving = false;
     }
   }
 
   async function start(c: Cycle) {
-    await ws.run(() => ws.api.patch(`/cycles/${seg(c.id)}`, { isActive: true, status: "started" }), "Cycle started");
-    await load();
+    await ws.run(() => ws.api.patch(`/cycles/${seg(c.id)}`, { isActive: true, status: "started" }), "Cycle started", "Could not start the cycle");
+    await data.load();
   }
 
   async function complete() {
     const body = carryOver === NEXT ? {} : { carryOverTo: carryOver === BACKLOG ? null : carryOver };
-    await ws.act(() => ws.api.post(`/cycles/${seg(target!.id)}/complete`, body), "Cycle closed");
-    await load();
+    await ws.act(() => ws.api.post(`/cycles/${seg(target!.id)}/complete`, body), "Cycle closed", "Could not close the cycle");
+    await data.load();
   }
 
   async function remove() {
-    await ws.act(() => ws.api.del(`/cycles/${seg(target!.id)}`), "Cycle deleted");
-    await load();
+    await ws.act(() => ws.api.del(`/cycles/${seg(target!.id)}`), "Cycle deleted", "Could not delete the cycle");
+    await data.load();
   }
 
   const open_ = (c: Cycle) => c.status !== "completed" && c.status !== "cancelled";
@@ -131,74 +140,79 @@
     ...cycles.filter((c) => c.id !== target?.id && open_(c)).map((c) => ({ value: c.id, label: c.name })),
     { value: BACKLOG, label: "Backlog (no cycle)" },
   ]);
+
+  const menu = (c: Cycle): RowAction[] => [
+    { label: "Edit", onSelect: () => edit(c) },
+    ...(open_(c) && !c.isActive ? [{ label: "Start", onSelect: () => void start(c) }] : []),
+    ...(open_(c)
+      ? [
+          {
+            label: "Close",
+            onSelect: () => {
+              target = c;
+              carryOver = NEXT;
+              confirmComplete = true;
+            },
+          },
+        ]
+      : []),
+    {
+      label: "Delete",
+      danger: true,
+      separated: true,
+      onSelect: () => {
+        target = c;
+        confirmDelete = true;
+      },
+    },
+  ];
 </script>
 
 <Panel title="Cycles">
-  {#snippet actions()}
-    <Button size="sm" onclick={() => edit(null)}>New cycle</Button>
+  {#snippet status()}
+    {#if data.ready}<Badge>{cycles.length} {cycles.length === 1 ? "cycle" : "cycles"}</Badge>{/if}
   {/snippet}
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Cycle</TableHead>
-        <TableHead>Dates</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Capacity</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each cycles as c (c.id)}
-        <TableRow>
-          <TableCell>
-            {c.name}
-            {#if c.isActive}<Badge variant="info">active</Badge>{/if}
-          </TableCell>
-          <TableCell>{day(c.startDate)} → {day(c.endDate)}</TableCell>
-          <TableCell><Badge variant={statusVariant(c.status)}>{words(c.status)}</Badge></TableCell>
-          <TableCell>{c.capacity ?? "—"}</TableCell>
-          <TableCell>
-            <Actions>
-              <Button size="sm" variant="ghost" onclick={() => edit(c)}>Edit</Button>
-              {#if open_(c) && !c.isActive}
-                <Button size="sm" variant="ghost" onclick={() => start(c)}>Start</Button>
-              {/if}
-              {#if open_(c)}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onclick={() => {
-                    target = c;
-                    carryOver = NEXT;
-                    confirmComplete = true;
-                  }}>Close</Button
-                >
-              {/if}
-              <Button
-                size="sm"
-                variant="ghost"
-                onclick={() => {
-                  target = c;
-                  confirmDelete = true;
-                }}>Delete</Button
-              >
-            </Actions>
-          </TableCell>
-        </TableRow>
+  {#snippet actions()}
+    <Button onclick={() => edit(null)}>New cycle</Button>
+  {/snippet}
+  <DataTable
+    caption="Cycles"
+    rows={cycles}
+    {columns}
+    rowKey="id"
+    rowLabel={(c) => c.name}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(c, col)}
+      {#if col.key === "name"}
+        <span class="name">
+          {c.name}
+          {#if c.isActive}<Badge variant="info" dot>Active</Badge>{/if}
+        </span>
+      {:else if col.key === "status"}
+        <Badge variant={statusVariant(c.status)}>{words(c.status)}</Badge>
+      {:else if col.key === "capacity"}
+        {c.capacity ?? "—"}
       {:else}
-        <EmptyRow columns={5} text="No cycles" />
-      {/each}
-    </TableBody>
-  </Table>
+        <span class="nowrap">{col.value?.(c)}</span>
+      {/if}
+    {/snippet}
+    {#snippet rowActions(c)}
+      <RowMenu label={`Actions: ${c.name}`} items={menu(c)} />
+    {/snippet}
+    {#snippet empty()}
+      <EmptyState size="sm" level={null} title="No cycles yet" actionLabel="New cycle" onAction={() => edit(null)} />
+    {/snippet}
+  </DataTable>
 </Panel>
 
 <Dialog bind:open title={editing ? `Edit ${editing.name}` : "New cycle"} closeLabel={CLOSE} size="lg">
-  <FormGrid>
-    <div class="wide">
-      <Field label="Name" required>
-        <Input bind:value={form.name} maxlength={200} />
-      </Field>
-    </div>
+  <FormGrid label={editing ? `Edit ${editing.name}` : "New cycle"} onsubmit={() => valid && !saving && save()}>
+    <Field label="Name" required class="wide">
+      <Input bind:value={form.name} maxlength={200} />
+    </Field>
     <Field label="Starts" required>
       <Input type="date" bind:value={form.startDate} />
     </Field>
@@ -212,25 +226,17 @@
       <Field label="Capacity (points)">
         <Input type="number" min="0" bind:value={form.capacity} />
       </Field>
-      <div class="wide">
-        <Field label="Goal">
-          <Textarea bind:value={form.goal} rows={2} maxlength={5000} />
-        </Field>
-      </div>
-    {/if}
-    <div class="wide">
-      <Field label="Description">
-        <Textarea bind:value={form.description} rows={2} maxlength={5000} />
+      <Field label="Goal" class="wide">
+        <Textarea bind:value={form.goal} rows={2} maxlength={5000} />
       </Field>
-    </div>
+    {/if}
+    <Field label="Description" class="wide">
+      <Textarea bind:value={form.description} rows={2} maxlength={5000} />
+    </Field>
   </FormGrid>
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (open = false)}>{CANCEL}</Button>
-    <Button
-      loading={saving}
-      disabled={!form.name.trim() || !form.startDate || !form.endDate || !!datesError}
-      onclick={save}>Save</Button
-    >
+    <Button loading={saving} disabled={!valid} onclick={save}>Save</Button>
   {/snippet}
 </Dialog>
 
@@ -255,5 +261,18 @@
   confirmLabel="Delete"
   cancelLabel={CANCEL}
   closeLabel={CLOSE}
+  variant="danger"
   onConfirm={remove}
 />
+
+<style>
+  .nowrap {
+    white-space: nowrap;
+  }
+
+  .name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+</style>

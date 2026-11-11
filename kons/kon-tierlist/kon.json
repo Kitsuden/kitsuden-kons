@@ -3,7 +3,7 @@
   "id": "kon-tierlist",
   "name": "TierList",
   "description": "Tier lists with two surfaces: editorial templates with diff between patches, and personal lists shareable by code",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

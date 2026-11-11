@@ -1,65 +1,109 @@
 <!-- Client portal links: which work, which expired, and revoking one that works. -->
 <script lang="ts">
-  import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components";
+  import { Badge, ConfirmDialog, DataTable, EmptyState, type DataColumn } from "$lib/components";
   import { untrack } from "svelte";
 
-  import { fail, seg, type Api, type Note } from "../api";
+  import { seg, type Api } from "../api";
   import type { PortalLink } from "../types";
-  import EmptyRow from "../ui/EmptyRow.svelte";
+  import { CANCEL, CLOSE } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
+  import { failed, toast } from "../ui/notify";
   import Panel from "../ui/Panel.svelte";
-  import Result from "../ui/Result.svelte";
+  import RowMenu from "../ui/RowMenu.svelte";
 
   const { api }: { api: Api } = $props();
 
   let links = $state<PortalLink[]>([]);
-  let note = $state<Note | null>(null);
+  let revoking = $state<PortalLink | null>(null);
+  let confirmRevoke = $state(false);
 
-  async function load() {
-    try {
-      links = (await api.get<{ data: PortalLink[] }>("portal-links")).data;
-    } catch (e) {
-      note = fail(e);
-    }
-  }
+  const stateOf = (l: PortalLink) => (l.live ? "Working" : l.revokedAt ? "Revoked" : "Expired");
 
-  $effect(() => {
-    untrack(load);
+  const columns: DataColumn<PortalLink>[] = [
+    { key: "contactId", header: "Contact", sortable: true, hideable: false },
+    { key: "expiresAt", header: "Until", sortable: true, value: (l) => String(l.expiresAt).slice(0, 10) },
+    { key: "state", header: "State", sortable: true, value: stateOf },
+  ];
+
+  const data = createLoad(async () => {
+    links = (await api.get<{ data: PortalLink[] }>("portal-links")).data;
   });
 
-  async function revoke(link: PortalLink) {
+  $effect(() => {
+    untrack(data.load);
+  });
+
+  async function revoke() {
+    const link = revoking!;
     try {
       await api.del(`portal-links/${seg(link.id)}`);
-      await load();
     } catch (e) {
-      note = fail(e);
+      failed("Could not revoke the link", e);
+      throw e;
     }
+    toast.success(`The link of ${link.contactId} no longer works`);
+    await data.load();
   }
 </script>
 
-<Panel title="Client portal links">
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Contact</TableHead>
-        <TableHead>Until</TableHead>
-        <TableHead>State</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each links as l (l.id)}
-        <TableRow>
-          <TableCell>{l.contactId}</TableCell>
-          <TableCell>{String(l.expiresAt).slice(0, 10)}</TableCell>
-          <TableCell>{l.live ? "Working" : l.revokedAt ? "Revoked" : "Expired"}</TableCell>
-          <TableCell>
-            {#if l.live}<Button size="sm" variant="ghost" onclick={() => revoke(l)}>Revoke</Button>{/if}
-          </TableCell>
-        </TableRow>
+<Panel title="Client portal links" description="The links clients open their portal with: which work, which expired.">
+  {#snippet status()}
+    {#if data.ready}<Badge>{links.filter((l) => l.live).length} working</Badge>{/if}
+  {/snippet}
+  <DataTable
+    caption="Client portal links"
+    rows={links}
+    {columns}
+    rowKey="id"
+    rowLabel={(l) => l.contactId}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(l, col)}
+      {#if col.key === "state"}
+        <Badge variant={l.live ? "success" : l.revokedAt ? "error" : "default"} dot>{stateOf(l)}</Badge>
+      {:else if col.key === "contactId"}
+        {l.contactId}
       {:else}
-        <EmptyRow columns={4} text="No links" />
-      {/each}
-    </TableBody>
-  </Table>
-  <Result {note} />
+        {col.value?.(l)}
+      {/if}
+    {/snippet}
+    {#snippet rowActions(l)}
+      {#if l.live}
+        <RowMenu
+          label={`Actions: link of ${l.contactId}`}
+          items={[
+            {
+              label: "Revoke",
+              danger: true,
+              onSelect: () => {
+                revoking = l;
+                confirmRevoke = true;
+              },
+            },
+          ]}
+        />
+      {/if}
+    {/snippet}
+    {#snippet empty()}
+      <EmptyState
+        size="sm"
+        level={null}
+        title="No portal links yet"
+        description="A link appears here when someone on the team, or an agent, sends a client their portal."
+      />
+    {/snippet}
+  </DataTable>
 </Panel>
+
+<ConfirmDialog
+  bind:open={confirmRevoke}
+  title={`Revoke the link of ${revoking?.contactId ?? ""}?`}
+  description="The client can no longer open the portal with it. A new link has to be sent."
+  confirmLabel="Revoke"
+  cancelLabel={CANCEL}
+  closeLabel={CLOSE}
+  variant="danger"
+  onConfirm={revoke}
+/>

@@ -4,9 +4,13 @@
 -->
 <script lang="ts">
   import {
+    Alert,
+    Badge,
     Button,
+    EmptyState,
     Field,
     Input,
+    SaveBar,
     Select,
     Table,
     TableBody,
@@ -18,12 +22,13 @@
   } from "$lib/components";
   import { untrack } from "svelte";
 
-  import { fail, ok, seg, type Api, type Note } from "../api";
+  import { seg, type Api } from "../api";
   import type { ScoreModel, ScorePreview, ScoreRule } from "../types";
-  import EmptyRow from "../ui/EmptyRow.svelte";
+  import FormGrid from "../ui/FormGrid.svelte";
+  import { createLoad } from "../ui/load.svelte";
+  import Loadable from "../ui/Loadable.svelte";
+  import { failed, toast } from "../ui/notify";
   import Panel from "../ui/Panel.svelte";
-  import Result from "../ui/Result.svelte";
-  import Row from "../ui/Row.svelte";
 
   const { api }: { api: Api } = $props();
 
@@ -44,7 +49,8 @@
   let rules = $state<RuleRow[]>([]);
   let guide = $state("");
   let contactId = $state("");
-  let note = $state<Note | null>(null);
+  /** What "Try on a contact" and "Recalculate all" answered: read on screen, not a passing notice. */
+  let outcome = $state<string | null>(null);
   let busy = $state<"save" | "try" | "recalculate" | null>(null);
   let keys = 0;
 
@@ -86,28 +92,35 @@
       points: Number(r.points),
     }));
 
-  async function load() {
-    try {
-      model = await api.get<ScoreModel>("score-model");
-      guide = model.guide ?? "";
-      rules = (model.rules ?? []).map(toRow);
-    } catch (e) {
-      note = fail(e);
-    }
+  /** What is on screen, to compare with what was loaded or saved last. */
+  const snapshot = () => JSON.stringify({ rules: body(), guide });
+  let saved = $state("");
+  const dirty = $derived(saved !== "" && snapshot() !== saved);
+
+  function paint(next: ScoreModel) {
+    guide = next.guide ?? "";
+    rules = (next.rules ?? []).map(toRow);
+    saved = snapshot();
   }
 
+  const data = createLoad(async () => {
+    model = await api.get<ScoreModel>("score-model");
+    paint(model);
+  });
+
   $effect(() => {
-    untrack(load);
+    untrack(data.load);
   });
 
   async function save() {
     busy = "save";
     try {
-      const saved = await api.put<ScoreModel>("score-model", { rules: body(), guide });
-      model = { ...model, ...saved };
-      note = ok(`Saved as version ${saved.version}. Scores change when you recalculate.`);
+      const answer = await api.put<ScoreModel>("score-model", { rules: body(), guide });
+      model = { ...model, ...answer };
+      saved = snapshot();
+      toast.success(`Saved as version ${answer.version}`, { description: "Scores change when you recalculate." });
     } catch (e) {
-      note = fail(e);
+      failed("Could not save the score rules", e);
     } finally {
       busy = null;
     }
@@ -115,14 +128,14 @@
 
   async function tryOn() {
     const id = contactId.trim();
-    if (!id) return (note = { ok: false, lines: ["Write a contact id first."] });
+    if (!id) return toast.error("Write a contact id first");
     busy = "try";
     try {
       const r = await api.post<ScorePreview>(`contacts/${seg(id)}/score`, { rules: body() });
       const why = r.matched.map((m) => `${m.label} (${m.points > 0 ? "+" : ""}${m.points})`).join(", ") || "no rule holds";
-      note = ok(`Score ${r.score}: ${why}. Nothing was saved.`);
+      outcome = `Score ${r.score}: ${why}. Nothing was saved.`;
     } catch (e) {
-      note = fail(e);
+      failed("Could not try the rules on that contact", e);
     } finally {
       busy = null;
     }
@@ -137,77 +150,128 @@
         const r = await api.post<{ scored: number; next?: string | null }>("scores/recalculate", after ? { after } : {});
         total += r.scored;
         after = r.next ?? undefined;
-        note = ok(`Recalculated ${total} contacts…`);
+        outcome = `Recalculated ${total} contacts…`;
       } while (after);
-      note = ok(`Recalculated ${total} contacts.`);
+      outcome = `Recalculated ${total} contacts.`;
+      toast.success(`Recalculated ${total} contacts`);
     } catch (e) {
-      note = fail(e);
+      failed("Could not recalculate the scores", e);
     } finally {
       busy = null;
     }
   }
+
+  const addRule = () => rules.push(toRow({ label: "", op: "==", points: 0 }));
 </script>
 
-<Panel title="Contact score">
-  <p class="lead">
-    Score = the sum of the points of every rule that holds, between 0 and 100.{#if model}{" "}Version
-      {model.version}.{/if}
-  </p>
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Rule</TableHead>
-        <TableHead>Signal</TableHead>
-        <TableHead>Is</TableHead>
-        <TableHead>Value</TableHead>
-        <TableHead>Points</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each rules as rule (rule.key)}
-        <TableRow>
-          <TableCell><Input bind:value={rule.label} aria-label="Rule name" /></TableCell>
-          <TableCell>
-            <Select bind:value={rule.signal} options={signalOptions(rule.signal)} aria-label="Signal" />
-          </TableCell>
-          <TableCell><Select bind:value={rule.op} options={OPS} aria-label="Comparison" /></TableCell>
-          <TableCell><Input bind:value={rule.value} aria-label="Value" /></TableCell>
-          <TableCell><Input type="number" bind:value={rule.points} aria-label="Points" /></TableCell>
-          <TableCell>
-            <Button size="sm" variant="ghost" onclick={() => (rules = rules.filter((r) => r !== rule))}>Remove</Button>
-          </TableCell>
-        </TableRow>
-      {:else}
-        <EmptyRow columns={6} text="No rules" />
-      {/each}
-    </TableBody>
-  </Table>
-  <Row>
-    <Button size="sm" variant="outline" onclick={() => rules.push(toRow({ label: "", op: "==", points: 0 }))}>Add rule</Button>
-  </Row>
-  <div class="mono">
-    <Field label="Guide (Markdown)">
-      <Textarea bind:value={guide} rows={8} />
-    </Field>
-  </div>
-  <Row>
-    <Button size="sm" loading={busy === "save"} onclick={save}>Save new version</Button>
-    <Input bind:value={contactId} placeholder="Contact id" aria-label="Contact id to try the rules on" />
-    <Button size="sm" variant="outline" loading={busy === "try"} onclick={tryOn}>Try on a contact</Button>
-    <Button size="sm" variant="outline" loading={busy === "recalculate"} onclick={recalculate}>Recalculate all</Button>
-  </Row>
-  <Result {note} />
+<Panel title="Contact score" description="Score = the sum of the points of every rule that holds, between 0 and 100.">
+  {#snippet status()}
+    {#if model}<Badge>Version {model.version}</Badge>{/if}
+  {/snippet}
+  <Loadable load={data} errorTitle="The score rules did not load" lines={6}>
+    {#if rules.length}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Rule</TableHead>
+            <TableHead>Signal</TableHead>
+            <TableHead>Is</TableHead>
+            <TableHead>Value</TableHead>
+            <TableHead>Points</TableHead>
+            <TableHead><span class="sr-anchor"><span class="sr-only">Actions</span></span></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {#each rules as rule (rule.key)}
+            <TableRow>
+              <TableCell><Input bind:value={rule.label} aria-label="Rule name" /></TableCell>
+              <TableCell>
+                <Select bind:value={rule.signal} options={signalOptions(rule.signal)} aria-label="Signal" />
+              </TableCell>
+              <TableCell><Select bind:value={rule.op} options={OPS} aria-label="Comparison" /></TableCell>
+              <TableCell><Input bind:value={rule.value} aria-label="Value" /></TableCell>
+              <TableCell><Input type="number" bind:value={rule.points} aria-label="Points" /></TableCell>
+              <TableCell>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  ariaLabel={`Remove rule ${rule.label || "without a name"}`}
+                  onclick={() => (rules = rules.filter((r) => r !== rule))}>Remove</Button
+                >
+              </TableCell>
+            </TableRow>
+          {/each}
+        </TableBody>
+      </Table>
+      <div><Button size="sm" variant="outline" onclick={addRule}>Add rule</Button></div>
+    {:else}
+      <EmptyState
+        size="sm"
+        level={3}
+        title="No rules yet"
+        description="Without rules every contact scores 0."
+        actionLabel="Add rule"
+        onAction={addRule}
+      />
+    {/if}
+    <div class="mono">
+      <Field label="Guide (Markdown)">
+        <Textarea bind:value={guide} rows={8} />
+      </Field>
+    </div>
+    <SaveBar
+      sticky={false}
+      savedText="No unsaved changes"
+      {dirty}
+      saving={busy === "save"}
+      saveLabel="Save new version"
+      cancelLabel="Discard"
+      ariaLabel="Save the score rules"
+      onSave={save}
+      onCancel={dirty && model ? () => paint(model!) : undefined}
+    />
+
+    <h3 class="sub">Check before it counts</h3>
+    <FormGrid label="Try the rules on a contact" onsubmit={tryOn}>
+      <Field label="Contact id">
+        <Input bind:value={contactId} />
+      </Field>
+      {#snippet actions()}
+        <Button variant="outline" loading={busy === "recalculate"} disabled={busy === "try"} onclick={recalculate}>
+          Recalculate all
+        </Button>
+        <Button type="submit" variant="secondary" loading={busy === "try"} disabled={busy === "recalculate"}>
+          Try on a contact
+        </Button>
+      {/snippet}
+    </FormGrid>
+    {#if outcome}<Alert variant="info" onDismiss={() => (outcome = null)}>{outcome}</Alert>{/if}
+  </Loadable>
 </Panel>
 
 <style>
-  .lead {
-    margin: 0 0 0.5rem;
-    font-size: 0.875rem;
-    color: rgb(var(--ta-text-dim));
-  }
-
   .mono :global(.ta-textarea) {
     font-family: var(--ta-font-mono);
+  }
+
+  .sub {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  /* Keeps the hidden text inside the table's scroll area: on its own it would widen the page. */
+  .sr-anchor {
+    position: relative;
+    display: block;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 </style>

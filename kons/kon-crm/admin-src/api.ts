@@ -51,12 +51,3 @@ export type Api = ReturnType<typeof createApi>;
 
 /** A path segment from an id. */
 export const seg = (v: string) => encodeURIComponent(v);
-
-/** What a section says under its buttons: a result or an error. */
-export interface Note {
-  ok: boolean;
-  lines: string[];
-}
-
-export const ok = (...lines: string[]): Note => ({ ok: true, lines });
-export const fail = (e: unknown): Note => ({ ok: false, lines: [e instanceof Error ? e.message : String(e)] });

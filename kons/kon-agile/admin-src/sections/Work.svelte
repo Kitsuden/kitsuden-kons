@@ -7,27 +7,26 @@
     Badge,
     Button,
     ConfirmDialog,
+    DataTable,
     Dialog,
+    EmptyState,
     Field,
+    FilterBar,
     Input,
     Select,
     Stat,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
     Textarea,
+    type DataColumn,
+    type FilterValues,
   } from "$lib/components";
+  import { untrack } from "svelte";
 
   import { seg } from "../api";
   import { count, money, moment, optional, options, statusVariant, words } from "../format";
   import { WORK_STATUSES, type AgentTotals, type Work } from "../types";
-  import Actions from "../ui/Actions.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
   import FormGrid from "../ui/FormGrid.svelte";
-  import { CANCEL, CLOSE } from "../ui/labels";
+  import { CLOSE, CANCEL } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
   import Panel from "../ui/Panel.svelte";
   import { useWorkspace } from "../store.svelte";
 
@@ -35,8 +34,10 @@
 
   let work = $state<Work[]>([]);
   let agents = $state<AgentTotals[]>([]);
-  let status = $state("");
-  let agentId = $state("");
+  // What the queue is filtered by: the API takes both as query parameters.
+  let query = $state<FilterValues>({});
+  const byStatus = $derived(String(query.status ?? ""));
+  const byAgent = $derived(String(query.agentId ?? ""));
 
   let requesting = $state(false);
   let request = $state({ agentId: "", issueKey: "", prompt: "" });
@@ -44,20 +45,43 @@
   let cancelling = $state<Work | null>(null);
   let confirmCancel = $state(false);
 
-  async function load() {
+  const open = (w: Work) => w.status === "queued" || w.status === "running";
+
+  const agentColumns: DataColumn<AgentTotals>[] = [
+    { key: "agentId", header: "Agent", sortable: true, hideable: false },
+    { key: "queued", header: "Queued", sortable: true, align: "right" },
+    { key: "running", header: "Running", sortable: true, align: "right" },
+    { key: "done", header: "Done", sortable: true, align: "right" },
+    { key: "failed", header: "Failed", sortable: true, align: "right" },
+    { key: "inputTokens", header: "Tokens in", sortable: true, align: "right" },
+    { key: "outputTokens", header: "Tokens out", sortable: true, align: "right" },
+    { key: "costUsd", header: "Cost", sortable: true, align: "right" },
+  ];
+
+  const workColumns: DataColumn<Work>[] = [
+    { key: "createdAt", header: "Queued", sortable: true, value: (w) => moment(w.createdAt) },
+    { key: "agentId", header: "Agent", sortable: true },
+    { key: "trigger", header: "Trigger", sortable: true, value: (w) => words(w.trigger) },
+    { key: "issueKey", header: "Issue", sortable: true, value: (w) => w.issueKey ?? null },
+    { key: "status", header: "Status", sortable: true, value: (w) => words(w.status) },
+    { key: "result", header: "Result", value: (w) => w.result ?? w.prompt ?? "—" },
+    { key: "costUsd", header: "Cost", sortable: true, align: "right", value: (w) => (w.costUsd != null ? Number(w.costUsd) : null) },
+  ];
+
+  const data = createLoad(async () => {
     const res = await ws.api.get<{ docs: Work[]; agents: AgentTotals[] }>(`/${seg(ws.projectId!)}/work`, {
-      status,
-      agentId,
+      status: byStatus,
+      agentId: byAgent,
       limit: 200,
     });
     work = res.docs;
     agents = res.agents;
-  }
+  });
 
   // Reload on another project, another filter, or a change elsewhere.
   $effect(() => {
-    void [ws.version, status, agentId];
-    if (ws.projectId) ws.run(load);
+    void [ws.version, byStatus, byAgent];
+    if (ws.projectId) untrack(data.load);
   });
 
   const totals = $derived(
@@ -78,6 +102,8 @@
     ...agents.filter((a) => !ws.agentOptions.some((o) => o.value === a.agentId)).map((a) => ({ value: a.agentId, label: a.agentId })),
   ]);
 
+  const valid = $derived(!!request.agentId && !!request.prompt.trim());
+
   async function send() {
     saving = true;
     try {
@@ -88,139 +114,162 @@
             issueKey: optional(request.issueKey.toUpperCase()),
             prompt: request.prompt.trim(),
           }),
-        "Work queued"
+        "Work queued",
+        "Could not queue the work"
       );
       requesting = false;
-      await load();
+      await data.load();
     } catch {
-      // Shown in the notice.
+      // Shown in the toast.
     } finally {
       saving = false;
     }
   }
 
   async function cancel() {
-    await ws.act(() => ws.api.post(`/work/${seg(cancelling!.id)}/finish`, { status: "cancelled" }), "Work cancelled");
-    await load();
+    await ws.act(
+      () => ws.api.post(`/work/${seg(cancelling!.id)}/finish`, { status: "cancelled" }),
+      "Work cancelled",
+      "Could not cancel the work"
+    );
+    await data.load();
   }
 </script>
 
-<div class="stack">
-  <div class="stats">
-    <Stat label="Open" value={count(totals.open)} variant={totals.open ? "warning" : "default"} />
-    <Stat label="Done" value={count(totals.done)} variant="success" />
-    <Stat label="Failed" value={count(totals.failed)} variant={totals.failed ? "error" : "default"} />
-    <Stat label="Tokens" value={count(totals.tokens)} />
-    <Stat label="Cost" value={money(totals.cost)} />
-  </div>
-
-  <Panel title="Per agent">
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Agent</TableHead>
-          <TableHead>Queued</TableHead>
-          <TableHead>Running</TableHead>
-          <TableHead>Done</TableHead>
-          <TableHead>Failed</TableHead>
-          <TableHead>Tokens in / out</TableHead>
-          <TableHead>Cost</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {#each agents as a (a.agentId)}
-          <TableRow>
-            <TableCell><code>{a.agentId}</code></TableCell>
-            <TableCell>{a.queued}</TableCell>
-            <TableCell>{a.running}</TableCell>
-            <TableCell>{a.done}</TableCell>
-            <TableCell>{a.failed}</TableCell>
-            <TableCell>{count(a.inputTokens)} / {count(a.outputTokens)}</TableCell>
-            <TableCell>{money(a.costUsd)}</TableCell>
-          </TableRow>
-        {:else}
-          <EmptyRow columns={7} text="No agent work" />
-        {/each}
-      </TableBody>
-    </Table>
-  </Panel>
-
-  <Panel title="Queue">
-    {#snippet actions()}
-      <Select size="sm" aria-label="Status" bind:value={status} options={options(WORK_STATUSES)} placeholder="Any status" />
-      <Select size="sm" aria-label="Agent" bind:value={agentId} options={agentFilter} placeholder="Any agent" />
-      <Button
-        size="sm"
-        disabled={!ws.agentOptions.length}
-        onclick={() => {
-          request = { agentId: ws.agentOptions[0]?.value ?? "", issueKey: "", prompt: "" };
-          requesting = true;
-        }}>Ask an agent</Button
-      >
+<Panel title="Per agent">
+  {#if data.ready && agents.length}
+    <div class="stats">
+      <Stat label="Open" value={count(totals.open)} variant={totals.open ? "warning" : "default"} />
+      <Stat label="Done" value={count(totals.done)} variant="success" />
+      <Stat label="Failed" value={count(totals.failed)} variant={totals.failed ? "error" : "default"} />
+      <Stat label="Tokens" value={count(totals.tokens)} />
+      <Stat label="Cost" value={money(totals.cost)} />
+    </div>
+  {/if}
+  <DataTable
+    caption="Work per agent"
+    rows={agents}
+    columns={agentColumns}
+    rowKey="agentId"
+    rowLabel={(a) => a.agentId}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(a, col)}
+      {#if col.key === "agentId"}
+        <code>{a.agentId}</code>
+      {:else if col.key === "costUsd"}
+        {money(a.costUsd)}
+      {:else if col.key === "inputTokens"}
+        {count(a.inputTokens)}
+      {:else if col.key === "outputTokens"}
+        {count(a.outputTokens)}
+      {:else}
+        {a[col.key as "queued" | "running" | "done" | "failed"]}
+      {/if}
     {/snippet}
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Queued</TableHead>
-          <TableHead>Agent</TableHead>
-          <TableHead>Trigger</TableHead>
-          <TableHead>Issue</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Result</TableHead>
-          <TableHead>Cost</TableHead>
-          <TableHead></TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {#each work as w (w.id)}
-          <TableRow>
-            <TableCell>{moment(w.createdAt)}</TableCell>
-            <TableCell><code>{w.agentId}</code></TableCell>
-            <TableCell>{words(w.trigger)}</TableCell>
-            <TableCell>{#if w.issueKey}<code>{w.issueKey}</code>{:else}—{/if}</TableCell>
-            <TableCell><Badge variant={statusVariant(w.status)}>{words(w.status)}</Badge></TableCell>
-            <TableCell><span class="result" title={w.result ?? w.prompt ?? ""}>{w.result ?? w.prompt ?? "—"}</span></TableCell>
-            <TableCell>{w.costUsd != null ? money(w.costUsd) : "—"}</TableCell>
-            <TableCell>
-              {#if w.status === "queued" || w.status === "running"}
-                <Actions>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onclick={() => {
-                      cancelling = w;
-                      confirmCancel = true;
-                    }}>Cancel</Button
-                  >
-                </Actions>
-              {/if}
-            </TableCell>
-          </TableRow>
-        {:else}
-          <EmptyRow columns={8} text="No work" />
-        {/each}
-      </TableBody>
-    </Table>
-  </Panel>
-</div>
+    {#snippet empty()}
+      <EmptyState size="sm" level={null} title="No agent work yet" description="Work appears when an agent is assigned an issue, a schedule runs, or someone asks an agent." />
+    {/snippet}
+  </DataTable>
+</Panel>
+
+<Panel title="Queue">
+  {#snippet status()}
+    {#if data.ready}<Badge>{work.length} {work.length === 1 ? "piece of work" : "pieces of work"}</Badge>{/if}
+  {/snippet}
+  {#snippet actions()}
+    <Button
+      disabled={!ws.agentOptions.length}
+      onclick={() => {
+        request = { agentId: ws.agentOptions[0]?.value ?? "", issueKey: "", prompt: "" };
+        requesting = true;
+      }}>Ask an agent</Button
+    >
+  {/snippet}
+  <FilterBar
+    bind:value={query}
+    search={false}
+    ariaLabel="Filter the queue"
+    filters={[
+      { key: "status", label: "Status", type: "select", options: options(WORK_STATUSES) },
+      { key: "agentId", label: "Agent", type: "select", options: agentFilter },
+    ]}
+  />
+  <DataTable
+    caption="Agent work queue"
+    rows={work}
+    columns={workColumns}
+    rowKey="id"
+    rowLabel={(w) => `${words(w.trigger)} for ${w.agentId}`}
+    pageSize={25}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(w, col)}
+      {#if col.key === "agentId"}
+        <code>{w.agentId}</code>
+      {:else if col.key === "issueKey"}
+        {#if w.issueKey}<code>{w.issueKey}</code>{:else}—{/if}
+      {:else if col.key === "status"}
+        <Badge variant={statusVariant(w.status)} dot={open(w)}>{words(w.status)}</Badge>
+      {:else if col.key === "result"}
+        <span class="result" title={w.result ?? w.prompt ?? ""}>{w.result ?? w.prompt ?? "—"}</span>
+      {:else if col.key === "costUsd"}
+        {w.costUsd != null ? money(w.costUsd) : "—"}
+      {:else}
+        <span class="nowrap">{col.value?.(w)}</span>
+      {/if}
+    {/snippet}
+    {#snippet rowActions(w)}
+      {#if open(w)}
+        <Button
+          size="sm"
+          variant="ghost"
+          ariaLabel={`Cancel: ${words(w.trigger)} for ${w.agentId}`}
+          onclick={() => {
+            cancelling = w;
+            confirmCancel = true;
+          }}>Cancel</Button
+        >
+      {/if}
+    {/snippet}
+    {#snippet empty()}
+      {#if byStatus || byAgent}
+        <EmptyState size="sm" level={null} variant="no-results" onClearFilters={() => (query = {})} />
+      {:else}
+        <EmptyState
+          size="sm"
+          level={null}
+          title="No work in the queue"
+          actionLabel={ws.agentOptions.length ? "Ask an agent" : undefined}
+          onAction={() => {
+            request = { agentId: ws.agentOptions[0]?.value ?? "", issueKey: "", prompt: "" };
+            requesting = true;
+          }}
+        />
+      {/if}
+    {/snippet}
+  </DataTable>
+</Panel>
 
 <Dialog bind:open={requesting} title="Ask an agent" closeLabel={CLOSE} size="lg">
-  <FormGrid>
+  <FormGrid label="Ask an agent" onsubmit={() => valid && !saving && send()}>
     <Field label="Agent" required>
       <Select bind:value={request.agentId} options={ws.agentOptions} />
     </Field>
     <Field label="Issue">
       <Input bind:value={request.issueKey} maxlength={64} placeholder={`${ws.project?.identifier ?? "KEY"}-12`} />
     </Field>
-    <div class="wide">
-      <Field label="Prompt" required>
-        <Textarea bind:value={request.prompt} rows={4} maxlength={10000} />
-      </Field>
-    </div>
+    <Field label="Prompt" required class="wide">
+      <Textarea bind:value={request.prompt} rows={4} maxlength={10000} />
+    </Field>
   </FormGrid>
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (requesting = false)}>{CANCEL}</Button>
-    <Button loading={saving} disabled={!request.agentId || !request.prompt.trim()} onclick={send}>Queue</Button>
+    <Button loading={saving} disabled={!valid} onclick={send}>Queue</Button>
   {/snippet}
 </Dialog>
 
@@ -231,19 +280,18 @@
   confirmLabel="Cancel work"
   cancelLabel="Keep"
   closeLabel={CLOSE}
+  variant="danger"
   onConfirm={cancel}
 />
 
 <style>
-  .stack {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+  .nowrap {
+    white-space: nowrap;
   }
 
   .stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
     gap: 0.75rem;
   }
 

@@ -6,7 +6,7 @@ assistant without writing an agent loop.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | content | 1.0.1 | `/api/chat` | — (core `auth`; the core's agent engine; kon-ingest optional) |
+| experimental | content | 1.0.2 | `/api/chat` | — (core `auth`; the core's agent engine; kon-ingest optional) |
 
 A bot is a channel to one agent identity: the agent brings the model (whatever provider the core is
 configured with), its prompt and its permissions; the bot adds who may talk to it, what it knows, which

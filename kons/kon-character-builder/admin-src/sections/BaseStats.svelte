@@ -16,7 +16,7 @@
   }
 </script>
 
-<Panel title="Base stats">
+<Panel title="Base stats" description="The values the formulas start from.">
   <KeyValueEditor
     {entries}
     onchange={change}

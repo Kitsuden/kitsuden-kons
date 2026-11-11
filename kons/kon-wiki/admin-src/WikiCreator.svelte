@@ -19,24 +19,17 @@
   admin mounts it with `context` ({ apiBase, theme, locale… }); calls use the browser's cookies.
 -->
 <script lang="ts">
-  import {
-    Alert,
-    Button,
-    Field,
-    Input,
-    Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-    Textarea,
-    ThemeScope,
-  } from "$lib/components";
+  import { untrack } from "svelte";
+
+  import { Alert, Badge, Button, DataTable, EmptyState, Field, Input, Select, Textarea } from "$lib/components";
+  import type { DataColumn } from "$lib/components";
 
   import { createApi } from "./api";
+  import FormGrid from "./ui/FormGrid.svelte";
+  import { createLoad } from "./ui/load.svelte";
+  import { failed, toast } from "./ui/notify";
   import Panel from "./ui/Panel.svelte";
+  import View from "./ui/View.svelte";
 
   interface ViewContext {
     apiBase?: string;
@@ -85,7 +78,6 @@
 
   let suggestion = $state<Suggestion | null>(null);
   let creating = $state(false);
-  let notice = $state<{ kind: "success" | "error"; text: string } | null>(null);
 
   let debounce: ReturnType<typeof setTimeout> | undefined;
   /** Keeps a slow response from overwriting a newer one. */
@@ -94,7 +86,6 @@
   const game = $derived(gamesById.get(gameId));
   // Without a game there is no address: the wiki lives inside it.
   const valid = $derived(Boolean(suggestion?.valid && game));
-  const previewState = $derived(!suggestion ? "empty" : valid ? "ok" : "error");
   const reason = $derived(
     !suggestion
       ? ""
@@ -112,10 +103,10 @@
     const base = context?.apiBase || "/api";
     if (base === loadedBase) return;
     loadedBase = base;
-    load();
+    untrack(data.load);
   });
 
-  async function load() {
+  const data = createLoad(async () => {
     // Without kon-games there are no games, and without a game there is nowhere to publish the
     // wiki: the dropdown stays empty and the server would reject the registration.
     const [w, g] = await Promise.allSettled([
@@ -126,8 +117,8 @@
       games = (g.value.docs ?? []).map((x) => ({ id: x.id, title: x.title, slug: x.slug }));
     }
     if (w.status === "fulfilled") wikis = w.value.docs ?? [];
-    else notice = { kind: "error", text: `Could not load the wikis: ${errorText(w.reason)}` };
-  }
+    else throw w.reason;
+  });
 
   function errorText(e: unknown) {
     return e instanceof Error ? e.message : String(e);
@@ -174,8 +165,7 @@
     }
   }
 
-  async function create(event: SubmitEvent) {
-    event.preventDefault();
+  async function create() {
     if (!valid || creating) return;
     creating = true;
 
@@ -190,7 +180,7 @@
     try {
       const { data } = await api.post<{ data: Wiki }>("/wiki/wikis", body);
       const of = data?.gameId ? gamesById.get(data.gameId) : undefined;
-      notice = { kind: "success", text: of ? `Wiki created: it is published at /${of.slug}/wiki/` : "Wiki created." };
+      toast.success("Wiki created", of ? { description: `It is published at /${of.slug}/wiki/` } : undefined);
 
       clearTimeout(debounce);
       latest++;
@@ -205,7 +195,7 @@
       const list = await api.get<{ docs?: Wiki[] }>("/wiki/wikis");
       wikis = list.docs ?? [];
     } catch (e) {
-      notice = { kind: "error", text: errorText(e) };
+      failed("Could not create the wiki", e);
     } finally {
       creating = false;
     }
@@ -214,180 +204,110 @@
   function created(at?: string) {
     return at ? new Date(at).toLocaleDateString() : "";
   }
+
+  const gameOf = (wiki: Wiki) => (wiki.gameId ? gamesById.get(wiki.gameId) : undefined);
+  // Without a game it is not published: it predates wikis hanging off a game.
+  const address = (wiki: Wiki) => {
+    const of = gameOf(wiki);
+    return of ? `/${of.slug}/wiki/` : "";
+  };
+
+  const columns: DataColumn<Wiki>[] = [
+    { key: "title", header: "Wiki", sortable: true, hideable: false },
+    { key: "address", header: "Address", value: address },
+    {
+      key: "game",
+      header: "Game",
+      sortable: true,
+      value: (wiki) => (wiki.gameId ? (gameOf(wiki)?.title ?? "(game not available)") : "—"),
+    },
+    { key: "created", header: "Created", sortable: true, value: (wiki) => wiki.createdAt ?? "" },
+  ];
 </script>
 
-<ThemeScope class="wiki-admin">
+<View>
   <Panel title="New wiki">
-    <form novalidate onsubmit={create}>
-      <div class="grid">
-        <Field label="Title" required>
-          <Input
-            bind:value={title}
-            required
-            maxlength={200}
-            placeholder="Throne and Liberty"
-            autocomplete="off"
-            oninput={onTitle}
-          />
-        </Field>
-        <Field label="Game" required>
-          <Select
-            bind:value={gameId}
-            required
-            options={gameOptions}
-            placeholder="— Choose the game —"
-            onchange={schedule}
-          />
-        </Field>
-        <Field label="Internal name (slug)">
-          <Input
-            bind:value={slug}
-            maxlength={63}
-            placeholder={slugPlaceholder}
-            autocomplete="off"
-            spellcheck="false"
-            oninput={onSlug}
-          />
-        </Field>
-      </div>
-      <div class="description">
-        <Field label="Description">
-          <Textarea bind:value={description} maxlength={2000} />
-        </Field>
-      </div>
+    <FormGrid label="New wiki" onsubmit={create}>
+      <Field label="Title" required>
+        <Input bind:value={title} maxlength={200} placeholder="Throne and Liberty" autocomplete="off" oninput={onTitle} />
+      </Field>
+      <Field label="Game" required>
+        <Select bind:value={gameId} options={gameOptions} placeholder="— Choose the game —" onchange={schedule} />
+      </Field>
+      <Field label="Internal name (slug)">
+        <Input
+          bind:value={slug}
+          maxlength={63}
+          placeholder={slugPlaceholder}
+          autocomplete="off"
+          spellcheck="false"
+          oninput={onSlug}
+        />
+      </Field>
+      <Field label="Description" class="wide">
+        <Textarea bind:value={description} maxlength={2000} />
+      </Field>
 
-      <div class="preview" data-state={previewState} aria-live="polite">
-        <div class="url">
-          {#if suggestion}
-            {game ? `/${game.slug}/wiki/` : "/<game>/wiki/"}
-          {:else}
-            Choose the game and type a title to see the address.
-          {/if}
-        </div>
+      <div class="preview wide" aria-live="polite">
         {#if suggestion}
-          <div class="reason">{reason}</div>
+          <Alert variant={valid ? "success" : "warning"} title={game ? `/${game.slug}/wiki/` : "/<game>/wiki/"}>
+            {reason}
+          </Alert>
+        {:else}
+          <p class="hint">Choose the game and type a title to see the address.</p>
         {/if}
       </div>
 
-      <div class="actions">
+      {#snippet actions()}
         <Button type="submit" disabled={!valid || creating} loading={creating}>Create wiki</Button>
-      </div>
-    </form>
-
-    {#if notice}
-      <div class="notice">
-        <Alert variant={notice.kind} dismissLabel="Dismiss" onDismiss={() => (notice = null)}>
-          {notice.text}
-        </Alert>
-      </div>
-    {/if}
+      {/snippet}
+    </FormGrid>
   </Panel>
 
-  <Panel title={wikis.length ? `Wikis (${wikis.length})` : "Wikis"}>
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Wiki</TableHead>
-          <TableHead>Address</TableHead>
-          <TableHead>Game</TableHead>
-          <TableHead>Created</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {#each wikis as wiki (wiki.id)}
-          {@const of = wiki.gameId ? gamesById.get(wiki.gameId) : undefined}
-          <TableRow>
-            <TableCell>{wiki.title}</TableCell>
-            <!-- Without a game it is not published: it predates wikis hanging off a game. -->
-            <TableCell><code>{of ? `/${of.slug}/wiki/` : "unpublished"}</code></TableCell>
-            <TableCell>{wiki.gameId ? (of?.title ?? "(game not available)") : "—"}</TableCell>
-            <TableCell>{created(wiki.createdAt)}</TableCell>
-          </TableRow>
+  <Panel title="Wikis">
+    {#snippet status()}
+      {#if data.ready}<Badge>{wikis.length} {wikis.length === 1 ? "wiki" : "wikis"}</Badge>{/if}
+    {/snippet}
+    <DataTable
+      caption="Wikis"
+      rows={wikis}
+      {columns}
+      rowKey="id"
+      rowLabel={(wiki) => wiki.title}
+      pageSize={25}
+      loading={data.loading}
+      error={data.error}
+      onRetry={data.load}
+    >
+      {#snippet cell(wiki, col)}
+        {#if col.key === "address"}
+          {#if address(wiki)}<code>{address(wiki)}</code>{:else}<Badge variant="secondary">Unpublished</Badge>{/if}
+        {:else if col.key === "created"}
+          {created(wiki.createdAt)}
         {:else}
-          <TableRow>
-            <TableCell colspan={4}><span class="empty">There are no wikis yet.</span></TableCell>
-          </TableRow>
-        {/each}
-      </TableBody>
-    </Table>
+          {col.value ? col.value(wiki) : wiki.title}
+        {/if}
+      {/snippet}
+      {#snippet empty()}
+        <EmptyState size="sm" level={null} title="No wikis yet" description="Create the first one with the form above." />
+      {/snippet}
+    </DataTable>
   </Panel>
-</ThemeScope>
+</View>
 
 <style>
   :host {
     display: block;
   }
 
-  :global(.wiki-admin) {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-    gap: 0.75rem 1rem;
-  }
-
-  .description {
-    margin-top: 0.75rem;
-  }
-
-  .preview {
-    margin-top: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    border: 1px dashed rgb(var(--ta-border));
-    border-radius: var(--ta-radius);
-    font-family: var(--ta-font-mono);
+  .hint {
+    margin: 0;
     font-size: 0.8125rem;
-    color: rgb(var(--ta-text));
-  }
-
-  .preview[data-state="ok"] {
-    border-color: rgb(var(--ta-success) / 0.6);
-  }
-
-  .preview[data-state="error"] {
-    border-color: rgb(var(--ta-danger) / 0.6);
-  }
-
-  .preview[data-state="empty"] .url {
     color: rgb(var(--ta-text-dim));
-    font-family: var(--ta-font-sans);
-  }
-
-  .reason {
-    margin-top: 0.25rem;
-    font-family: var(--ta-font-sans);
-    font-size: 0.75rem;
-  }
-
-  .preview[data-state="ok"] .reason {
-    color: rgb(var(--ta-success));
-  }
-
-  .preview[data-state="error"] .reason {
-    color: rgb(var(--ta-danger));
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.75rem;
-  }
-
-  .notice {
-    margin-top: 0.75rem;
   }
 
   code {
     font-family: var(--ta-font-mono);
     font-size: 0.8125rem;
-  }
-
-  .empty {
-    color: rgb(var(--ta-text-dim));
   }
 </style>

@@ -1,12 +1,14 @@
 <!-- Where the options the reader chooses come from. -->
 <script lang="ts">
-  import { Button } from "$lib/components";
+  import { Badge, Button, EmptyState } from "$lib/components";
 
   import { useEditor } from "../editor.svelte";
   import Panel from "../ui/Panel.svelte";
   import SlotCard from "./SlotCard.svelte";
 
   const editor = useEditor();
+
+  const count = $derived(editor.def.slots.length);
 
   function add() {
     editor.def.slots.push({
@@ -18,19 +20,29 @@
   }
 </script>
 
-<Panel title="Slots">
+<Panel title="Slots" description="What the reader chooses, and the dataset each choice comes from.">
+  {#snippet status()}
+    <Badge>{count} {count === 1 ? "slot" : "slots"}</Badge>
+  {/snippet}
   {#snippet actions()}
-    <Button size="sm" variant="secondary" onclick={add}>Add slot</Button>
+    {#if count}<Button size="sm" variant="outline" onclick={add}>Add slot</Button>{/if}
   {/snippet}
 
-  {#if editor.def.slots.length}
+  {#if count}
     <div class="slots">
       {#each editor.def.slots as slot, index (slot)}
         <SlotCard {slot} {index} />
       {/each}
     </div>
   {:else}
-    <p class="empty">No slots. The reader would have nothing to choose.</p>
+    <EmptyState
+      size="sm"
+      level={3}
+      title="No slots yet"
+      description="Without slots the reader has nothing to choose."
+      actionLabel="Add slot"
+      onAction={add}
+    />
   {/if}
 </Panel>
 
@@ -38,12 +50,6 @@
   .slots {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .empty {
-    margin: 0;
-    font-size: 0.875rem;
-    color: rgb(var(--ta-text-dim));
+    gap: 1rem;
   }
 </style>

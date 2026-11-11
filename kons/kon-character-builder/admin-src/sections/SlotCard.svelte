@@ -2,7 +2,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
 
-  import { Button, Field, Input, KeyValueEditor, Select, type KeyValueEntry } from "$lib/components";
+  import { Alert, Button, Field, Input, KeyValueEditor, Select, type KeyValueEntry } from "$lib/components";
 
   import { useEditor } from "../editor.svelte";
   import type { Slot } from "../types";
@@ -17,6 +17,8 @@
   // The capacity's text is kept while typing: writing back `Number(v) || 1` on every key would
   // turn an emptied field into "1" before the new number is typed.
   let capacity = $state(untrack(() => String(slot.capacity ?? 1)));
+
+  const title = $derived(slot.name || slot.id || `Slot ${index + 1}`);
 
   const datasetOptions = $derived(
     editor.datasets.map((d) => ({ value: d.id, label: d.name ?? d.slug ?? d.id }))
@@ -52,20 +54,26 @@
   }
 </script>
 
-<div class="slot">
-  <div class="header">
+<section class="slot" aria-label={`Slot ${title}`}>
+  <div class="head">
+    <h3 class="sub">{title}</h3>
+    <Button variant="ghost" size="sm" ariaLabel={`Remove slot ${title}`} onclick={() => editor.def.slots.splice(index, 1)}>
+      Remove
+    </Button>
+  </div>
+
+  <div class="fields">
     <Field label="Name">
       <Input
         value={slot.name ?? ""}
-        placeholder={'Name — "Weapon"'}
+        placeholder="Weapon"
         autocomplete="off"
         oninput={(e: Event) => (own().name = text(e))}
       />
     </Field>
-    <Field label="id">
+    <Field label="Id">
       <Input
         value={slot.id ?? ""}
-        placeholder="id"
         autocomplete="off"
         spellcheck="false"
         oninput={(e: Event) => (own().id = text(e))}
@@ -75,19 +83,14 @@
       <Input
         bind:value={capacity}
         type="number"
-        placeholder="capacity"
         oninput={(e: Event) => (own().capacity = Number(text(e)) || 1)}
       />
     </Field>
-    <Button variant="ghost" size="sm" onclick={() => editor.def.slots.splice(index, 1)}>Remove slot</Button>
-  </div>
-
-  <div class="source">
     <Field label="Options from">
       <Select
         value={datasetId}
         options={datasetOptions}
-        placeholder="— by hand —"
+        placeholder="By hand"
         onchange={(e: Event) => chooseDataset(text(e))}
       />
     </Field>
@@ -95,24 +98,24 @@
 
   {#if slot.optionsFrom?.datasetId}
     {#if columns.length === 0}
-      <p class="empty">
-        That dataset declares no columns. Without a schema there is nowhere to get the id or the modifiers.
-      </p>
+      <Alert variant="warning" title="That dataset declares no columns">
+        Without a schema there is nowhere to get the id or the modifiers.
+      </Alert>
     {:else}
-      <div class="mapping">
-        <Field label="stable id">
+      <div class="fields">
+        <Field label="Stable id column">
           <Select
             value={slot.optionsFrom.idField ?? ""}
             options={columnOptions}
-            placeholder="— none —"
+            placeholder="None"
             onchange={(e: Event) => setField("idField", text(e))}
           />
         </Field>
-        <Field label="cost">
+        <Field label="Cost column">
           <Select
             value={slot.optionsFrom.costField ?? ""}
             options={columnOptions}
-            placeholder="— none —"
+            placeholder="None"
             onchange={(e: Event) => setField("costField", text(e))}
           />
         </Field>
@@ -132,34 +135,41 @@
       />
     {/if}
   {/if}
-</div>
+</section>
 
 <style>
+  /* One slot of the list, not a card of its own: a rule between slots. */
   .slot {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border: 1px solid rgb(var(--ta-border));
-    border-radius: var(--ta-radius);
-    background: rgb(var(--ta-bg));
+    min-width: 0;
   }
 
-  .header {
+  .slot:not(:first-child) {
+    padding-top: 1rem;
+    border-top: 1px solid rgb(var(--ta-border));
+  }
+
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .sub {
+    margin: 0;
+    min-width: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .fields {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) 6rem auto;
-    align-items: end;
-    gap: 0.5rem 0.75rem;
-  }
-
-  .source {
-    max-width: 22rem;
-  }
-
-  .mapping {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 12rem));
-    gap: 0.5rem 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: 0.75rem;
   }
 
   h4 {
@@ -167,18 +177,5 @@
     font-size: 0.8125rem;
     font-weight: 600;
     color: rgb(var(--ta-text));
-  }
-
-  .empty {
-    margin: 0;
-    font-size: 0.875rem;
-    color: rgb(var(--ta-text-dim));
-  }
-
-  @media (max-width: 640px) {
-    .header,
-    .mapping {
-      grid-template-columns: minmax(0, 1fr);
-    }
   }
 </style>

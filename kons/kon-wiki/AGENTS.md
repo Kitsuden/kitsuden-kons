@@ -56,7 +56,7 @@ are indexed in `wiki_links` for backlinks and wanted pages.
 | `migrations/0002_wikis_with_subdomain.sql` | Adds `wikis`, moves existing pages to a `general` wiki, makes slugs unique per wiki. |
 | `migrations/0003_english_names.sql` | Renames stored scopes and tool names to English. |
 | `migrations/history.json` | Rename of `0002_wikis_con_subdominio.sql` and previous checksums. |
-| `admin-src/` | Svelte source of the Wikis view: `WikiCreator.svelte`, `api.ts`, `ui/Panel.svelte`; `views.json`, `tallao.json`. |
+| `admin-src/` | Svelte source of the Wikis view: `WikiCreator.svelte`, `api.ts`, `ui/` (the frame every kon's admin view shares, copies of kon-crm's); `views.json`, `tallao.json`. |
 | `admin-src/tallao/` | Copied tallao components. Do not edit; run `pnpm sync:tallao`. |
 | `admin/wiki-creator.js` | Built view (custom element `wiki-creator`). Generated; committed. |
 | `tsconfig.json` | Extends `../../tsconfig.kons.json`. |

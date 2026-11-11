@@ -3,7 +3,7 @@
   "id": "kon-character-builder",
   "name": "Character Builder",
   "description": "Character builder engine: per-game definitions, validation, final stats and shareable build codes",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

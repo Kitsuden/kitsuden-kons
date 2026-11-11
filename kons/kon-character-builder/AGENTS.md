@@ -59,9 +59,9 @@ tools say `character-builder`, and the policy resource is `builder`.
 | `package.json` | Package metadata, published `files`, dependency `@paralleldrive/cuid2`. |
 | `admin/definition-editor.js` | Built admin view (generated from `admin-src/`; do not edit). |
 | `admin-src/DefinitionEditor.svelte` | Root of the `builder-definition-editor` custom element. |
-| `admin-src/editor.svelte.ts` | Shared editor state: the definition, saved definitions, datasets, notices. |
+| `admin-src/editor.svelte.ts` | Shared editor state: the definition, saved definitions, datasets, unsaved changes, what the check found wrong. |
 | `admin-src/sections/*.svelte` | Editor sections: `BaseStats`, `Slots`, `SlotCard`, `Budgets`, `Derived`. |
-| `admin-src/ui/Panel.svelte` | Card wrapper used by the sections. |
+| `admin-src/ui/*` | The frame shared by every kon view, copied from kon-crm and kept identical: `ui/View.svelte`, `ui/Panel.svelte`, `ui/Loadable.svelte`, `ui/load.svelte.ts`, `ui/RowMenu.svelte`, `ui/FormGrid.svelte`, `ui/notify.ts`, `ui/labels.ts`. |
 | `admin-src/api.ts`, `admin-src/types.ts` | Fetch calls with the browser's cookies; the shapes the view sends and reads. |
 | `admin-src/views.json`, `admin-src/tallao.json`, `admin-src/tallao/` | Build list and the copied tallao components (`pnpm sync:tallao`; do not edit the copy). |
 | `migrations/0001`–`0002` | Tables, indexes, gallery columns and the votes table. |

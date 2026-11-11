@@ -59,7 +59,7 @@ to depth 3, one vote per account, and moderation by status (`published`, `pendin
 | `migrations/0001_comments.sql` | Creates both tables and their indexes. |
 | `migrations/0002_english_names.sql` | Renames stored scopes and tool names to English. |
 | `migrations/history.json` | Previous checksums of `0001_comments.sql` (comments translated). |
-| `admin-src/` | Svelte source of the Moderation view: `Moderation.svelte`, `store.svelte.ts`, `api.ts`, `format.ts`, `types.ts`, `ui/CommentItem.svelte`; `views.json` (what to build), `tallao.json` (which tallao components to copy). |
+| `admin-src/` | Svelte source of the Moderation view: `Moderation.svelte`, `store.svelte.ts`, `api.ts`, `format.ts`, `types.ts`, `ui/CommentItem.svelte`; the frame shared by every kon view, copied from kon-crm and kept identical (`ui/View.svelte`, `ui/Panel.svelte`, `ui/Loadable.svelte`, `ui/load.svelte.ts`, `ui/RowMenu.svelte`, `ui/FormGrid.svelte`, `ui/notify.ts`, `ui/labels.ts`); `views.json` (what to build), `tallao.json` (which tallao components to copy). |
 | `admin-src/tallao/` | Copied tallao components. Do not edit; run `pnpm sync:tallao`. |
 | `admin/moderation.js` | Built view (custom element `comments-moderation`). Generated; committed. |
 | `tsconfig.json` | Extends `../../tsconfig.kons.json`. |

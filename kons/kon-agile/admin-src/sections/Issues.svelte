@@ -3,36 +3,27 @@
   good. Editing an issue's content is daily work and stays out of the admin panel.
 -->
 <script lang="ts">
-  import {
-    Badge,
-    Button,
-    Checkbox,
-    ConfirmDialog,
-    Input,
-    Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-  } from "$lib/components";
+  import { Badge, Checkbox, ConfirmDialog, DataTable, EmptyState, FilterBar, type DataColumn, type FilterValues } from "$lib/components";
+  import { untrack } from "svelte";
 
   import { seg } from "../api";
   import { day, words } from "../format";
   import type { Issue, List } from "../types";
-  import Actions from "../ui/Actions.svelte";
-  import Dot from "../ui/Dot.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
   import { CANCEL, CLOSE } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
   import Panel from "../ui/Panel.svelte";
+  import RowMenu from "../ui/RowMenu.svelte";
+  import Swatch from "../ui/Swatch.svelte";
   import { useWorkspace } from "../store.svelte";
 
   const ws = useWorkspace();
   const LIMIT = 200;
+  const NONE = "__none";
 
   let issues = $state<Issue[]>([]);
-  let search = $state("");
+  // The filters of the list: the API takes them as query parameters.
+  let query = $state<FilterValues>({});
+  let search = "";
   let stateId = $state("");
   let assigneeId = $state("");
   let archived = $state(false);
@@ -40,103 +31,135 @@
   let confirmDelete = $state(false);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  async function load() {
+  const filtered = $derived(!!stateId || !!assigneeId || archived || !!query.q);
+
+  const columns: DataColumn<Issue>[] = [
+    { key: "key", header: "Key", sortable: true, hideable: false },
+    { key: "name", header: "Issue", sortable: true },
+    { key: "stateName", header: "State", sortable: true, value: (i) => i.stateName ?? "—" },
+    { key: "assigneeId", header: "Assignee", sortable: true, value: (i) => ws.memberLabel(i.assigneeId) },
+    { key: "priority", header: "Priority", sortable: true, value: (i) => words(i.priority) },
+    { key: "createdAt", header: "Created", sortable: true, value: (i) => day(i.createdAt) },
+  ];
+
+  const data = createLoad(async () => {
     const res = await ws.api.get<List<Issue>>(`/${seg(ws.projectId!)}/issues`, {
       search: search.trim(),
       stateId,
-      assigneeId: assigneeId === "__none" ? undefined : assigneeId,
-      unassigned: assigneeId === "__none" ? "true" : undefined,
+      assigneeId: assigneeId === NONE ? undefined : assigneeId,
+      unassigned: assigneeId === NONE ? "true" : undefined,
       includeArchived: archived ? "true" : undefined,
       limit: LIMIT,
     });
     issues = archived ? res.docs.filter((i) => i.archivedAt) : res.docs;
-  }
+  });
 
   // Filters reload at once; the search waits for a pause in typing.
   $effect(() => {
     void [ws.version, stateId, assigneeId, archived];
-    if (ws.projectId) ws.run(load);
+    if (ws.projectId) untrack(data.load);
   });
 
-  function typed() {
-    clearTimeout(timer);
-    timer = setTimeout(() => ws.run(load), 300);
+  function changed(value: FilterValues) {
+    const q = String(value.q ?? "");
+    if (q !== search) {
+      search = q;
+      clearTimeout(timer);
+      timer = setTimeout(data.load, 300);
+    }
+    stateId = String(value.state ?? "");
+    assigneeId = String(value.assignee ?? "");
+  }
+
+  function clear() {
+    archived = false;
+    query = {};
+    changed({});
   }
 
   async function setArchived(i: Issue, value: boolean) {
-    await ws.run(() => ws.api.post(`/issues/${seg(i.key)}/${value ? "archive" : "unarchive"}`), value ? `${i.key} archived` : `${i.key} restored`);
-    await load();
+    await ws.run(
+      () => ws.api.post(`/issues/${seg(i.key)}/${value ? "archive" : "unarchive"}`),
+      value ? `${i.key} archived` : `${i.key} restored`,
+      value ? `Could not archive ${i.key}` : `Could not restore ${i.key}`
+    );
+    await data.load();
   }
 
   async function remove() {
-    await ws.act(() => ws.api.del(`/issues/${seg(deleting!.key)}`), `${deleting!.key} deleted`);
-    await load();
+    await ws.act(() => ws.api.del(`/issues/${seg(deleting!.key)}`), `${deleting!.key} deleted`, `Could not delete ${deleting!.key}`);
+    await data.load();
   }
 </script>
 
 <Panel title="Issues">
-  {#snippet actions()}
-    <div class="search">
-      <Input type="search" aria-label="Search" placeholder="Search name or key" bind:value={search} oninput={typed} />
-    </div>
-    <Select size="sm" aria-label="State" bind:value={stateId} options={ws.stateOptions} placeholder="Any state" />
-    <Select
-      size="sm"
-      aria-label="Assignee"
-      bind:value={assigneeId}
-      options={[{ value: "__none", label: "Unassigned" }, ...ws.memberOptions]}
-      placeholder="Anyone"
-    />
-    <Checkbox bind:checked={archived} label="Archived only" />
+  {#snippet status()}
+    {#if data.ready}<Badge>{issues.length >= LIMIT ? `First ${LIMIT}` : `${issues.length} ${issues.length === 1 ? "issue" : "issues"}`}</Badge>{/if}
   {/snippet}
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Key</TableHead>
-        <TableHead>Issue</TableHead>
-        <TableHead>State</TableHead>
-        <TableHead>Assignee</TableHead>
-        <TableHead>Priority</TableHead>
-        <TableHead>Created</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each issues as i (i.id)}
-        <TableRow>
-          <TableCell><code>{i.key}</code></TableCell>
-          <TableCell>
-            {i.name}
-            {#if i.archivedAt}<Badge>archived {day(i.archivedAt)}</Badge>{/if}
-          </TableCell>
-          <TableCell><Dot color={i.stateColor} />{i.stateName ?? "—"}</TableCell>
-          <TableCell>{ws.memberLabel(i.assigneeId)}</TableCell>
-          <TableCell>{words(i.priority)}</TableCell>
-          <TableCell>{day(i.createdAt)}</TableCell>
-          <TableCell>
-            <Actions>
-              <Button size="sm" variant="ghost" onclick={() => setArchived(i, !i.archivedAt)}>
-                {i.archivedAt ? "Restore" : "Archive"}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onclick={() => {
-                  deleting = i;
-                  confirmDelete = true;
-                }}>Delete</Button
-              >
-            </Actions>
-          </TableCell>
-        </TableRow>
+  <FilterBar
+    bind:value={query}
+    onchange={changed}
+    ariaLabel="Filter the issues"
+    searchPlaceholder="Search name or key"
+    filters={[
+      { key: "state", label: "State", type: "select", options: ws.stateOptions },
+      { key: "assignee", label: "Assignee", type: "select", options: [{ value: NONE, label: "Unassigned" }, ...ws.memberOptions] },
+    ]}
+  >
+    {#snippet end()}
+      <Checkbox bind:checked={archived} label="Archived only" />
+    {/snippet}
+  </FilterBar>
+  <DataTable
+    caption="Issues"
+    rows={issues}
+    {columns}
+    rowKey="id"
+    rowLabel={(i) => i.key}
+    pageSize={25}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(i, col)}
+      {#if col.key === "key"}
+        <code>{i.key}</code>
+      {:else if col.key === "name"}
+        <span class="name">
+          {i.name}
+          {#if i.archivedAt}<Badge>Archived {day(i.archivedAt)}</Badge>{/if}
+        </span>
+      {:else if col.key === "stateName"}
+        {#if i.stateName}<Swatch color={i.stateColor} name={i.stateName} />{:else}—{/if}
       {:else}
-        <EmptyRow columns={7} text="No issues" />
-      {/each}
-    </TableBody>
-  </Table>
-  {#if issues.length >= LIMIT}
-    <p class="more">First {LIMIT}</p>
-  {/if}
+        <span class="nowrap">{col.value?.(i)}</span>
+      {/if}
+    {/snippet}
+    {#snippet rowActions(i)}
+      <RowMenu
+        label={`Actions: ${i.key}`}
+        items={[
+          { label: i.archivedAt ? "Restore" : "Archive", onSelect: () => void setArchived(i, !i.archivedAt) },
+          {
+            label: "Delete",
+            danger: true,
+            separated: true,
+            onSelect: () => {
+              deleting = i;
+              confirmDelete = true;
+            },
+          },
+        ]}
+      />
+    {/snippet}
+    {#snippet empty()}
+      {#if filtered}
+        <EmptyState size="sm" level={null} variant="no-results" onClearFilters={clear} />
+      {:else}
+        <EmptyState size="sm" level={null} title="No issues yet" description="Issues are created on the board or by approving an intake." />
+      {/if}
+    {/snippet}
+  </DataTable>
 </Panel>
 
 <ConfirmDialog
@@ -146,23 +169,26 @@
   confirmLabel="Delete"
   cancelLabel={CANCEL}
   closeLabel={CLOSE}
+  variant="danger"
   onConfirm={remove}
 />
 
 <style>
-  .search {
-    width: 14rem;
+  .nowrap {
+    white-space: nowrap;
+  }
+
+  .name {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 10rem;
   }
 
   code {
     white-space: nowrap;
     font-family: var(--ta-font-mono);
     font-size: 0.8125rem;
-  }
-
-  .more {
-    margin: 0.75rem 0 0;
-    font-size: 0.8125rem;
-    color: rgb(var(--ta-text-dim));
   }
 </style>

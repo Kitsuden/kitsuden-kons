@@ -3,54 +3,75 @@
   round and the cut.
 -->
 <script lang="ts">
-  import { Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "$lib/components";
+  import { Alert, Badge, Button, DataTable, EmptyState, type DataColumn } from "$lib/components";
 
   import { useBooth } from "../store.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
-  import Messages from "../ui/Messages.svelte";
-  import Row from "../ui/Row.svelte";
-  import Section from "../ui/Section.svelte";
+  import type { SwissStanding } from "../types";
+  import Panel from "../ui/Panel.svelte";
 
-  const { off = false }: { off?: boolean } = $props();
   const booth = useBooth();
 
   const pct = (n: number | undefined) => `${Math.round((n ?? 0) * 100)}%`;
+  const record = (s: SwissStanding) => `${s.record?.wins ?? 0}-${s.record?.losses ?? 0}-${s.record?.draws ?? 0}`;
   const swiss = $derived(booth.swiss);
+
+  const columns: DataColumn<SwissStanding>[] = [
+    { key: "place", header: "Place", sortable: true, align: "right", value: (s) => s.place ?? "" },
+    {
+      key: "participant",
+      header: "Participant",
+      sortable: true,
+      value: (s) => booth.name(s.participantId),
+      hideable: false,
+    },
+    { key: "record", header: "W-L-D", value: record },
+    { key: "points", header: "Points", sortable: true, align: "right", value: (s) => s.record?.points ?? 0 },
+    { key: "omw", header: "OMW", sortable: true, align: "right", value: (s) => s.omw ?? 0 },
+  ];
 </script>
 
-<Section title="Swiss" {off}>
-  {#snippet meta()}
+<Panel title="Swiss">
+  {#snippet status()}
     {#if swiss}
-      {swiss.complete ? `finished · ${swiss.totalRounds} rounds` : `round ${swiss.round} of ${swiss.totalRounds}`}
+      <Badge variant={swiss.complete ? "success" : "info"} dot>
+        {swiss.complete ? `Finished · ${swiss.totalRounds} rounds` : `Round ${swiss.round} of ${swiss.totalRounds}`}
+      </Badge>
     {/if}
   {/snippet}
-  <Row>
+  {#snippet actions()}
+    <Button variant="outline" onclick={() => booth.swissCut()}>See the cut</Button>
     <Button disabled={swiss?.complete ?? false} onclick={() => booth.swissNextRound()}>Pair next round</Button>
-    <Button variant="secondary" onclick={() => booth.swissCut()}>See the cut</Button>
-  </Row>
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>#</TableHead>
-        <TableHead>Participant</TableHead>
-        <TableHead>V-D-E</TableHead>
-        <TableHead>Points</TableHead>
-        <TableHead>OMW</TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each swiss?.standings ?? [] as s (s.participantId)}
-        <TableRow>
-          <TableCell>{s.place ?? ""}</TableCell>
-          <TableCell>{booth.name(s.participantId)}</TableCell>
-          <TableCell>{s.record?.wins ?? 0}-{s.record?.losses ?? 0}-{s.record?.draws ?? 0}</TableCell>
-          <TableCell>{s.record?.points ?? 0}</TableCell>
-          <TableCell>{pct(s.omw)}</TableCell>
-        </TableRow>
-      {:else}
-        <EmptyRow columns={5} text="There are no results yet." />
-      {/each}
-    </TableBody>
-  </Table>
-  <Messages scope="swiss" />
-</Section>
+  {/snippet}
+  {#if booth.notice.swiss}
+    {@const notice = booth.notice.swiss}
+    <Alert
+      variant={notice.variant}
+      title={notice.title}
+      dismissLabel="Dismiss"
+      onDismiss={() => (booth.notice.swiss = null)}>{notice.text}</Alert
+    >
+  {/if}
+  <DataTable
+    caption="Swiss standings"
+    rows={swiss?.standings ?? []}
+    {columns}
+    rowKey="participantId"
+    rowLabel={(s) => booth.name(s.participantId)}
+    pageSize={32}
+    loading={booth.loads.swiss.loading}
+    error={booth.loads.swiss.error}
+    onRetry={booth.loads.swiss.load}
+  >
+    {#snippet cell(s, col)}
+      {#if col.key === "omw"}{pct(s.omw)}{:else}{col.value?.(s)}{/if}
+    {/snippet}
+    {#snippet empty()}
+      <EmptyState
+        size="sm"
+        level={null}
+        title="No results yet"
+        description="The standings fill in as the sets of the first round are reported."
+      />
+    {/snippet}
+  </DataTable>
+</Panel>

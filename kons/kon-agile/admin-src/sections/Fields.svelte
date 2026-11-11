@@ -8,26 +8,24 @@
     Button,
     Checkbox,
     ConfirmDialog,
+    DataTable,
     Dialog,
+    EmptyState,
     Field,
     Input,
     Select,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+    type DataColumn,
   } from "$lib/components";
+  import { untrack } from "svelte";
 
   import { seg } from "../api";
   import { options, words } from "../format";
   import { FIELD_TYPES, type CustomField, type List } from "../types";
-  import Actions from "../ui/Actions.svelte";
-  import EmptyRow from "../ui/EmptyRow.svelte";
   import FormGrid from "../ui/FormGrid.svelte";
   import { CANCEL, CLOSE } from "../ui/labels";
+  import { createLoad } from "../ui/load.svelte";
   import Panel from "../ui/Panel.svelte";
+  import RowMenu from "../ui/RowMenu.svelte";
   import { useWorkspace } from "../store.svelte";
 
   const ws = useWorkspace();
@@ -44,15 +42,24 @@
   const keyError = $derived(
     !editing && form.key && !/^[a-z][a-z0-9_]{0,49}$/.test(form.key) ? "Lower-case letters, digits and _, starting with a letter" : undefined
   );
+  const valid = $derived(!!form.name.trim() && (!!editing || (!!form.key && !keyError)));
 
-  async function load() {
+  const columns: DataColumn<CustomField>[] = [
+    { key: "name", header: "Field", sortable: true, hideable: false },
+    { key: "key", header: "Key", sortable: true },
+    { key: "type", header: "Type", sortable: true, value: (f) => words(f.type) },
+    { key: "options", header: "Options", value: (f) => (f.options ?? []).join(", ") || "—" },
+    { key: "sortOrder", header: "Order", sortable: true, align: "right" },
+  ];
+
+  const data = createLoad(async () => {
     fields = (await ws.api.get<List<CustomField>>(`/${seg(ws.projectId!)}/fields`)).docs;
-  }
+  });
 
   // Reload when the project changes or another section changed something.
   $effect(() => {
     void ws.version;
-    if (ws.projectId) ws.run(load);
+    if (ws.projectId) untrack(data.load);
   });
 
   function edit(f: CustomField | null) {
@@ -83,70 +90,80 @@
           editing
             ? ws.api.patch(`/fields/${seg(editing.id)}`, common)
             : ws.api.post(`/${seg(ws.projectId!)}/fields`, { ...common, key: form.key, type: form.type }),
-        editing ? "Field saved" : "Field created"
+        editing ? "Field saved" : "Field created",
+        editing ? "Could not save the field" : "Could not create the field"
       );
       open = false;
-      await load();
+      await data.load();
     } catch {
-      // Shown in the notice.
+      // Shown in the toast.
     } finally {
       saving = false;
     }
   }
 
   async function remove() {
-    await ws.act(() => ws.api.del(`/fields/${seg(deleting!.id)}`), "Field deleted");
-    await load();
+    await ws.act(() => ws.api.del(`/fields/${seg(deleting!.id)}`), "Field deleted", "Could not delete the field");
+    await data.load();
   }
 </script>
 
 <Panel title="Custom fields">
-  {#snippet actions()}
-    <Button size="sm" onclick={() => edit(null)}>New field</Button>
+  {#snippet status()}
+    {#if data.ready}<Badge>{fields.length} {fields.length === 1 ? "field" : "fields"}</Badge>{/if}
   {/snippet}
-  <Table>
-    <TableHeader>
-      <TableRow>
-        <TableHead>Field</TableHead>
-        <TableHead>Key</TableHead>
-        <TableHead>Type</TableHead>
-        <TableHead>Options</TableHead>
-        <TableHead></TableHead>
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {#each fields as f (f.id)}
-        <TableRow>
-          <TableCell>
-            {f.name}
-            {#if f.isRequired}<Badge variant="warning">required</Badge>{/if}
-          </TableCell>
-          <TableCell><code>{f.key}</code></TableCell>
-          <TableCell>{words(f.type)}</TableCell>
-          <TableCell>{(f.options ?? []).join(", ") || "—"}</TableCell>
-          <TableCell>
-            <Actions>
-              <Button size="sm" variant="ghost" onclick={() => edit(f)}>Edit</Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onclick={() => {
-                  deleting = f;
-                  confirmDelete = true;
-                }}>Delete</Button
-              >
-            </Actions>
-          </TableCell>
-        </TableRow>
+  {#snippet actions()}
+    <Button onclick={() => edit(null)}>New field</Button>
+  {/snippet}
+  <DataTable
+    caption="Custom fields"
+    rows={fields}
+    {columns}
+    rowKey="id"
+    rowLabel={(f) => f.name}
+    loading={data.loading}
+    error={data.error}
+    onRetry={data.load}
+  >
+    {#snippet cell(f, col)}
+      {#if col.key === "name"}
+        <span class="name">
+          {f.name}
+          {#if f.isRequired}<Badge variant="warning">Required</Badge>{/if}
+        </span>
+      {:else if col.key === "key"}
+        <code>{f.key}</code>
+      {:else if col.key === "sortOrder"}
+        {f.sortOrder}
       {:else}
-        <EmptyRow columns={5} text="No custom fields" />
-      {/each}
-    </TableBody>
-  </Table>
+        {col.value?.(f)}
+      {/if}
+    {/snippet}
+    {#snippet rowActions(f)}
+      <RowMenu
+        label={`Actions: ${f.name}`}
+        items={[
+          { label: "Edit", onSelect: () => edit(f) },
+          {
+            label: "Delete",
+            danger: true,
+            separated: true,
+            onSelect: () => {
+              deleting = f;
+              confirmDelete = true;
+            },
+          },
+        ]}
+      />
+    {/snippet}
+    {#snippet empty()}
+      <EmptyState size="sm" level={null} title="No custom fields yet" actionLabel="New field" onAction={() => edit(null)} />
+    {/snippet}
+  </DataTable>
 </Panel>
 
 <Dialog bind:open title={editing ? `Edit ${editing.name}` : "New field"} closeLabel={CLOSE} size="lg">
-  <FormGrid>
+  <FormGrid label={editing ? `Edit ${editing.name}` : "New field"} onsubmit={() => valid && !saving && save()}>
     <Field label="Name" required>
       <Input bind:value={form.name} maxlength={100} />
     </Field>
@@ -160,11 +177,9 @@
       <Input type="number" min="0" max="10000" bind:value={form.sortOrder} />
     </Field>
     {#if withOptions}
-      <div class="wide">
-        <Field label="Options">
-          <Input bind:value={form.options} placeholder="Small, Medium, Large" />
-        </Field>
-      </div>
+      <Field label="Options" class="wide">
+        <Input bind:value={form.options} placeholder="Small, Medium, Large" />
+      </Field>
     {/if}
     <div class="wide">
       <Checkbox bind:checked={form.isRequired} label="Required" />
@@ -172,7 +187,7 @@
   </FormGrid>
   {#snippet footer()}
     <Button variant="ghost" onclick={() => (open = false)}>{CANCEL}</Button>
-    <Button loading={saving} disabled={!form.name.trim() || (!editing && (!form.key || !!keyError))} onclick={save}>Save</Button>
+    <Button loading={saving} disabled={!valid} onclick={save}>Save</Button>
   {/snippet}
 </Dialog>
 
@@ -183,10 +198,17 @@
   confirmLabel="Delete"
   cancelLabel={CANCEL}
   closeLabel={CLOSE}
+  variant="danger"
   onConfirm={remove}
 />
 
 <style>
+  .name {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   code {
     white-space: nowrap;
     font-family: var(--ta-font-mono);

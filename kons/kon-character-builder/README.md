@@ -6,7 +6,7 @@ and keeps a public gallery of builds with votes. For game sites that offer build
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.1.0 | `/api/builder` | `kon-formulas` (^1.0.0); core: `auth` |
+| beta | gaming | 1.1.1 | `/api/builder` | `kon-formulas` (^1.0.0); core: `auth` |
 
 ## Install
 

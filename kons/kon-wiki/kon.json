@@ -3,7 +3,7 @@
   "id": "kon-wiki",
   "name": "Wiki",
   "description": "Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with backlinks",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

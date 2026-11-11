@@ -87,6 +87,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+    min-height: 1.5rem;
     font-size: 0.875rem;
     color: rgb(var(--ta-text-dim));
     cursor: pointer;

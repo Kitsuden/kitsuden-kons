@@ -12,17 +12,19 @@
   Configuration and oversight only; the chat people use is the widget on a website, or the app built
   on top for team bots.
 
+  The list of bots, and one bot once it is opened ("Back to bots" returns to the list, which stays
+  loaded behind it).
+
   The admin mounts it with `context` ({ apiBase, theme, locale… }); calls go to the kon's REST routes
   with the browser's cookies. The theme comes from the admin's `--kitsuden-*` variables through
-  tallao's ThemeScope.
+  tallao's ThemeScope (ui/View.svelte), which also holds the Toaster the sections report to.
 -->
 <script lang="ts">
-  import { ThemeScope } from "$lib/components";
-
   import { createApi } from "./api";
   import BotDetail from "./sections/BotDetail.svelte";
   import Bots from "./sections/Bots.svelte";
   import type { Bot } from "./types";
+  import View from "./ui/View.svelte";
 
   interface ViewContext {
     apiBase?: string;
@@ -51,25 +53,19 @@
   }
 </script>
 
-<ThemeScope class="chat-admin">
+<View>
   {#key base}
-    <Bots {api} onOpen={open} onDeleted={(bot) => current?.id === bot.id && (current = null)} />
+    <Bots {api} hidden={current !== null} onOpen={open} onDeleted={(bot) => current?.id === bot.id && (current = null)} />
     {#if current}
       {#key opened}
-        <BotDetail {api} bot={current} apiBase={base} {visitorId} />
+        <BotDetail {api} bot={current} apiBase={base} {visitorId} onBack={() => (current = null)} />
       {/key}
     {/if}
   {/key}
-</ThemeScope>
+</View>
 
 <style>
   :host {
     display: block;
-  }
-
-  :global(.chat-admin) {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
   }
 </style>

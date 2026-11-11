@@ -3,6 +3,20 @@
 Each kon has its own version in its `package.json` (copied to `kon.json` by `pnpm kon:sync`) and
 its maturity in the table of the [README](README.md). This file records releases of the repository.
 
+## Unreleased
+
+- The twelve admin views the kons ship follow one layout, built on the current tallao kit: sections
+  as cards with an h2 (the panel draws the page title), a skeleton while a list loads, an empty
+  state with the next action, an error with Retry, a SaveBar with dirty state on forms, a
+  confirmation before destructive actions, and every result as a toast. Lists are DataTables with
+  sorting and a pinned row menu. Requests are unchanged, except that a new tier list takes its row
+  colours from the kit's series tokens. kon-agile 1.3.2, kon-broadcast 1.0.3,
+  kon-character-builder 1.1.1, kon-chat 1.0.2, kon-comments 1.0.1, kon-crm 1.0.3, kon-esports 1.0.3,
+  kon-tierlist 1.0.1, kon-wiki 1.1.2.
+- `pnpm sync:tallao` follows every import of a component (`$lib/motion`, `$lib/toast.svelte`,
+  `$lib/components/…`, `internal/*.svelte`) and takes `"modules"` in `admin-src/tallao.json` for
+  tallao's other entry points.
+
 ## 0.9.0-beta — first public release
 
 - Security scanning on every push and pull request with Kitsuden's scanners: gitleaks, OSV-Scanner,

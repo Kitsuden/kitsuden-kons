@@ -27,6 +27,7 @@ import { join, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { mountJsdom } from "../../.kitsuden/tests/unit/dom-in-test";
+import { rankedColors, tiersFrom } from "../../kons/kon-tierlist/admin-src/format";
 
 // jsdom is set up here and not with vitest's environment comment (NOTE: that
 // comment is detected on ANY line of the file, even quoted in a
@@ -216,6 +217,13 @@ beforeEach(async () => {
 // are removed and that tick is awaited HERE, while jsdom is still mounted, so the last one is
 // not destroyed after the environment is torn down ("document is not defined").
 afterEach(async () => {
+  // The results of an action are toasts, and they outlive the editor that raised them: the
+  // ones a test left are dismissed so the next test only reads its own.
+  for (const close of Array.from(document.querySelectorAll("tierlist-editor")).flatMap((e) =>
+    Array.from(e.shadowRoot?.querySelectorAll<HTMLButtonElement>("button.ta-toast-close") ?? [])
+  )) {
+    close.click();
+  }
   document.body.innerHTML = "";
   await new Promise((r) => setTimeout(r, 0));
 });
@@ -230,7 +238,7 @@ describe("the view and its sources", () => {
 
     for (const title of ["Tier list", "Board", "What changed"]) {
       expect(
-        Array.from(shadow(element).querySelectorAll("h3")).map((h) => h.textContent?.trim()),
+        Array.from(shadow(element).querySelectorAll("h2")).map((h) => h.textContent?.trim()),
         `section «${title}»`
       ).toContain(title);
     }
@@ -531,7 +539,9 @@ describe("when loading fails", () => {
     const element = create();
 
     await vi.waitFor(() => {
-      expect(alerts(element).join(" ")).toContain("There is no tier list yet");
+      // It is the board's empty state (not an alert: nothing failed), with its own way out.
+      expect(text(element)).toContain("There is no tier list yet");
+      expect(button(element, "New tier list")).toBeTruthy();
       // The create form is there and open: it is the only thing that can be done here.
       expect(input(element, "Title"), "the create form has to be open").toBeTruthy();
       expect(button(element, "Create")).toBeTruthy();
@@ -593,8 +603,12 @@ describe("when loading fails", () => {
     expect(body.tiers[0]).toMatchObject({ id: "s", label: "S" });
 
     // Each row with its color, computed by POSITION: so it works the same with
-    // "S,A,B" as with "Imprescindible, Opcional, No".
-    expect(body.tiers[0].color).toMatch(/^#[0-9a-f]{6}$/i);
+    // "S,A,B" as with "Imprescindible, Opcional, No". The colours are read from the theme's
+    // tokens, which jsdom does not compute inside a shadow root: here a row either carries a
+    // hex or none (the API then gives its default); the next test pins the computation.
+    for (const tier of body.tiers) {
+      if (tier.color !== undefined) expect(tier.color).toMatch(/^#[0-9a-f]{6}$/i);
+    }
 
     // And the new one is left open, not returned to the empty screen.
     await vi.waitFor(() => {
@@ -602,6 +616,36 @@ describe("when loading fails", () => {
       expect(input(element, "Title"), "the form closes").toBeNull();
       expect(select(element, "Tier list to edit").value).toBe(SLUG);
     });
+  });
+
+  test("the rows of a new list take their color by position, as the hex the API stores", () => {
+    // The editor reads the kit's series tokens (an "r g b" triplet each) from its own theme.
+    const tokens: Record<string, string> = {
+      "--ta-series-8": "230 103 103",
+      "--ta-series-2": "217 89 38",
+      "--ta-series-4": "201 133 0",
+      "--ta-series-6": "0 131 0",
+      "--ta-series-3": "25 158 112",
+      "--ta-series-1": "57 135 229",
+      "--ta-series-7": "144 133 233",
+    };
+    const colors = rankedColors({ getPropertyValue: (name: string) => tokens[name] ?? "" });
+
+    expect(colors).toHaveLength(7);
+    for (const color of colors) expect(color).toMatch(/^#[0-9a-f]{6}$/);
+    expect(new Set(colors).size, "each row its own color").toBe(7);
+    // Red first: a tier list goes from red down.
+    expect(colors[0]).toBe("#e66767");
+
+    const labels = ["Imprescindible", "Opcional", "No", "d", "e", "f", "g", "h"];
+    const tiers = tiersFrom(labels, colors);
+    expect(tiers.map((t) => t.color).slice(0, 7)).toEqual(colors);
+    // Past the palette a row goes without one, and the API gives it its default.
+    expect(tiers[7]).not.toHaveProperty("color");
+
+    // Tokens that cannot be read give no palette, never a broken color.
+    expect(rankedColors({ getPropertyValue: () => "" })).toEqual([]);
+    expect(tiersFrom(["S"], [])[0]).toEqual({ id: "s", label: "S" });
   });
 
   test("a server error is shown, not swallowed", async () => {

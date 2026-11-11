@@ -1,16 +1,27 @@
 {
   "components": [
     "alert",
+    "badge",
     "button",
     "card",
     "card-content",
+    "card-footer",
     "card-header",
     "card-title",
     "checkbox",
     "confirm-dialog",
+    "data-table",
+    "dropdown-menu",
+    "empty-state",
     "field",
+    "icon",
     "input",
+    "menu-item",
+    "menu-separator",
+    "page-header",
+    "save-bar",
     "select",
+    "skeleton",
     "table",
     "table-body",
     "table-cell",
@@ -18,6 +29,11 @@
     "table-header",
     "table-row",
     "textarea",
-    "theme-scope"
+    "theme-scope",
+    "toaster"
+  ],
+  "modules": [
+    "motion",
+    "toast.svelte"
   ]
 }

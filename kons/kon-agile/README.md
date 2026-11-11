@@ -6,7 +6,7 @@ members, work from a queue and write only on the issues in their reach.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.3.1 | `/api/agile` | kon-media; core `auth` |
+| beta | business | 1.3.2 | `/api/agile` | kon-media; core `auth` |
 
 ## Install
 

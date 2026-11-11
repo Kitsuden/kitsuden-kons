@@ -17,19 +17,28 @@
 <script lang="ts">
   import {
     Alert,
+    Badge,
     Button,
     ConfirmDialog,
-    CopyButton,
+    DescriptionList,
+    EmptyState,
+    Field,
     Input,
     Select,
-    ThemeScope,
+    type DescriptionItem,
   } from "$lib/components";
 
   import { untrack } from "svelte";
 
-  import { apiBaseOf, createApi, messageOf, seg } from "./api";
+  import { apiBaseOf, createApi, seg } from "./api";
   import type { Adapter, Game, Match, Side, ViewContext } from "./types";
+  import FormGrid from "./ui/FormGrid.svelte";
+  import { CANCEL, CLOSE } from "./ui/labels";
+  import { createLoad } from "./ui/load.svelte";
+  import Loadable from "./ui/Loadable.svelte";
+  import { failed, toast } from "./ui/notify";
   import Panel from "./ui/Panel.svelte";
+  import View from "./ui/View.svelte";
 
   let { context, params }: { context?: ViewContext; params?: { gameId?: string } } = $props();
 
@@ -50,12 +59,7 @@
   let champions = $state<{ id: string; name: string }[]>([]);
   let locked = $state<string[]>([]);
   let champ = $state("");
-  let hint = $state("");
   let warnings = $state<string[]>([]);
-
-  let pickErr = $state("");
-  let draftErr = $state("");
-  let ingestErr = $state("");
   let finishErr = $state("");
 
   let confirming = $state<"blue" | "red" | null>(null);
@@ -80,38 +84,57 @@
     return `Bo${bestOf} · ${tag(match.sideA)} ${match.sideA.score} — ${match.sideB.score} ${tag(match.sideB)}`;
   });
 
-  const fearlessText = $derived(
-    !teams || !match || match.fearless === "off" ? "" : `· Fearless ${match.fearless}`
-  );
+  const facts = $derived.by((): DescriptionItem[] => {
+    if (!match || !teams) return [];
+    const list: DescriptionItem[] = [
+      { label: "Blue side", value: teams.blue.name, color: teams.blue.color },
+      { label: "Red side", value: teams.red.name, color: teams.red.color },
+      { label: "Series", value: scoreText },
+    ];
+    if (match.fearless !== "off") list.push({ label: "Fearless", value: match.fearless });
+    return list;
+  });
 
   const draft = $derived(game?.draft ?? null);
   const showDraft = $derived(Boolean(draft && !draft.complete));
 
-  const turnText = $derived.by(() => {
+  /** Whose turn it is and what for; the server decides the order. */
+  const turn = $derived.by(() => {
     const step = draft?.current;
-    if (!step || !teams) return "—";
-    const team = step.team === "blue" ? teams.blue : teams.red;
-    return `${step.action === "ban" ? "Ban" : "Choose"} ${team.name} · step ${step.index + 1} of 20`;
+    if (!step || !teams) return null;
+    return {
+      ban: step.action === "ban",
+      team: (step.team === "blue" ? teams.blue : teams.red).name,
+      side: step.team === "blue" ? "Blue side" : "Red side",
+      step: step.index + 1,
+    };
   });
 
   /**
    * `graphics/`, not `admin-asset/`: the admin artifacts route rejects `.html` on purpose, and
    * graphics go through their own route with its CSP.
    */
-  const overlayUrls = $derived.by(() => {
+  const overlays = $derived.by((): DescriptionItem[] => {
     if (!teams || !chosenGame) return [];
     const base =
       `${location.origin}${apiBaseOf(context)}` +
       `/kons/kon-broadcast/graphics/overlay-live.html?game=${chosenGame}`;
-    return ["full", "matchbar", "gold,objectives", "draft", "postgame"].map((layers) =>
-      layers === "full" ? base : `${base}&layers=${layers}`
-    );
+    return [
+      ["Full overlay", "full"],
+      ["Match bar", "matchbar"],
+      ["Gold and objectives", "gold,objectives"],
+      ["Draft", "draft"],
+      ["Post-game", "postgame"],
+    ].map(([label, layers]) => ({
+      label,
+      value: layers === "full" ? base : `${base}&layers=${layers}`,
+      copy: true,
+      mono: true,
+    }));
   });
 
   const seriesOptions = $derived(
-    matchList.length === 0
-      ? [{ value: "", label: "There is no matchup" }]
-      : matchList.map((m) => ({ value: m.id, label: m.round ? `${m.eventTitle} · ${m.round}` : m.eventTitle }))
+    matchList.map((m) => ({ value: m.id, label: m.round ? `${m.eventTitle} · ${m.round}` : m.eventTitle }))
   );
 
   const gameOptions = $derived(
@@ -126,26 +149,10 @@
     adapters.map((a) => ({ value: a.id, label: a.capabilities?.gold ? a.name : `${a.name} — no gold` }))
   );
 
-  // Once per API base and requested game: the host sets `context` again when the theme changes.
-  // Deferred one tick because the host sets `context` and then `params`, each flushing on its own:
-  // without it the booth booted twice.
-  let bootKey: string | null = null;
-  let bootTimer: ReturnType<typeof setTimeout> | undefined;
-  $effect(() => {
-    const key = `${apiBaseOf(context)}|${params?.gameId ?? context?.params?.gameId ?? ""}`;
-    if (key === bootKey) return;
-    bootKey = key;
-    clearTimeout(bootTimer);
-    bootTimer = setTimeout(() => untrack(() => void boot()), 0);
-  });
-  $effect(() => () => clearTimeout(bootTimer));
-
   // ── Data ───────────────────────────────────────────────────────────────────
 
   /** Lists the sets and opens the one being operated (the requested game's, else the first). */
-  async function boot() {
-    pickErr = "";
-
+  const data = createLoad(async () => {
     // Sections first: without `games` every call is a 409 that reads as a breakdown.
     try {
       const res = await api.get<{ data?: { id: string; enabled: boolean }[] }>("/sections");
@@ -158,9 +165,6 @@
     if (sections && !sections.games) {
       matchList = [];
       games = [];
-      hint =
-        "The games section of Broadcast is switched off, and this booth operates games. " +
-        'Switch it on in the grimoire: konConfig["kon-broadcast"].enableGames = true';
       return;
     }
 
@@ -168,103 +172,98 @@
       const res = await api.get<{ docs?: Match[]; data?: Match[]; items?: Match[] } | Match[]>("/matches");
       matchList = Array.isArray(res) ? res : (res.docs ?? res.data ?? res.items ?? []);
     } catch (e) {
-      pickErr = messageOf(e);
       matchList = [];
+      throw e;
     }
 
     if (matchList.length === 0) {
       games = [];
       seriesValue = "";
-      hint =
-        "Create one in the Sets tab and come back here. This booth operates a matchup that " +
-        "already exists; it does not create it.";
       return;
     }
 
-    hint = "";
     let seriesId = match?.id ?? matchList[0].id;
     let prefer: string | null = null;
     const wanted = params?.gameId ?? context?.params?.gameId ?? null;
     if (wanted) {
       try {
-        const { data } = await api.get<{ data: Game }>(`/games/${seg(wanted)}`);
-        seriesId = data.matchId;
-        prefer = data.id;
+        const { data: found } = await api.get<{ data: Game }>(`/games/${seg(wanted)}`);
+        seriesId = found.matchId;
+        prefer = found.id;
       } catch (e) {
-        pickErr = messageOf(e);
+        failed("Could not open the requested game", e);
       }
     }
     await openSeries(seriesId, prefer);
-  }
+  });
+
+  // Once per API base and requested game: the host sets `context` again when the theme changes.
+  // Deferred one tick because the host sets `context` and then `params`, each flushing on its own:
+  // without it the booth booted twice.
+  let bootKey: string | null = null;
+  let bootTimer: ReturnType<typeof setTimeout> | undefined;
+  $effect(() => {
+    const key = `${apiBaseOf(context)}|${params?.gameId ?? context?.params?.gameId ?? ""}`;
+    if (key === bootKey) return;
+    bootKey = key;
+    clearTimeout(bootTimer);
+    bootTimer = setTimeout(() => untrack(() => void data.load()), 0);
+  });
+  $effect(() => () => clearTimeout(bootTimer));
 
   async function openSeries(matchId: string, prefer: string | null = null) {
     if (!matchId) return;
-    pickErr = "";
     seriesValue = matchId;
-    try {
-      const { data } = await api.get<{ data: Match }>(`/matches/${seg(matchId)}`);
-      match = data;
-      // Games hang from their own route: most profiles have none.
-      const list = await api.get<{ data?: Game[] }>(`/matches/${seg(matchId)}/games`);
-      games = list.data ?? [];
+    const { data: found } = await api.get<{ data: Match }>(`/matches/${seg(matchId)}`);
+    match = found;
+    // Games hang from their own route: most profiles have none.
+    const list = await api.get<{ data?: Game[] }>(`/matches/${seg(matchId)}/games`);
+    games = list.data ?? [];
 
-      if (games.length === 0) {
-        hint = "This matchup has no games yet.";
-        chosenGame = null;
-        gameValue = "";
-        game = null;
-        return;
-      }
-
-      hint = "";
-      // The requested one; else the one being played; else the last one created.
-      const alive =
-        games.find((g) => g.id === prefer) ?? games.find((g) => g.status === "live") ?? games[games.length - 1];
-      chosenGame = alive.id;
-      gameValue = alive.id;
-      await load();
-    } catch (e) {
-      pickErr = messageOf(e);
+    if (games.length === 0) {
+      chosenGame = null;
+      gameValue = "";
+      game = null;
+      return;
     }
+
+    // The requested one; else the one being played; else the last one created.
+    const alive =
+      games.find((g) => g.id === prefer) ?? games.find((g) => g.status === "live") ?? games[games.length - 1];
+    chosenGame = alive.id;
+    gameValue = alive.id;
+    await load();
   }
 
   /** Creates the set's next game; the server alternates the sides. */
   async function newGame() {
     if (!match) return;
-    pickErr = "";
     try {
       await api.post(`/matches/${seg(match.id)}/games`, {});
       await openSeries(match.id);
+      toast.success(game ? `Game ${game.gameNumber} created` : "Game created");
     } catch (e) {
-      pickErr = messageOf(e);
+      failed("Could not create the game", e);
     }
   }
 
   async function load() {
     if (!chosenGame) return;
-    try {
-      const { data } = await api.get<{ data: Game }>(`/games/${seg(chosenGame)}`);
-      game = data;
-      const container = await api.get<{ data: Match }>(`/matches/${seg(data.matchId)}`);
-      match = container.data;
-    } catch (e) {
-      pickErr = messageOf(e);
-      return;
-    }
-    await loadAdapters();
+    const { data: found } = await api.get<{ data: Game }>(`/games/${seg(chosenGame)}`);
+    game = found;
+    const container = await api.get<{ data: Match }>(`/matches/${seg(found.matchId)}`);
+    match = container.data;
+    await sources.load();
     void loadChampions();
     await loadFearless();
   }
 
-  async function loadAdapters() {
-    try {
-      const { data } = await api.get<{ data: Adapter[] }>("/live/adapters");
-      adapters = data ?? [];
-      if (!adapters.some((a) => a.id === adapterId)) adapterId = adapters[0]?.id ?? "";
-    } catch (e) {
-      ingestErr = messageOf(e);
-    }
-  }
+  /** The data sources of the ingestion. */
+  const sources = createLoad(async () => {
+    const { data: list } = await api.get<{ data: Adapter[] }>("/live/adapters");
+    adapters = list ?? [];
+    if (!adapters.some((a) => a.id === adapterId)) adapterId = adapters[0]?.id ?? "";
+  });
 
   /**
    * The champion autocomplete, from Data Dragon. The CDN KEY is the value and the translated name
@@ -280,8 +279,8 @@
       const version = versions?.[0];
       if (!version) return;
       const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_ES/champion.json`);
-      const { data } = await res.json();
-      champions = Object.values((data ?? {}) as Record<string, { id: string; name: string }>).map((c) => ({
+      const { data: all } = await res.json();
+      champions = Object.values((all ?? {}) as Record<string, { id: string; name: string }>).map((c) => ({
         id: c.id,
         name: c.name,
       }));
@@ -293,11 +292,11 @@
   async function loadFearless() {
     if (!chosenGame) return;
     try {
-      const { data } = await api.get<{ data: { locked?: Record<string, string[]> } }>(
+      const { data: found } = await api.get<{ data: { locked?: Record<string, string[]> } }>(
         `/games/${seg(chosenGame)}/fearless`
       );
       const side = game?.draft?.current?.team ?? null;
-      locked = side ? (data.locked?.[side] ?? []) : [];
+      locked = side ? (found.locked?.[side] ?? []) : [];
     } catch {
       // Informational: the server keeps rejecting what is not valid.
     }
@@ -305,53 +304,79 @@
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
+  function chooseSeries(id: string) {
+    openSeries(id).catch((e: unknown) => failed("Could not open the matchup", e));
+  }
+
+  function chooseGame(id: string) {
+    chosenGame = id || null;
+    if (chosenGame) load().catch((e: unknown) => failed("Could not open the game", e));
+  }
+
   async function pick(championId: string | null) {
     if (!chosenGame) return;
-    draftErr = "";
+    const now = turn;
     try {
-      const { data } = await api.post<{ data: Game }>(`/games/${seg(chosenGame)}/draft`, { championId });
-      game = data;
+      const { data: next } = await api.post<{ data: Game }>(`/games/${seg(chosenGame)}/draft`, { championId });
+      game = next;
       if (championId) champ = "";
+      toast.success(
+        championId ? `${championId} ${now?.ban ? "banned" : "picked"} for ${now?.team ?? "the team"}` : "Ban skipped"
+      );
       await loadFearless();
     } catch (e) {
-      draftErr = messageOf(e);
+      // The server's reason says WHY (champion already used, burned by Fearless).
+      failed(championId ? `The draft did not take ${championId}` : "Could not skip the ban", e);
     }
   }
 
+  const confirmPick = () => {
+    if (champ.trim()) void pick(champ.trim());
+  };
+
   async function startIngest() {
     if (!chosenGame) return;
-    ingestErr = "";
     try {
       const result = await api.post<{ warnings?: string[] }>(`/games/${seg(chosenGame)}/ingest/start`, {
         adapterId,
       });
       warnings = result?.warnings ?? [];
+      toast.success("Ingestion started");
     } catch (e) {
-      ingestErr = messageOf(e);
+      failed("Could not start ingestion", e);
     }
   }
 
   /** A game action; the server answers with the game (and, on finish, the set). */
-  async function act(path: string, body: unknown, setError: (m: string) => void) {
+  async function act(path: string, body: unknown) {
     if (!chosenGame) return;
-    setError("");
-    const result = await api
-      .post<{ data?: (Game & { game?: Game; series?: Partial<Match>; match?: Partial<Match> }) | null }>(
-        `/games/${seg(chosenGame)}/${path}`,
-        body ?? {}
-      )
-      .catch((e: unknown) => {
-        setError(messageOf(e));
-        throw e;
-      });
-    const data = result?.data;
-    game = data?.game ?? (data && "id" in data ? data : null) ?? game;
-    const next = data?.series ?? data?.match;
-    if (next && match) match = { ...match, ...next };
+    const result = await api.post<{
+      data?: (Game & { game?: Game; series?: Partial<Match>; match?: Partial<Match> }) | null;
+    }>(`/games/${seg(chosenGame)}/${path}`, body ?? {});
+    const next = result?.data;
+    game = next?.game ?? (next && "id" in next ? next : null) ?? game;
+    const series = next?.series ?? next?.match;
+    if (series && match) match = { ...match, ...series };
     await loadFearless();
   }
 
-  const quiet = (p: Promise<unknown>) => void p.catch(() => {});
+  async function undo() {
+    try {
+      await act("draft/undo", undefined);
+      toast.success("Last draft step undone");
+    } catch (e) {
+      failed("Could not undo the last draft step", e);
+    }
+  }
+
+  async function stopIngest() {
+    try {
+      await act("ingest/stop", undefined);
+      toast.success("Ingestion stopped");
+    } catch (e) {
+      failed("Could not stop ingestion", e);
+    }
+  }
 
   function askFinish(side: "blue" | "red") {
     confirming = side;
@@ -359,144 +384,171 @@
     confirmOpen = true;
   }
 
-  // Closing a game rewrites the series score: it is confirmed first. A failure keeps the dialog
-  // open with the reason.
-  const finish = () => act("finish", { winner: confirming }, (m) => (finishErr = m));
-
   const winnerName = $derived(
     confirming ? ((confirming === "blue" ? teams?.blue : teams?.red)?.name ?? confirming) : ""
   );
+
+  // Closing a game rewrites the series score: it is confirmed first. A failure keeps the dialog
+  // open with the reason.
+  async function finish() {
+    const winner = winnerName;
+    finishErr = "";
+    try {
+      await act("finish", { winner: confirming });
+    } catch (e) {
+      finishErr = e instanceof Error ? e.message : String(e);
+      throw e;
+    }
+    toast.success(`Game closed: ${winner} wins`);
+  }
 </script>
 
-<ThemeScope class="broadcast-live">
+<View>
   <Panel title="What is being broadcast">
-    <div class="row">
-      <div class="pick">
-        <Select
-          aria-label="Matchup"
-          bind:value={seriesValue}
-          options={seriesOptions}
-          disabled={gamesOff || matchList.length === 0}
-          onchange={(e: Event) => void openSeries((e.currentTarget as HTMLSelectElement).value)}
-        />
-      </div>
-      <div class="pick">
-        <Select
-          aria-label="Game"
-          bind:value={gameValue}
-          options={gameOptions}
-          disabled={gamesOff || games.length === 0}
-          onchange={(e: Event) => {
-            chosenGame = (e.currentTarget as HTMLSelectElement).value || null;
-            if (chosenGame) void load();
-          }}
-        />
-      </div>
+    {#snippet actions()}
+      <Button variant="outline" onclick={() => void data.load()}>Reload</Button>
       <Button variant="outline" disabled={gamesOff || !match} onclick={newGame}>New game</Button>
-      <Button variant="outline" onclick={() => void boot()}>Reload</Button>
-    </div>
-    {#if hint}<p class="muted">{hint}</p>{/if}
-    {#if pickErr}<Alert variant="error">{pickErr}</Alert>{/if}
-  </Panel>
-
-  <Panel title="Matchup">
-    <div class="grid">
-      <div class="team">
-        <span class="swatch" style:background={teams?.blue.color ?? "rgb(var(--ta-subtle))"}></span>
-        <span>{teams?.blue.name ?? "—"}</span>
-      </div>
-      <div class="team">
-        <span class="swatch" style:background={teams?.red.color ?? "rgb(var(--ta-subtle))"}></span>
-        <span>{teams?.red.name ?? "—"}</span>
-      </div>
-    </div>
-    <div class="row">
-      <span class="muted">{scoreText}</span>
-      {#if fearlessText}<span class="muted">{fearlessText}</span>{/if}
-    </div>
-  </Panel>
-
-  {#if showDraft}
-    <Panel title="Draft">
-      <div class="turn">{turnText}</div>
-      <div class="row">
-        <div class="pick">
-          <Input
-            bind:value={champ}
-            placeholder="Champion"
-            aria-label="Champion"
-            list={champsId}
-            onkeydown={(e: KeyboardEvent) => {
-              if (e.key === "Enter" && champ.trim()) void pick(champ.trim());
-            }}
+    {/snippet}
+    <Loadable
+      load={data}
+      errorTitle="The matchups did not load"
+      lines={3}
+      empty={gamesOff || matchList.length === 0}
+      emptyTitle={gamesOff ? "The games section is switched off" : "No matchups yet"}
+      emptyDescription={gamesOff
+        ? 'This booth operates games. Switch the section on in the grimoire: konConfig["kon-broadcast"].enableGames = true'
+        : "Create one in the Sets tab and come back here. This booth operates a matchup that already exists; it does not create it."}
+    >
+      <div class="pickers">
+        <Field label="Matchup">
+          <Select
+            bind:value={seriesValue}
+            options={seriesOptions}
+            onchange={(e: Event) => chooseSeries((e.currentTarget as HTMLSelectElement).value)}
           />
-        </div>
-        <Button onclick={() => champ.trim() && void pick(champ.trim())}>Confirm</Button>
-        <Button variant="outline" onclick={() => void pick(null)}>Skip ban</Button>
-        <Button variant="outline" onclick={() => quiet(act("draft/undo", undefined, (m) => (draftErr = m)))}
-          >Undo</Button
-        >
+        </Field>
+        <Field label="Game">
+          <Select
+            bind:value={gameValue}
+            options={gameOptions}
+            placeholder={games.length ? undefined : "No games"}
+            disabled={games.length === 0}
+            onchange={(e: Event) => chooseGame((e.currentTarget as HTMLSelectElement).value)}
+          />
+        </Field>
       </div>
-      {#if match && match.fearless !== "off"}
-        <div class="chips">
-          {#each locked as c (c)}
-            <span class="chip locked">{c}</span>
-          {:else}
-            <span class="muted">No locked champions</span>
-          {/each}
-        </div>
+      {#if match && games.length === 0}
+        <EmptyState
+          size="sm"
+          level={3}
+          title="This matchup has no games yet"
+          description="The draft, the ingestion and the OBS sources belong to a game."
+          actionLabel="New game"
+          onAction={newGame}
+        />
       {/if}
-      {#if draftErr}<Alert variant="error">{draftErr}</Alert>{/if}
+    </Loadable>
+  </Panel>
+
+  {#if data.ready && teams && match}
+    <Panel title="Matchup">
+      <DescriptionList ariaLabel="Matchup" items={facts}>
+        {#snippet value(item)}
+          {#if item.color}
+            <span class="team">
+              <span class="swatch" role="img" aria-label={`Colour of ${item.value}`} style:background={String(item.color)}
+              ></span>
+              {item.value}
+            </span>
+          {:else}
+            {item.value}
+          {/if}
+        {/snippet}
+      </DescriptionList>
+    </Panel>
+
+    {#if showDraft}
+      <Panel title="Draft">
+        {#snippet status()}
+          {#if turn}<Badge variant="info" dot>Step {turn.step} of 20</Badge>{/if}
+        {/snippet}
+        {#if turn}
+          <p class="turn">
+            <Badge variant={turn.ban ? "warning" : "success"}>{turn.ban ? "Ban" : "Pick"}</Badge>
+            <strong>{turn.team}</strong>
+            <Badge>{turn.side}</Badge>
+          </p>
+        {/if}
+        <FormGrid label="Draft step" onsubmit={confirmPick}>
+          <Field label="Champion">
+            <Input bind:value={champ} list={champsId} autocomplete="off" />
+          </Field>
+          {#snippet actions()}
+            <Button variant="outline" onclick={undo}>Undo last step</Button>
+            <Button variant="outline" onclick={() => void pick(null)}>Skip ban</Button>
+            <Button type="submit">{turn?.ban === false ? "Confirm pick" : "Confirm ban"}</Button>
+          {/snippet}
+        </FormGrid>
+        {#if match.fearless !== "off"}
+          <section class="group" aria-labelledby={`${uid}-locked`}>
+            <h3 class="sub" id={`${uid}-locked`}>Locked by Fearless</h3>
+            {#if locked.length}
+              <ul class="chips">
+                {#each locked as c (c)}
+                  <li><Badge>{c}</Badge></li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="quiet">No locked champions.</p>
+            {/if}
+          </section>
+        {/if}
+      </Panel>
+    {/if}
+
+    <Panel title="Ingestion">
+      <Loadable
+        load={sources}
+        errorTitle="The data sources did not load"
+        lines={2}
+        empty={adapters.length === 0}
+        emptyTitle="No data sources"
+        emptyDescription="This installation has no live adapter to read the game from."
+      >
+        <FormGrid label="Ingestion" onsubmit={startIngest}>
+          <Field label="Data source">
+            <Select bind:value={adapterId} options={adapterOptions} />
+          </Field>
+          {#snippet actions()}
+            <Button variant="outline" disabled={!chosenGame} onclick={stopIngest}>Stop ingestion</Button>
+            <Button type="submit" disabled={!chosenGame}>Start ingestion</Button>
+          {/snippet}
+        </FormGrid>
+        {#if warnings.length}<Alert variant="warning">{warnings.join(" ")}</Alert>{/if}
+      </Loadable>
+    </Panel>
+
+    <Panel
+      title="Close game"
+      description="Closes ingestion, adds the point to the series team (not to the side) and shows the result screen."
+    >
+      <div class="buttons">
+        <Button variant="outline" disabled={!chosenGame} onclick={() => askFinish("blue")}>
+          {teams.blue.name} (blue) wins
+        </Button>
+        <Button variant="outline" disabled={!chosenGame} onclick={() => askFinish("red")}>
+          {teams.red.name} (red) wins
+        </Button>
+      </div>
+    </Panel>
+
+    <Panel
+      title="OBS sources"
+      description="Add a 1920×1080 Browser Source for each layer you want to separate. Without ?layers= the full overlay comes out."
+    >
+      <DescriptionList ariaLabel="OBS sources" items={overlays} />
     </Panel>
   {/if}
-
-  <Panel title="Ingestion">
-    <div class="row">
-      <div class="pick">
-        <Select
-          aria-label="Data source"
-          bind:value={adapterId}
-          options={adapterOptions}
-          placeholder={adapters.length ? undefined : "No sources"}
-          disabled={adapters.length === 0}
-        />
-      </div>
-      <Button disabled={!chosenGame} onclick={startIngest}>Start</Button>
-      <Button
-        variant="outline"
-        disabled={!chosenGame}
-        onclick={() => quiet(act("ingest/stop", undefined, (m) => (ingestErr = m)))}>Stop</Button
-      >
-    </div>
-    {#if warnings.length}<Alert variant="warning">{warnings.join(" ")}</Alert>{/if}
-    {#if ingestErr}<Alert variant="error">{ingestErr}</Alert>{/if}
-  </Panel>
-
-  <Panel title="Close game">
-    <div class="row">
-      <Button variant="outline" disabled={!chosenGame} onclick={() => askFinish("blue")}>Blue wins</Button>
-      <Button variant="outline" disabled={!chosenGame} onclick={() => askFinish("red")}>Red wins</Button>
-    </div>
-    <p class="muted">
-      Closes ingestion, adds the point to the series team —not to the side— and shows the result
-      screen.
-    </p>
-    {#if finishErr && !confirmOpen}<Alert variant="error">{finishErr}</Alert>{/if}
-  </Panel>
-
-  <Panel title="OBS sources">
-    <p class="muted">
-      Add a 1920×1080 Browser Source for each layer you want to separate. Without
-      <code>?layers=</code> the full overlay comes out.
-    </p>
-    <div class="chips">
-      {#each overlayUrls as url (url)}
-        <CopyButton text={url} copyLabel="Click to copy" />
-      {:else}
-        <span class="muted">No game</span>
-      {/each}
-    </div>
-  </Panel>
 
   <datalist id={champsId}>
     {#each champions as c (c.id)}
@@ -508,103 +560,81 @@
     bind:open={confirmOpen}
     title={`Close the game with a win for ${winnerName}?`}
     confirmLabel="Close game"
-    cancelLabel="Cancel"
-    closeLabel="Close"
+    cancelLabel={CANCEL}
+    closeLabel={CLOSE}
     variant="primary"
     onConfirm={finish}
   >
-    {#if finishErr}<Alert variant="error">{finishErr}</Alert>{/if}
+    {#if finishErr}<Alert variant="error" title="The game was not closed">{finishErr}</Alert>{/if}
   </ConfirmDialog>
-</ThemeScope>
+</View>
 
 <style>
   :host {
     display: block;
   }
 
-  :global(.broadcast-live) {
+  .pickers {
     display: grid;
-    gap: 1rem;
-  }
-
-  .row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .pick {
-    flex: 0 1 14rem;
-    min-width: 10rem;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.875rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+    gap: 0.75rem;
+    max-width: 44rem;
   }
 
   .team {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     font-weight: 600;
-    color: rgb(var(--ta-text));
   }
 
   .swatch {
     width: 0.75rem;
     height: 0.75rem;
     border-radius: var(--ta-radius-sm);
+    border: 1px solid rgb(var(--ta-border));
     flex-shrink: 0;
   }
 
   .turn {
-    font-size: 0.8125rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: var(--ta-radius-sm);
-    background: rgb(var(--ta-elevated));
-    color: rgb(var(--ta-text));
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1rem;
+  }
+
+  .group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sub {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 600;
   }
 
   .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
-  }
-
-  .chip {
-    font-size: 0.6875rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: var(--ta-radius-sm);
-    background: rgb(var(--ta-elevated));
-    color: rgb(var(--ta-text-dim));
-  }
-
-  .chip.locked {
-    text-decoration: line-through;
-    opacity: 0.55;
-  }
-
-  .muted {
     margin: 0;
-    font-size: 0.75rem;
-    line-height: 1.5;
+    padding: 0;
+    list-style: none;
+  }
+
+  .quiet {
+    margin: 0;
+    font-size: 0.8125rem;
     color: rgb(var(--ta-text-dim));
   }
 
-  code {
-    font-family: var(--ta-font-mono);
-    font-size: 0.6875rem;
-    background: rgb(var(--ta-bg));
-    padding: 0.125rem 0.3rem;
-    border-radius: var(--ta-radius-sm);
-  }
-
-  @media (max-width: 640px) {
-    .grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
+  .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 </style>

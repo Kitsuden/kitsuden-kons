@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-comments",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Polymorphic comments with threads, votes and moderation",
   "type": "module",
   "main": "./index.ts",

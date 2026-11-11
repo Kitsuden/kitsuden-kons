@@ -202,6 +202,12 @@
     to { transform: rotate(360deg); }
   }
 
+  /* Reduced motion: the busy mark stays, still (aria-busy says the rest). */
+  @media (prefers-reduced-motion: reduce) {
+    .ta-btn-spinner { animation: none; border-style: dashed; border-right-color: currentColor; }
+    .ta-btn { transition: none; }
+  }
+
   /* On touch screens: sm and md reach the 44px of WCAG 2.5.5 (icon-only, 44×44). */
   @media (pointer: coarse) {
     .ta-btn { min-height: 2.75rem; }

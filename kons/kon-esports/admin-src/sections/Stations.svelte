@@ -1,19 +1,24 @@
 <!-- Stations: where each set is played. -->
 <script lang="ts">
-  import { Button, Input, Select } from "$lib/components";
+  import { Badge, Button, DataTable, EmptyState, Field, Input, Select, type DataColumn } from "$lib/components";
 
   import { useBooth } from "../store.svelte";
-  import Empty from "../ui/Empty.svelte";
-  import Messages from "../ui/Messages.svelte";
-  import Row from "../ui/Row.svelte";
-  import Section from "../ui/Section.svelte";
+  import type { Station } from "../types";
+  import FormGrid from "../ui/FormGrid.svelte";
+  import Panel from "../ui/Panel.svelte";
 
-  const { off = false }: { off?: boolean } = $props();
   const booth = useBooth();
 
   const KINDS = [
     { value: "physical", label: "In person" },
     { value: "lobby", label: "Online lobby" },
+  ];
+  const kindOf = (s: Station) => KINDS.find((k) => k.value === s.kind)?.label ?? s.kind;
+
+  const columns: DataColumn<Station>[] = [
+    { key: "name", header: "Station", sortable: true, hideable: false },
+    { key: "kind", header: "Kind", sortable: true, value: kindOf },
+    { key: "accessDetails", header: "Access", value: (s) => s.accessDetails || "—" },
   ];
 
   let name = $state("");
@@ -34,43 +39,53 @@
   }
 </script>
 
-<Section title="Stations" {off}>
-  {#snippet meta()}Where each set is played{/snippet}
-  <Row>
-    <Input aria-label="Station name" placeholder="Setup 1, Lobby A…" bind:value={name} />
-    <Select aria-label="Station kind" bind:value={kind} options={KINDS} />
-    <Input aria-label="Access" placeholder="Code or access (optional)" bind:value={access} />
-    <Button variant="secondary" loading={saving} onclick={add}>Add</Button>
-  </Row>
-  {#if booth.stations.length}
-    <ul class="chips" aria-label="Stations">
-      {#each booth.stations as s (s.id)}
-        <li class="chip" title={s.accessDetails || undefined}>
-          {s.kind === "lobby" ? `${s.name} (lobby)` : s.name}
-        </li>
-      {/each}
-    </ul>
-  {:else}
-    <Empty text="No stations" />
-  {/if}
-  <Messages scope="stations" />
-</Section>
+<Panel title="Stations" description="Where each set is played.">
+  {#snippet status()}
+    {#if booth.loads.stations.ready}
+      <Badge>{booth.stations.length === 1 ? "1 station" : `${booth.stations.length} stations`}</Badge>
+    {/if}
+  {/snippet}
+  <DataTable
+    caption="Stations"
+    rows={booth.stations}
+    {columns}
+    rowKey="id"
+    rowLabel={(s) => s.name}
+    loading={booth.loads.stations.loading}
+    error={booth.loads.stations.error}
+    onRetry={booth.loads.stations.load}
+  >
+    {#snippet empty()}
+      <EmptyState
+        size="sm"
+        level={null}
+        title="No stations yet"
+        description="Add the first one with the form below, then assign it to a set."
+      />
+    {/snippet}
+  </DataTable>
+
+  <h3 class="sub">Add a station</h3>
+  <FormGrid label="Add a station" onsubmit={add}>
+    <Field label="Name" required>
+      <Input placeholder="Setup 1, Lobby A…" bind:value={name} />
+    </Field>
+    <Field label="Kind">
+      <Select bind:value={kind} options={KINDS} />
+    </Field>
+    <Field label="Code or access (optional)">
+      <Input bind:value={access} />
+    </Field>
+    {#snippet actions()}
+      <Button type="submit" variant="secondary" loading={saving}>Add station</Button>
+    {/snippet}
+  </FormGrid>
+</Panel>
 
 <style>
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .chip {
-    font-size: 0.6875rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: var(--ta-radius-sm);
-    background: rgb(var(--ta-surface));
-    color: rgb(var(--ta-text-dim));
+  .sub {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 600;
   }
 </style>

@@ -54,10 +54,13 @@ in `tierlist.engine.ts`.
 | `kon.json` | Manifest: version, mount, tables, admin views. |
 | `package.json` | Package metadata, published `files`, dependency `@paralleldrive/cuid2`. |
 | `admin/tierlist-editor.js` | Built admin view (generated from `admin-src/`; do not edit). |
-| `admin-src/TierlistEditor.svelte` | Source of the editor view: board, drag and keyboard placing, sync, diff. |
+| `admin-src/TierlistEditor.svelte` | Root of the editor view: state and every API call, the section that picks the list, its catalog and the form of a new one, and the confirmations. |
+| `admin-src/Board.svelte` | The board section: tier rows, pool, drag and keyboard placing, the form that adds a chip by hand, and the loading, empty and error states. |
+| `admin-src/Compare.svelte` | The "What changed" section: the diff against another template and its markdown. |
 | `admin-src/Chip.svelte` | One item chip (portrait or initials, name). |
+| `admin-src/ui/` | The frame every kon's admin view shares (`View`, `Panel`, `Loadable`, `FormGrid`, `RowMenu`, `load.svelte.ts`, `notify.ts`, `labels.ts`): copies of kon-crm's, kept identical. |
 | `admin-src/api.ts` | Fetch calls to the kon's routes with the browser's cookies; `ApiError` keeps status and body. |
-| `admin-src/format.ts` | Helpers: slug from title, initials, grouped view, diff groups and `diffMarkdown` (the diff as markdown). |
+| `admin-src/format.ts` | Helpers: slug from title, initials, grouped view, the row colours of a new list (`rankedColors`, from the theme's series tokens), diff groups and `diffMarkdown` (the diff as markdown). |
 | `admin-src/types.ts` | Types of what the editor reads. |
 | `admin-src/views.json` | Which views `pnpm build:admin` builds. |
 | `admin-src/tallao.json`, `admin-src/tallao/` | The tallao components the view uses, copied by `pnpm sync:tallao`; do not edit the copy. |

@@ -5,14 +5,27 @@
     "button",
     "card",
     "card-content",
+    "card-footer",
     "card-header",
     "card-title",
     "checkbox",
     "confirm-dialog",
+    "data-table",
     "dialog",
+    "dropdown-menu",
+    "empty-state",
     "field",
+    "filter-bar",
+    "filter-chip",
+    "icon",
     "input",
+    "menu-item",
+    "menu-separator",
+    "page-header",
+    "save-bar",
+    "search-input",
     "select",
+    "skeleton",
     "stat",
     "table",
     "table-body",
@@ -22,6 +35,12 @@
     "table-row",
     "tabs",
     "textarea",
-    "theme-scope"
+    "theme-scope",
+    "timeline",
+    "toaster"
+  ],
+  "modules": [
+    "motion",
+    "toast.svelte"
   ]
 }

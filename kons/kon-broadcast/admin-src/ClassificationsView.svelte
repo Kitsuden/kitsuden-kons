@@ -13,14 +13,32 @@
   `GET /broadcast/classifications`. The SELECTION lives in the module settings:
   `PATCH /modules/kon-broadcast` with `{ settings: { classifications } }`. With nothing stored,
   the catalog's default is what is active.
+
+  The view is one form: the checkboxes change what is on screen, and the bar at the end saves it.
 -->
 <script lang="ts">
-  import { Alert, Badge, Checkbox, ThemeScope } from "$lib/components";
+  import {
+    Alert,
+    Badge,
+    Checkbox,
+    SaveBar,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+  } from "$lib/components";
 
   import { untrack } from "svelte";
 
-  import { apiBaseOf, createApi, messageOf } from "./api";
+  import { apiBaseOf, createApi } from "./api";
   import type { Classification, ViewContext } from "./types";
+  import { createLoad } from "./ui/load.svelte";
+  import Loadable from "./ui/Loadable.svelte";
+  import { failed, toast } from "./ui/notify";
+  import Panel from "./ui/Panel.svelte";
+  import View from "./ui/View.svelte";
 
   let { context }: { context?: ViewContext; params?: unknown } = $props();
 
@@ -36,16 +54,7 @@
   let stored = $state<string[] | null>(null);
   /** One checkbox per classification. */
   let checks = $state<Record<string, boolean>>({});
-  let loaded = $state(false);
-  let notice = $state<{ kind: "info" | "success" | "error"; text: string } | null>(null);
-
-  let loadedBase: string | null = null;
-  $effect(() => {
-    const base = apiBaseOf(context);
-    if (base === loadedBase) return;
-    loadedBase = base;
-    untrack(() => void load());
-  });
+  let saving = $state(false);
 
   /** `settings.classifications` of the broadcast module; `/modules` groups them by category. */
   function readSetting(response: ModulesResponse | null): string[] | null {
@@ -59,152 +68,160 @@
     return null;
   }
 
+  const active = $derived(stored ?? fallback);
+  const selected = $derived(catalog.filter((c) => checks[c.id]).map((c) => c.id));
+  /** What is on screen against what is stored (or the default, with nothing stored). */
+  const dirty = $derived(
+    catalog.length > 0 && catalog.some((c) => Boolean(checks[c.id]) !== active.includes(c.id))
+  );
+
   function paint() {
-    const active = stored ?? fallback;
     checks = Object.fromEntries(catalog.map((c) => [c.id, active.includes(c.id)]));
   }
 
-  async function load() {
-    try {
-      const [cat, modules] = await Promise.all([
-        api.get<{ data?: Classification[]; default?: string[] }>("/broadcast/classifications"),
-        // The selection is optional: without it, the default applies.
-        api.get<ModulesResponse>("/modules").catch(() => null),
-      ]);
-      catalog = cat.data ?? [];
-      fallback = cat.default ?? [];
-      stored = readSetting(modules);
-      paint();
-    } catch (e) {
-      notice = { kind: "error", text: `The classifications could not be loaded: ${messageOf(e)}` };
-    } finally {
-      loaded = true;
-    }
-  }
+  const data = createLoad(async () => {
+    const [cat, modules] = await Promise.all([
+      api.get<{ data?: Classification[]; default?: string[] }>("/broadcast/classifications"),
+      // The selection is optional: without it, the default applies.
+      api.get<ModulesResponse>("/modules").catch(() => null),
+    ]);
+    catalog = cat.data ?? [];
+    fallback = cat.default ?? [];
+    stored = readSetting(modules);
+    paint();
+  });
 
-  function changed(id: string, value: boolean) {
-    checks[id] = value;
-    const selected = catalog.filter((c) => checks[c.id]).map((c) => c.id);
+  let loadedBase: string | null = null;
+  $effect(() => {
+    const base = apiBaseOf(context);
+    if (base === loadedBase) return;
+    loadedBase = base;
+    untrack(() => void data.load());
+  });
+
+  async function save() {
     // Zero classifications leave the scoreboard with no games at all, which looks broken: refused
     // here instead of saved.
-    if (selected.length === 0) {
-      checks[id] = true;
-      notice = { kind: "error", text: "At least one classification must stay active." };
-      return;
-    }
-    void save(selected);
-  }
-
-  async function save(selected: string[]) {
-    notice = { kind: "info", text: "Saving…" };
+    if (selected.length === 0) return toast.error("At least one classification must stay active");
+    const next = selected;
+    saving = true;
     try {
-      await api.patch("/modules/kon-broadcast", { settings: { classifications: selected } });
-      stored = selected;
+      await api.patch("/modules/kon-broadcast", { settings: { classifications: next } });
+      stored = next;
       paint();
-      notice = { kind: "success", text: "Saved." };
+      toast.success("Classifications saved");
     } catch (e) {
-      notice = { kind: "error", text: `Could not save: ${messageOf(e)}` };
-      // Reload so the checkboxes do not lie about what is stored.
-      void load();
+      failed("Could not save the classifications", e);
+    } finally {
+      saving = false;
     }
   }
 </script>
 
-<ThemeScope class="broadcast-classifications">
-  <header class="header">
-    <h2>Classifications</h2>
-    <p class="sub">
-      Which forms of matchup the scoreboard offers. Each one changes how the result is counted, not
-      just which games appear.
-    </p>
-  </header>
-
-  <div class="list">
-    {#each catalog as c (c.id)}
-      <div class="row" class:on={checks[c.id]}>
-        <Checkbox bind:checked={checks[c.id]} onchange={(e: Event) => changed(c.id, (e.currentTarget as HTMLInputElement).checked)}>
-          <span class="name">{c.name}</span>
-        </Checkbox>
-        {#if c.description}<p class="desc">{c.description}</p>{/if}
-        <div class="games">
-          {#each c.games ?? [] as g (g.id)}
-            <Badge>{g.name}</Badge>
-          {:else}
-            <span class="none">No games</span>
+<View>
+  <Panel
+    title="Classifications"
+    description="Which forms of matchup the scoreboard offers. Each one changes how the result is counted, not just which games appear."
+  >
+    {#snippet status()}
+      {#if data.ready && catalog.length}<Badge>{selected.length} of {catalog.length} offered</Badge>{/if}
+    {/snippet}
+    <Loadable
+      load={data}
+      errorTitle="The classifications did not load"
+      lines={6}
+      empty={catalog.length === 0}
+      emptyTitle="No classifications"
+      emptyDescription="The broadcast catalog of this site has none to offer."
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Offered</TableHead>
+            <TableHead>Classification</TableHead>
+            <TableHead>Games</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {#each catalog as c (c.id)}
+            <TableRow>
+              <TableCell>
+                <div class="offer">
+                  <Checkbox bind:checked={checks[c.id]} disabled={saving} ariaLabel={`Offer ${c.name}`} />
+                  <span class="state" aria-hidden="true">{checks[c.id] ? "Offered" : "Not offered"}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <span class="name">{c.name}</span>
+                {#if c.description}<span class="desc">{c.description}</span>{/if}
+              </TableCell>
+              <TableCell>
+                {#if c.games?.length}
+                  <ul class="games" aria-label={`Games of ${c.name}`}>
+                    {#each c.games as g (g.id)}
+                      <li><Badge>{g.name}</Badge></li>
+                    {/each}
+                  </ul>
+                {:else}
+                  <span class="desc">No games</span>
+                {/if}
+              </TableCell>
+            </TableRow>
           {/each}
-        </div>
-      </div>
-    {:else}
-      {#if loaded}<p class="none">No classifications</p>{/if}
-    {/each}
-  </div>
+        </TableBody>
+      </Table>
+      {#if selected.length === 0}
+        <Alert variant="warning">At least one classification must stay active.</Alert>
+      {/if}
+    </Loadable>
+  </Panel>
 
-  {#if notice}
-    <Alert variant={notice.kind}>{notice.text}</Alert>
+  {#if data.ready && catalog.length}
+    <SaveBar
+      savedText="No unsaved changes"
+      {dirty}
+      {saving}
+      cancelLabel="Discard"
+      ariaLabel="Save the classifications"
+      onSave={save}
+      onCancel={dirty ? paint : undefined}
+    />
   {/if}
-</ThemeScope>
+</View>
 
 <style>
   :host {
     display: block;
   }
 
-  :global(.broadcast-classifications) {
-    display: grid;
-    gap: 1rem;
-  }
-
-  h2 {
-    margin: 0 0 0.35rem;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: rgb(var(--ta-text));
-  }
-
-  .sub {
-    margin: 0;
-    font-size: 0.8rem;
-    color: rgb(var(--ta-text-dim));
-  }
-
-  .list {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .row {
-    display: grid;
-    gap: 0.4rem;
-    padding: 0.9rem 1rem;
-    border-radius: var(--ta-radius-lg);
-    border: 1px solid rgb(var(--ta-border));
-    background: rgb(var(--ta-surface));
-  }
-
-  .row.on {
-    border-color: rgb(var(--ta-accent));
-  }
-
   .name {
+    display: block;
     font-weight: 600;
   }
 
   .desc {
-    margin: 0 0 0 1.5rem;
-    font-size: 0.78rem;
+    display: block;
+    font-size: 0.8125rem;
     color: rgb(var(--ta-text-dim));
   }
 
   .games {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
-    margin-left: 1.5rem;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .none {
-    margin: 0;
-    font-size: 0.78rem;
-    color: rgb(var(--ta-text-dim));
+  .offer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .state {
+    font-size: 0.8125rem;
+    white-space: nowrap;
   }
 </style>
