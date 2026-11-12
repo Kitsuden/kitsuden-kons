@@ -6,7 +6,7 @@ telemetry. For production teams who run the stream of an event.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.3 | `/api/broadcast` | — (core: `auth`; optional: `kon-esports`) |
+| beta | gaming | 1.0.4 | `/api/broadcast` | — (core: `auth`; optional: `kon-esports`) |
 
 ## Install
 

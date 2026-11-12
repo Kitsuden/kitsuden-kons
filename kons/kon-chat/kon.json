@@ -3,7 +3,7 @@
   "id": "kon-chat",
   "name": "Chat",
   "description": "Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what you teach them",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

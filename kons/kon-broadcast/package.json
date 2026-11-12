@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-broadcast",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Broadcast kon for Kitsuden",
   "type": "module",
   "main": "./index.ts",

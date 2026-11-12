@@ -3,7 +3,7 @@
   "id": "kon-esports",
   "name": "Esports",
   "description": "Complete esports competitive ecosystem with players, teams, tournaments, and match tracking.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

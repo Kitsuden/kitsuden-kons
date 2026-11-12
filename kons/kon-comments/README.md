@@ -6,7 +6,7 @@ comment without breaking its thread. For sites that want readers to discuss thei
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.0.1 | `/api/comments` | core `auth` |
+| beta | content | 1.0.2 | `/api/comments` | core `auth` |
 
 ## Install
 

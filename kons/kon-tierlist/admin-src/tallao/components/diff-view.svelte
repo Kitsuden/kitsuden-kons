@@ -20,6 +20,9 @@
   - `compact`: one line per change, "Title: ~~Hello~~ → Hello, world", cut with an ellipsis
     (the whole value is in `title`). For a table cell or a Timeline entry.
   - `format(value, change)` writes a value yourself (a date, a relation's name).
+  - `redacted: true` on a change: a secret field (a token, a password) that changed and whose
+    values are not known. It is listed as changed, and both sides read `redactedLabel`
+    ("hidden") in italics, with no `<del>` / `<ins>` and no strike-through.
   - With no changes it shows `emptyText`. Same HTML on the server.
 -->
 <script lang="ts" module>
@@ -31,6 +34,8 @@
     /** `null`, `undefined` or "" mean "there was nothing". */
     before?: unknown;
     after?: unknown;
+    /** A secret that changed: its values are not shown (nor needed), and it counts as changed. */
+    redacted?: boolean;
   }
 
   export type DiffKind = "added" | "removed" | "changed" | "unchanged";
@@ -39,6 +44,7 @@
 
   /** What happened to a field, from its two values. */
   export function diffKind(change: DiffChange): DiffKind {
+    if (change.redacted) return "changed";
     const a = blank(change.before);
     const b = blank(change.after);
     if (a && b) return "unchanged";
@@ -71,6 +77,8 @@
     changedLabel?: string;
     /** What a missing value is called ("empty"). */
     emptyValueLabel?: string;
+    /** What a redacted value reads ("hidden"). */
+    redactedLabel?: string;
     showMoreLabel?: string;
     showLessLabel?: string;
     /** Shown when there is nothing to list. */
@@ -94,6 +102,7 @@
     removedLabel = L.removed,
     changedLabel = L.changed,
     emptyValueLabel = L.emptyValue,
+    redactedLabel = L.redacted,
     showMoreLabel = L.showMore,
     showLessLabel = L.showLess,
     emptyText = L.noChanges,
@@ -122,9 +131,10 @@
           change,
           kind,
           label: change.label ?? change.field,
-          before: blank(change.before) ? null : text(change.before, change, !compact),
-          after: blank(change.after) ? null : text(change.after, change, !compact),
-          mono: isStructured(change.before) || isStructured(change.after),
+          redacted: !!change.redacted,
+          before: change.redacted || blank(change.before) ? null : text(change.before, change, !compact),
+          after: change.redacted || blank(change.after) ? null : text(change.after, change, !compact),
+          mono: !change.redacted && (isStructured(change.before) || isStructured(change.after)),
         };
       })
       .filter((row) => showUnchanged || row.kind !== "unchanged")
@@ -143,7 +153,9 @@
       <li class={cn("ta-diff-line", `ta-diff-line--${row.kind}`)}>
         <span class="ta-diff-sign" aria-hidden="true">{SIGN[row.kind]}</span>
         <span class="ta-diff-field">{row.label}<span class="ta-diff-hidden">{" (" + (kindLabel(row.kind) || "=") + ")"}</span>:</span>
-        {#if row.kind === "unchanged"}
+        {#if row.redacted}
+          <span class="ta-diff-inline ta-diff-redacted">{redactedLabel}</span>
+        {:else if row.kind === "unchanged"}
           <span class={cn("ta-diff-inline", row.mono && "ta-diff-mono")} title={row.after ?? ""}>{row.after ?? emptyValueLabel}</span>
         {:else}
           {#if row.before !== null}
@@ -175,6 +187,15 @@
           {#if row.kind === "unchanged"}
             <div class="ta-diff-value">
               <span class={cn("ta-diff-text", row.mono && "ta-diff-mono")}>{row.after ?? emptyValueLabel}</span>
+            </div>
+          {:else if row.redacted}
+            <div class="ta-diff-value ta-diff-value--before">
+              <span class="ta-diff-side">{beforeLabel}</span>
+              <span class="ta-diff-text ta-diff-none ta-diff-redacted">{redactedLabel}</span>
+            </div>
+            <div class="ta-diff-value ta-diff-value--after">
+              <span class="ta-diff-side">{afterLabel}</span>
+              <span class="ta-diff-text ta-diff-none ta-diff-redacted">{redactedLabel}</span>
             </div>
           {:else}
             <div class="ta-diff-value ta-diff-value--before">
@@ -358,6 +379,7 @@
   .ta-diff del.ta-diff-inline { text-decoration: line-through; text-decoration-color: rgb(var(--ta-danger) / 0.7); color: rgb(var(--ta-text-dim)); }
   .ta-diff ins.ta-diff-inline { font-weight: 500; }
   .ta-diff-arrow { flex-shrink: 0; color: rgb(var(--ta-text-dim)); }
+  .ta-diff-inline.ta-diff-redacted { font-style: italic; color: rgb(var(--ta-text-dim)); }
 
   .ta-diff-hidden {
     position: absolute;

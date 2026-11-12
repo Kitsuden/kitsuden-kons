@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-chat",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Chatbots over the core's agents, with knowledge search and an embeddable widget",
   "type": "module",
   "main": "./index.ts",

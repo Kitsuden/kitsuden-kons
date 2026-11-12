@@ -4,7 +4,8 @@
   the rest of the page inert (Tab does not leave the dialog), puts it in the top
   layer (no z-index fights, also inside a Shadow DOM) and Escape closes only the
   topmost one. tallao adds scroll locking, closing on the backdrop, initial
-  focus and returning focus on close.
+  focus and returning focus on close. With no content (only a title, a
+  description and a footer, as a confirmation) it draws no body.
 -->
 <script lang="ts">
   import { untrack } from "svelte";
@@ -160,9 +161,12 @@
         </div>
       {/if}
 
-      <div class="ta-dialog-body" bind:this={bodyEl}>
-        {@render children?.()}
-      </div>
+      <!-- No content, no body: an empty padded body was a blank band above the footer. -->
+      {#if children}
+        <div class="ta-dialog-body" bind:this={bodyEl}>
+          {@render children()}
+        </div>
+      {/if}
 
       {#if footer}
         <div class="ta-dialog-footer">
@@ -241,6 +245,9 @@
   [data-placement="bottom"] .ta-dialog { animation-name: ta-dialog-bottom; border-bottom: none; }
   [data-placement="left"] .ta-dialog-body,
   [data-placement="right"] .ta-dialog-body { flex: 1; }
+  /* With no body, the footer still sits at the bottom of a sheet. */
+  [data-placement="left"] .ta-dialog-footer,
+  [data-placement="right"] .ta-dialog-footer { margin-top: auto; }
 
   @keyframes ta-dialog-left { from { transform: translateX(-100%); } to { transform: none; } }
   @keyframes ta-dialog-right { from { transform: translateX(100%); } to { transform: none; } }

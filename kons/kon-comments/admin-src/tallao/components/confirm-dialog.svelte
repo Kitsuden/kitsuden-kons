@@ -77,8 +77,8 @@
 
 <!-- Dialog calls onClose only when the user closes it (Escape, the X, the backdrop):
      that is cancelling. Closing it after confirming does not go through there. -->
-<Dialog bind:open {title} {description} {closeLabel} size="sm" onClose={notifyCancel}>
-  {@render children?.()}
+<!-- `children` is handed on as it came: with none, the Dialog draws no body. -->
+<Dialog bind:open {title} {description} {closeLabel} {children} size="sm" onClose={notifyCancel}>
   {#snippet footer()}
     <Button variant="ghost" onclick={cancel} disabled={busy}>{cancelLabel}</Button>
     <Button {variant} loading={busy} onclick={confirm}>{confirmLabel}</Button>

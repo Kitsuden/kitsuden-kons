@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-esports",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Complete esports competitive ecosystem with players, teams, tournaments, and matches",
   "type": "module",
   "main": "./index.ts",

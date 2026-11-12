@@ -6,7 +6,7 @@ a template and share with a code. For game sites that rank characters, decks or 
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.1 | `/api/tierlist` | — (core: `auth`) |
+| beta | gaming | 1.0.2 | `/api/tierlist` | — (core: `auth`) |
 
 ## Install
 

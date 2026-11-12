@@ -3,7 +3,7 @@
   "id": "kon-comments",
   "name": "Comments",
   "description": "Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the thread",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "common",

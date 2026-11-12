@@ -171,6 +171,8 @@ export interface Labels {
   noChanges: string;
   /** A value that is not there, in words (DiffView). */
   emptyValue: string;
+  /** A secret value that is not shown (DiffView). */
+  redacted: string;
   /** Buttons that unfold and fold a long value (DiffView). */
   showMore: string;
   showLess: string;
@@ -366,6 +368,7 @@ export const en: Labels = {
   changed: "Changed",
   noChanges: "No changes",
   emptyValue: "empty",
+  redacted: "hidden",
   showMore: "Show more",
   showLess: "Show less",
   keyCommand: "Command",
@@ -539,6 +542,7 @@ export const es: Labels = {
   changed: "Modificado",
   noChanges: "Sin cambios",
   emptyValue: "vacío",
+  redacted: "oculto",
   showMore: "Ver más",
   showLess: "Ver menos",
   keyCommand: "Comando",

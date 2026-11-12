@@ -7,7 +7,7 @@ books in Kitsuden, whatever it sells.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.1 | `/api/conta` | — (core `auth`) |
+| beta | business | 1.0.2 | `/api/conta` | — (core `auth`) |
 
 ## Install
 

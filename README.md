@@ -80,10 +80,10 @@ use a kon has had, not how many features it has:
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `kon-academy-lms` | beta | 1.1.1 | 1 | `/api/academy` | Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment… |
-| `kon-agile` | beta | 1.3.2 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
+| `kon-agile` | beta | 1.3.3 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
 | `kon-booking` | beta | 1.0.1 | 1 | `/api/booking` | Room and resource reservation system with availability tracking, amenities management and conflict detection. |
-| `kon-conta` | beta | 1.0.1 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
-| `kon-crm` | beta | 1.0.3 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |
+| `kon-conta` | beta | 1.0.2 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
+| `kon-crm` | beta | 1.0.4 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |
 | `kon-directory` | beta | 1.0.0 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.0.0 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.1.2 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
@@ -94,26 +94,26 @@ use a kon has had, not how many features it has:
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `kon-analytics` | beta | 1.0.2 | 1 | `/api/analytics` | Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments. |
-| `kon-comments` | beta | 1.0.1 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
+| `kon-comments` | beta | 1.0.2 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
 | `kon-newsletter` | beta | 1.0.1 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
-| `kon-wiki` | beta | 1.1.2 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
-| `kon-chat` | experimental | 1.0.2 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what… |
+| `kon-wiki` | beta | 1.1.3 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
+| `kon-chat` | experimental | 1.0.3 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what… |
 
 ### Gaming
 
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `kon-autobattler` | beta | 1.0.1 | 1 | `/api/autobattler` | Autobattler compositions: units, traits with thresholds, items and board. TFT set included. |
-| `kon-broadcast` | beta | 1.0.3 | 1 | `/api/broadcast` | Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games… |
+| `kon-broadcast` | beta | 1.0.4 | 1 | `/api/broadcast` | Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games… |
 | `kon-cardsim` | beta | 2.3.1 | 1 | `/api/cardsim` | Card simulator builder: data-defined games, validated decks, rooms with a clock and deterministic sessions… |
-| `kon-character-builder` | beta | 1.1.1 | 1 | `/api/builder` | Character builder engine: per-game definitions, validation, final stats and shareable build codes |
+| `kon-character-builder` | beta | 1.1.2 | 1 | `/api/builder` | Character builder engine: per-game definitions, validation, final stats and shareable build codes |
 | `kon-collection` | beta | 1.0.1 | 1 | `/api/collection` | What each reader already has: marks the records of an index that they have obtained and keeps count |
-| `kon-esports` | beta | 1.0.3 | 1 | `/api/esports` | Complete esports competitive ecosystem with players, teams, tournaments, and match tracking. |
+| `kon-esports` | beta | 1.0.4 | 1 | `/api/esports` | Complete esports competitive ecosystem with players, teams, tournaments, and match tracking. |
 | `kon-formulas` | beta | 1.0.1 | 1 | `/api/formulas` | Game formula engine: safe allowlist evaluator, derived stat systems with dependency resolution |
 | `kon-games` | beta | 2.1.2 | 1 | `/api/games` | Full game catalog with metadata, screenshots, specs, platforms, tags, and collections. Cover art, screenshots… |
 | `kon-maps` | beta | 1.0.1 | 1 | `/api/maps` | Interactive game maps: layers, categories, markers with normalized coordinates and clustering |
 | `kon-streamers` | beta | 1.0.2 | 1 | `/api/streamers` | Live streamer tracking across Twitch, YouTube, and Kick with real-time status sync. |
-| `kon-tierlist` | beta | 1.0.1 | 1 | `/api/tierlist` | Tier lists with two surfaces: editorial templates with diff between patches, and personal lists shareable by… |
+| `kon-tierlist` | beta | 1.0.2 | 1 | `/api/tierlist` | Tier lists with two surfaces: editorial templates with diff between patches, and personal lists shareable by… |
 
 ### Documents and OCR
 

@@ -3,7 +3,7 @@
   "id": "kon-conta",
   "name": "Accounting",
   "description": "General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a business that bills clients runs through it: invoices, payments, work billed as quantity times rate, recurring fees, success fees, client funds, bank reconciliation, period close and an audit trail.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",
@@ -108,7 +108,7 @@
     },
     {
       "name": "conta_disbursements",
-      "label": "Reimbursable Expenses",
+      "label": "Reimbursable expenses",
       "icon": "Receipt",
       "description": "Disbursements and recoverable client expenses",
       "searchableFields": [
@@ -348,7 +348,7 @@
       {
         "id": "journal-form",
         "type": "custom",
-        "title": "New Journal Entry"
+        "title": "New journal entry"
       },
       {
         "id": "reports",
@@ -358,12 +358,12 @@
       {
         "id": "disbursement-form",
         "type": "custom",
-        "title": "Reimbursable Expenses"
+        "title": "Reimbursable expenses"
       },
       {
         "id": "template-form",
         "type": "custom",
-        "title": "New Template"
+        "title": "New template"
       }
     ]
   },
