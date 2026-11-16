@@ -104,6 +104,13 @@ import { TEMPLATES, buildTemplate } from "./dc.templates";
 
 registerDcPolicy();
 
+/** A URL without its trailing slashes (no regex: CodeQL flags `/\/+$/` on input). */
+function trimSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end--;
+  return url.slice(0, end);
+}
+
 /** The kon's id: part of the fine scope of each operation (`kon:dc:<op>`). */
 export const KON_ID = "kon-dc";
 
@@ -1114,7 +1121,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
             botToken: !!s.botToken,
             kitsudenApi: !!(s.kitsudenApiUrl && s.kitsudenApiToken),
           },
-          interactionsUrl: `${(ctx.config?.siteUrl ?? "").replace(/\/+$/, "")}/api/dc/interactions`,
+          interactionsUrl: `${trimSlashes(ctx.config?.siteUrl ?? "")}/api/dc/interactions`,
           inviteUrl: s.applicationId
             ? `https://discord.com/oauth2/authorize?client_id=${s.applicationId}&scope=bot%20applications.commands&permissions=${BOT_PERMISSIONS}`
             : null,

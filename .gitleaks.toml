@@ -27,3 +27,9 @@ description = "Idempotency keys made up by the tests"
 condition = "AND"
 paths = ['''^tests/unit/(idempotency|security-shop)\.test\.ts$''']
 regexes = ['''respaldo-pg-0[12]''', '''pedido-abc-123''']
+
+[[allowlists]]
+description = "A made-up start.gg token in kon-broadcast's tests"
+condition = "AND"
+paths = ['''^tests/unit/kon-broadcast\.test\.ts$''']
+regexes = ['''tok-0123456789''']

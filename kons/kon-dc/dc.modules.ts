@@ -497,8 +497,10 @@ export function parseCustomId(value: string): { moduleId: string; localId: strin
 export type Scope = Record<string, unknown>;
 
 /** `{{path}}` or `{{path|filter|filter:arg}}`: group 1 is the path, group 2 the filters. */
-const PLACEHOLDER = /\{\{\s*([a-zA-Z0-9_.:$-]+)((?:\s*\|\s*[a-z_]+(?::[^|{}]{0,60})?)*)\s*\}\}/g;
-const WHOLE_PLACEHOLDER = /^\{\{\s*([a-zA-Z0-9_.:$-]+)((?:\s*\|\s*[a-z_]+(?::[^|{}]{0,60})?)*)\s*\}\}$/;
+// Unambiguous on purpose (no backtracking blow-up): filters start with "|" and hold no "|", "{" or
+// "}"; applyFilters trims them and ignores unknown names.
+const PLACEHOLDER = /\{\{\s*([a-zA-Z0-9_.:$-]+)\s*((?:\|[^|{}]{0,80}){0,10})\}\}/g;
+const WHOLE_PLACEHOLDER = /^\{\{\s*([a-zA-Z0-9_.:$-]+)\s*((?:\|[^|{}]{0,80}){0,10})\}\}$/;
 
 const asNumber = (v: unknown) => (typeof v === "number" ? v : Number(String(v ?? "").trim() || NaN));
 

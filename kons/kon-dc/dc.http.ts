@@ -112,17 +112,29 @@ export interface FeedEntry {
   image: string;
 }
 
+/** Removes tags until none is left (a tag split by another, `<scr<b>ipt`, cannot survive one pass). */
+function stripTags(s: string): string {
+  let out = s;
+  for (let i = 0; i < 10; i++) {
+    const next = out.replace(/<[^<>]*>/g, "");
+    if (next === out) break;
+    out = next;
+  }
+  // What is left of a tag that never closed goes too: feed text is plain text for Discord.
+  return out.replace(/</g, "‹");
+}
+
 const decode = (s: string) =>
-  s
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&lt;/g, "<")
+  stripTags(
+    s
+      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+      .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
     .replace(/&#(\d+);/g, (_m, n: string) => String.fromCodePoint(Number(n) % 0x110000))
-    .replace(/&amp;/g, "&")
-    .trim();
+      .replace(/&amp;/g, "&")
+  ).trim();
 
 function tag(block: string, name: string): string {
   const m = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i").exec(block);

@@ -41,6 +41,14 @@ export interface DiscordSettings {
   freeBlueprints?: number | null;
 }
 
+/** Without trailing slashes, and no regex (CodeQL flags `/\/+$/` on input). */
+function trimEnd(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end--;
+  return url.slice(0, end);
+}
+
 export function discordSettings(env: Record<string, string | undefined> = process.env): DiscordSettings {
   const clean = (v: string | undefined) => (v && v.trim() ? v.trim() : null);
   return {
@@ -54,7 +62,7 @@ export function discordSettings(env: Record<string, string | undefined> = proces
         .filter(Boolean)
     ),
     apiBase: clean(env.DISCORD_API_BASE) ?? "https://discord.com/api/v10",
-    kitsudenApiUrl: clean(env.DISCORD_KITSUDEN_API_URL)?.replace(/\/+$/, "") ?? null,
+    kitsudenApiUrl: trimEnd(clean(env.DISCORD_KITSUDEN_API_URL)) ?? null,
     kitsudenApiToken: clean(env.DISCORD_KITSUDEN_API_TOKEN),
     clientSecret: clean(env.DISCORD_CLIENT_SECRET),
     oauthRedirectUrl: clean(env.DISCORD_OAUTH_REDIRECT_URL),
