@@ -11,6 +11,7 @@
     "admin",
     "dc.cards.ts",
     "dc.catalog.ts",
+    "dc.community.ts",
     "dc.contract.ts",
     "dc.engine.ts",
     "dc.extensions.ts",

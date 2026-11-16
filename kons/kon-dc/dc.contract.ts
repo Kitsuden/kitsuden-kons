@@ -39,6 +39,8 @@ export const INTENTS = {
   GUILD_MEMBERS: 1 << 1,
   /** Bans (GUILD_BAN_ADD). */
   GUILD_MODERATION: 1 << 2,
+  /** Invites created and deleted (INVITE_CREATE, INVITE_DELETE): the invite tracker. */
+  GUILD_INVITES: 1 << 6,
   /** Who joins, leaves or moves between voice channels (VOICE_STATE_UPDATE). */
   GUILD_VOICE_STATES: 1 << 7,
   GUILD_MESSAGES: 1 << 9,
@@ -54,6 +56,7 @@ export const GATEWAY_EVENTS = [
   "GUILD_DELETE",
   "GUILD_MEMBER_ADD",
   "GUILD_MEMBER_REMOVE",
+  "GUILD_MEMBER_UPDATE",
   "GUILD_BAN_ADD",
   "MESSAGE_CREATE",
   "MESSAGE_UPDATE",
@@ -62,6 +65,8 @@ export const GATEWAY_EVENTS = [
   "MESSAGE_REACTION_REMOVE",
   "VOICE_STATE_UPDATE",
   "GUILD_AUDIT_LOG_ENTRY_CREATE",
+  "INVITE_CREATE",
+  "INVITE_DELETE",
 ] as const;
 export type GatewayEventName = (typeof GATEWAY_EVENTS)[number];
 

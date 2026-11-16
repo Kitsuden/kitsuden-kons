@@ -101,6 +101,21 @@ export const safeFetchText: TextFetcher = async (raw) => {
   throw new FetchRefused("Too many redirects");
 };
 
+/**
+ * A JSON document through the same checked fetcher (the levels import reads MEE6's public
+ * leaderboard with it). Gives the status and the parsed body, or null when it is not JSON.
+ */
+export async function fetchJson(fetchText: TextFetcher, url: string): Promise<{ status: number; data: unknown }> {
+  const res = await fetchText(url);
+  let data: unknown = null;
+  try {
+    data = JSON.parse(res.text);
+  } catch {
+    data = null;
+  }
+  return { status: res.status, data };
+}
+
 // ── Feeds: a small RSS / Atom reader ────────────────────────────────────────────────────────────
 
 export interface FeedEntry {

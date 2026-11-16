@@ -50,13 +50,15 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
 - `dc.extensions.ts` — the public extension API (AI per server and metering, branded bots, event
   verdicts, staff actions, templates, plans). kon-dc never imports an extension; the registry lives
   on `globalThis` so an extension that loads its own copy of kon-dc still reaches the running one.
-- `dc.manage.ts` — the admin's overview, economy, member file, activity and schedules routes.
-- `dc.http.ts` — the checked fetch feeds use (https, no private addresses, redirects re-checked)
-  and the RSS/Atom reader.
-- Built-in modules by family: `dc.rewards.ts` (economy, leveling, giveaways, role menus, reminders,
-  scheduled messages, suggestions, polls), `dc.profile.ts`, `dc.items.ts`, `dc.stats.ts`,
+- `dc.manage.ts` — the admin's overview, economy, member file, activity and schedules routes, and
+  the levels import from another bot's rows (`POST /guilds/:guildId/import/levels`).
+- `dc.http.ts` — the checked fetch feeds use (https, no private addresses, redirects re-checked),
+  `fetchJson` on top of it (MEE6's leaderboard for `/levels-import`), and the RSS/Atom reader.
+- Built-in modules by family: `dc.rewards.ts` (economy, leveling with the MEE6 import, giveaways,
+  role menus, reminders, scheduled messages, suggestions, polls), `dc.community.ts` (invite tracker,
+  sticky roles, temporary roles, voice roles), `dc.profile.ts`, `dc.items.ts`, `dc.stats.ts`,
   `dc.voice.ts` (temporary rooms), `dc.feeds.ts`, `dc.moderation.ts` (moderation, automod, logs,
-  tickets), `dc.security.ts`, `dc.webhooks.ts` (characters, sticky), `dc.extras.ts` (reaction roles,
+  tickets with transcripts), `dc.security.ts`, `dc.webhooks.ts` (characters, sticky), `dc.extras.ts` (reaction roles,
   auto purge, birthdays). `dc.routes.ts` imports them so they register.
 - `dc.rest.ts` — Discord REST over `fetch`, Ed25519 verification, settings from the environment.
 - `dc.routes.ts` — the operations (REST route, OpenAPI entry and MCP tool each).

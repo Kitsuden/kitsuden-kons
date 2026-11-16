@@ -21,6 +21,7 @@
               "GUILD_DELETE",
               "GUILD_MEMBER_ADD",
               "GUILD_MEMBER_REMOVE",
+              "GUILD_MEMBER_UPDATE",
               "GUILD_BAN_ADD",
               "MESSAGE_CREATE",
               "MESSAGE_UPDATE",
@@ -28,7 +29,9 @@
               "MESSAGE_REACTION_ADD",
               "MESSAGE_REACTION_REMOVE",
               "VOICE_STATE_UPDATE",
-              "GUILD_AUDIT_LOG_ENTRY_CREATE"
+              "GUILD_AUDIT_LOG_ENTRY_CREATE",
+              "INVITE_CREATE",
+              "INVITE_DELETE"
             ]
           },
           "s": {

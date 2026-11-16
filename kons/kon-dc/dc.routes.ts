@@ -27,6 +27,7 @@
  *   GET    /api/dc/overview                             totals and the last 30 days (dc.manage.ts)
  *   GET    /api/dc/guilds/:guildId/economy              a currency's ranking
  *   PUT    /api/dc/guilds/:guildId/economy/:userId      give, take or set a balance
+ *   POST   /api/dc/guilds/:guildId/import/levels        members' XP from another bot's export
  *   GET    /api/dc/guilds/:guildId/members/:userId      a member's balances, items, activity
  *   GET    /api/dc/guilds/:guildId/activity             activity per day and top members
  *   GET    /api/dc/guilds/:guildId/schedules            work queued for later
@@ -67,6 +68,7 @@ import {
 import { createDcEngine, type DcDb, type DcEngineOptions } from "./dc.engine";
 import { blueprintModuleId } from "./dc.modules";
 // The built-in modules register themselves when imported.
+import "./dc.community";
 import "./dc.extras";
 import "./dc.feeds";
 import "./dc.items";

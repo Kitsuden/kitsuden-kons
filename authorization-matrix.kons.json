@@ -973,6 +973,7 @@
   "GET /api/dc/overview": "staff",
   "GET /api/dc/guilds/:guildId/economy": "staff",
   "PUT /api/dc/guilds/:guildId/economy/:userId": "staff",
+  "POST /api/dc/guilds/:guildId/import/levels": "staff",
   "GET /api/dc/guilds/:guildId/members/:userId": "staff",
   "GET /api/dc/guilds/:guildId/activity": "staff",
   "GET /api/dc/guilds/:guildId/schedules": "staff",

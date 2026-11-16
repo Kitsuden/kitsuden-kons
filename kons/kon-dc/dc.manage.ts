@@ -5,6 +5,7 @@
  *   GET    /api/dc/overview                               totals and the last 30 days, every server
  *   GET    /api/dc/guilds/:guildId/economy                a currency's ranking in a server
  *   PUT    /api/dc/guilds/:guildId/economy/:userId        set or adjust a member's balance
+ *   POST   /api/dc/guilds/:guildId/import/levels          members' XP from another bot's export
  *   GET    /api/dc/guilds/:guildId/members/:userId        a member: balances, items, activity, profile
  *   GET    /api/dc/guilds/:guildId/activity               messages and voice per day, top members
  *   GET    /api/dc/guilds/:guildId/schedules              work the bot will do later
@@ -19,6 +20,7 @@ import { z } from "zod";
 
 import { DC_EVENTS, Snowflake } from "./dc.contract";
 import type { DcDb } from "./dc.engine";
+import { xpFor } from "./dc.modules";
 import {
   dcActivity,
   dcBlueprints,
@@ -45,6 +47,8 @@ export interface ManageDeps {
 }
 
 const DAY_MS = 86_400_000;
+/** Rows one levels import takes. */
+const MAX_IMPORTED_LEVELS = 50_000;
 const dayOf = (d: Date) => Math.floor(d.getTime() / DAY_MS);
 const dateOf = (day: number) => new Date(day * DAY_MS).toISOString().slice(0, 10);
 
@@ -252,6 +256,71 @@ export function manageOperations({ db, team, now, guildOr404, forget, emit }: Ma
           reason: body.reason ?? null,
         });
         return { userId: params.userId, currency: body.currency, balance: Number(row?.balance ?? 0) };
+      },
+    }),
+
+    defineOperation({
+      id: "import-guild-levels",
+      method: "POST",
+      route: "/guilds/:guildId/import/levels",
+      summary: "Import members' XP from another bot",
+      description:
+        "Loads members' XP (the Levels module's `xp`) from any bot's export or a CSV turned into rows: `[{ userId, xp }]`, or `[{ userId, level }]` with `keep: \"level\"` to keep each member's level on this bot's curve. By default a member keeps the higher of their XP here and the imported one; `overwrite: true` replaces it. Level reward roles follow the next time a member earns XP. MEE6's public leaderboard can also be imported from Discord with `/levels-import`.",
+      access: "session",
+      permission: team("update"),
+      input: {
+        params: GuildParam,
+        body: z.object({
+          rows: z
+            .array(
+              z
+                .object({
+                  userId: Snowflake.describe("Discord user id"),
+                  xp: z.number().int().min(0).max(1e12).optional(),
+                  level: z.number().int().min(0).max(10_000).optional(),
+                })
+                .refine((r) => r.xp !== undefined || r.level !== undefined, "Each row needs `xp` or `level`")
+            )
+            .min(1)
+            .max(MAX_IMPORTED_LEVELS)
+            .describe(`Members and their XP or level, at most ${MAX_IMPORTED_LEVELS}`),
+          keep: z.enum(["xp", "level"]).default("xp").describe("`xp`: the same XP (the level follows this bot's curve); `level`: the same level"),
+          overwrite: z.boolean().default(false).describe("Replace XP members already have here, instead of keeping the higher"),
+          source: z.string().max(40).optional().describe("Where the figures came from (mee6, arcane, amari, a CSV…), for the record"),
+        }),
+      },
+      output: { schema: z.object({ members: z.number().int(), skipped: z.number().int() }) },
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_VALIDATION"],
+      handle: async ({ params, body }) => {
+        await guildOr404(params.guildId);
+        // One figure per member (the highest when an export repeats someone).
+        const byUser = new Map<string, number>();
+        let skipped = 0;
+        for (const r of body.rows) {
+          const xp = body.keep === "level" && r.level !== undefined ? xpFor(r.level) : r.xp;
+          if (xp === undefined) {
+            skipped++;
+            continue;
+          }
+          byUser.set(r.userId, Math.max(byUser.get(r.userId) ?? 0, xp));
+        }
+        const all = [...byUser.entries()];
+        for (let i = 0; i < all.length; i += 500) {
+          const chunk = all.slice(i, i + 500);
+          await db
+            .insert(dcWallets)
+            .values(chunk.map(([userId, balance]) => ({ guildId: params.guildId, userId, currency: "xp", balance })))
+            .onConflictDoUpdate({
+              target: [dcWallets.guildId, dcWallets.currency, dcWallets.userId],
+              set: {
+                balance: body.overwrite ? sql`excluded.balance` : sql`greatest(${dcWallets.balance}, excluded.balance)`,
+                updatedAt: new Date(),
+              },
+            });
+        }
+        forget(params.guildId);
+        emit("dc:levels:imported", { guildId: params.guildId, source: body.source ?? "rows", members: all.length, changed: null });
+        return { members: all.length, skipped };
       },
     }),
 

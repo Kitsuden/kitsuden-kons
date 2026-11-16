@@ -483,7 +483,7 @@ describe("kon-dc: blueprints", () => {
     const r = await request("staff", "POST", `/guilds/${GUILD}/commands/sync`);
     expect(r.status).toBe(200);
     const names = (await r.json()).synced.map((c: { name: string }) => c.name).sort();
-    expect(names).toEqual(["ask", "cookie", "levels", "rank", "xp"]);
+    expect(names).toEqual(["ask", "cookie", "levels", "levels-import", "rank", "xp"]);
     expect(calls.find((c) => c.fn === "syncGuildCommands")!.args[0]).toBe(GUILD);
   });
 

@@ -8,7 +8,8 @@
  *               links (with allowed sites), mention spam and spam. Discord blocks the messages itself:
  *               the bot reads no message text and needs no privileged intent for it
  *   logs        joins, leaves, bans, edited and deleted messages, into one channel
- *   tickets     a panel with "Open a ticket": a private thread per member, closed with a button
+ *   tickets     a panel with "Open a ticket": a private thread per member, closed with a button;
+ *               on close, a .txt transcript in a log channel and, if you like, by DM to the member
  *
  * Discord shows the moderation commands only to members with the matching permission
  * (`default_member_permissions`), and the module checks the permission again on every use.
@@ -32,7 +33,7 @@ import {
   type ModuleRuntime,
   type Reply,
 } from "./dc.modules";
-import { DiscordApiError, type MessagePayload } from "./dc.rest";
+import { DiscordApiError, type MessagePayload, type TranscriptMessage } from "./dc.rest";
 
 const ME = (text: string): Reply => ({ content: clip(text), ephemeral: true });
 const idOf = (v: unknown) => (typeof v === "string" && /^\d{15,20}$/.test(v) ? v : null);
@@ -467,8 +468,84 @@ const TicketsConfig = z
       .meta({ title: "First message in the ticket" }),
     maxOpen: z.number().int().min(1).max(5).default(1).meta({ title: "Open tickets per member" }),
     logChannelId: Snowflake.optional().meta({ title: "Log channel id", description: "Opened and closed tickets are noted there" }),
+    transcriptChannelId: Snowflake.optional().meta({ title: "Transcript channel id", description: "On close, the conversation as a .txt file; empty = none" }),
+    transcriptDm: z.boolean().default(false).meta({ title: "Send the transcript to the member by DM" }),
+    transcriptMaxMessages: z.number().int().min(50).max(5000).default(1000).meta({ title: "Messages in a transcript at most", description: "The newest are kept" }),
   })
   .strict();
+type TicketsConfig = z.output<typeof TicketsConfig>;
+
+/** One page per Discord call: 100 messages. */
+const TRANSCRIPT_PAGE = 100;
+
+/** Two digits. */
+const p2 = (n: number) => String(n).padStart(2, "0");
+const stamp = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : `${d.getUTCFullYear()}-${p2(d.getUTCMonth() + 1)}-${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}:${p2(d.getUTCSeconds())}`;
+};
+
+/**
+ * A ticket's thread as plain text, oldest first: the newest `max` messages, read 100 at a time.
+ * Discord sends the text only when the app has the Message Content intent switched on in the
+ * Developer Portal; without it a line says the message had no readable text.
+ */
+export async function ticketTranscript(rt: ModuleRuntime, threadId: string, header: string[], max: number): Promise<{ text: string; count: number }> {
+  const messages: TranscriptMessage[] = [];
+  let before: string | undefined;
+  while (messages.length < max) {
+    const want = Math.min(TRANSCRIPT_PAGE, max - messages.length);
+    const page = await rt.rest.messagePage(threadId, want, before);
+    messages.push(...page.slice(0, want));
+    if (page.length < want) break;
+    before = page[page.length - 1].id;
+  }
+  messages.reverse();
+  const lines = [...header, `${messages.length} messages (UTC)`, ""];
+  for (const m of messages) {
+    const body = m.content || (m.attachments.length || m.embeds ? "" : "(no text)");
+    lines.push(`[${stamp(m.timestamp)}] ${m.authorName}${m.bot ? " [bot]" : ""} (${m.authorId ?? "?"}): ${body}`);
+    for (const url of m.attachments) lines.push(`    attachment: ${url}`);
+    if (m.embeds) lines.push(`    (${m.embeds} embed${m.embeds === 1 ? "" : "s"})`);
+  }
+  return { text: lines.join("\n") + "\n", count: messages.length };
+}
+
+/** Collects the transcript and posts it where the settings say; a failure never stops the close. */
+async function sendTranscript(rt: ModuleRuntime, config: TicketsConfig, threadId: string, ownerId: string, closedBy: string) {
+  if (!config.transcriptChannelId && !config.transcriptDm) return;
+  let transcript: { text: string; count: number };
+  try {
+    transcript = await ticketTranscript(
+      rt,
+      threadId,
+      [`Ticket ${threadId} in server ${rt.guildId}`, `Opened by ${ownerId} · closed by ${closedBy} at ${stamp(rt.now().toISOString())}`],
+      config.transcriptMaxMessages
+    );
+  } catch (err) {
+    rt.logger.warn("Tickets: the transcript could not be read (the bot needs Read Message History)", { message: messageOf(err) });
+    return;
+  }
+  const file = () => ({ name: `transcript-${threadId}.txt`, data: new TextEncoder().encode(transcript.text), contentType: "text/plain; charset=utf-8" });
+  if (config.transcriptChannelId) {
+    await rt.rest
+      .sendMessage(config.transcriptChannelId, {
+        content: clip(rt.t("Transcript of <#{thread}> (opened by <@{owner}>, {n} messages).", { thread: threadId, owner: ownerId, n: transcript.count })),
+        files: [file()],
+      })
+      .catch((err) => rt.logger.warn("Tickets: the transcript could not be posted", { message: messageOf(err) }));
+  }
+  if (config.transcriptDm) {
+    try {
+      await rt.rest.sendMessage(await rt.rest.openDm(ownerId), { content: clip(rt.t("The transcript of your ticket.")), files: [file()] });
+    } catch (err) {
+      rt.logger.info("Tickets: transcript not delivered by DM (closed DMs)", { message: messageOf(err) });
+    }
+  }
+  rt.emit("dc:ticket:transcript", { guildId: rt.guildId, threadId, ownerId, messages: transcript.count });
+}
 
 export const ticketsModule = defineDcModule({
   id: "tickets",
@@ -526,6 +603,8 @@ export const ticketsModule = defineDcModule({
       await rt.kv.set(`ticket:${rt.channelId}`, "closed");
       await rt.kv.incr(`open:${owner}`, -1);
       await rt.rest.sendMessage(rt.channelId, `🔒 Closed by <@${rt.user.id}>.`);
+      // Read before the thread is archived and locked.
+      await sendTranscript(rt, config, rt.channelId, owner, rt.user.id);
       await rt.rest.setThreadState(rt.channelId, { archived: true, locked: true });
       if (config.logChannelId) await rt.rest.sendMessage(config.logChannelId, `🔒 Ticket <#${rt.channelId}> closed by <@${rt.user.id}>`).catch(() => undefined);
       return null;
