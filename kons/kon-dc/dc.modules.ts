@@ -128,7 +128,7 @@ export interface CatalogItem {
   description: string | null;
   emoji: string | null;
   rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
-  kind: "item" | "consumable" | "role" | "badge" | "background" | "pet";
+  kind: "item" | "consumable" | "role" | "badge" | "background" | "pet" | "furniture";
   imageUrl: string | null;
   color: string | null;
   price: number | null;
@@ -171,6 +171,8 @@ export interface Profile {
   rep: number;
   /** Catalog item ids shown as badges. */
   badges: string[];
+  /** The streak of the global daily (/credits daily), as of its last claim. */
+  dailyStreak: number;
   /** A catalog item id drawn behind the profile card. */
   background: string | null;
 }

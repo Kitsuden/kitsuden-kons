@@ -113,7 +113,7 @@ export interface CatalogItem {
   description: string | null;
   emoji: string | null;
   rarity: "common" | "uncommon" | "rare" | "epic" | "legendary";
-  kind: "item" | "consumable" | "role" | "badge" | "background" | "pet";
+  kind: "item" | "consumable" | "role" | "badge" | "background" | "pet" | "furniture";
   imageUrl: string | null;
   color: string | null;
   price: number | null;

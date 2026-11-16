@@ -60,8 +60,11 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
   tickets), `dc.security.ts`, `dc.webhooks.ts` (characters, sticky), `dc.extras.ts` (reaction roles,
   auto purge, birthdays), `dc.starboard.ts`, `dc.tags.ts` (tags, the embed builder),
   `dc.utilities.ts` (autoresponder, AFK, highlights, and `matchesTrigger`: trigger matching with
-  `indexOf`, never a regular expression from what someone typed). `dc.routes.ts` imports them so
-  they register.
+  `indexOf`, never a regular expression from what someone typed). `dc.games.ts` (coinflip, dice, rps,
+  blackjack, slots), `dc.pets.ts`, `dc.housing.ts`, `dc.achievements.ts`, `dc.counting.ts`. `dc.routes.ts`
+  imports them so they register.
+- `dc.fun.ts` — what the fun modules share: a cooldown or short lock claimed in one `kv.incr`,
+  JSON state, bars, names members choose.
 - `dc.rest.ts` — Discord REST over `fetch`, Ed25519 verification, settings from the environment.
 - `dc.routes.ts` — the operations (REST route, OpenAPI entry and MCP tool each).
 - `dc.policy.ts` — the team policy.

@@ -988,7 +988,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
 
   // ── Profiles (the same in every server) ────────────────────────────────────
 
-  const emptyProfile = (userId: string): Profile => ({ userId, name: null, avatar: null, bio: null, accent: null, rep: 0, badges: [], background: null });
+  const emptyProfile = (userId: string): Profile => ({ userId, name: null, avatar: null, bio: null, accent: null, rep: 0, dailyStreak: 0, badges: [], background: null });
   const asProfile = (r: typeof dcProfiles.$inferSelect): Profile => ({
     userId: r.userId,
     name: r.name,
@@ -996,6 +996,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
     bio: r.bio,
     accent: r.accent,
     rep: r.rep,
+    dailyStreak: Number(r.dailyStreak) || 0,
     badges: Array.isArray(r.badges) ? r.badges.filter((b): b is string => typeof b === "string") : [],
     background: r.background,
   });
