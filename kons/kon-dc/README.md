@@ -96,7 +96,7 @@ read-only, with no capabilities and a 96 MB memory cap.
 | `dc_schedules` | work for later (`later` steps, giveaway ends) and recurring schedules |
 | `dc_profiles` | what follows a member across every server: bio, colour, reputation, badges, the global daily |
 | `dc_global_wallets` | global balances (credits, global XP) |
-| `dc_items` | the item catalog: a server's items, or global ones (badges, backgrounds) |
+| `dc_items` | the item catalog: a server's items, or global ones (badges, backgrounds); kinds include `furniture` for homes |
 | `dc_global_inventory` | global items members own |
 | `dc_voice_sessions` | who is in which voice channel, since when (voice XP, temporary rooms) |
 | `dc_activity` | messages and voice minutes per member and day (never text) |
@@ -136,10 +136,21 @@ Built-in modules, each switched on per server with its own settings:
 | `sticky` | a message kept at the bottom of a channel | Guild Messages |
 | `auto-purge` | channels cleared on a schedule, pins kept | — |
 | `member-page` | a web page for the server: rankings, the store, each member's stats, a Discord login | — |
+| `games` | `/coinflip /dice /rps /blackjack /slots`, for fun or for coins: min and max bet, a house edge on winnings, cooldowns, crypto randomness; rps against a member with buttons, blackjack with Hit/Stand | — |
+| `pets` | `/pet adopt feed play walk status rename release`: a pet whose fullness, happiness and energy fall with time; feeding costs coins or a catalog food item; pet XP and levels | — |
+| `housing` | `/house view place remove unlock`: rooms bought with coins, furnished with `furniture` items from the inventory | — |
+| `achievements` | goals on messages, voice minutes, level, coins, daily streak or pet level; unlocked once with coins, a role or an item, announced in a channel or by DM; `/achievements` | Guild Messages, Voice States |
+| `counting` | a counting channel: the next number, never twice in a row, ✅/❌, a wrong number resets (or warns); `/counting stats` with the record | Guild Messages, Message Content (privileged) |
 
 The bot answers in each member's Discord language (English, Spanish and Portuguese for now), and
 in the server's for what it says by itself; slash commands carry Discord's localized descriptions.
 Blueprints and module settings are written by the staff in their own language.
+
+Counting is the only fun module that reads message text: switching it on makes the gateway ask for
+the privileged Message Content intent (turn on "Message Content Intent" in the Developer Portal,
+Bot tab). It keeps only the count, never the text. Games, pets and housing pay and charge in the
+Economy's `coins`; a pet's XP is the `pet-xp` balance, which Achievements reads for pet levels.
+Achievements are checked when a member writes or leaves voice, and on `/achievements`.
 
 Image cards (rank, wallet, leaderboard, profile, captcha, a generic stat card) are drawn as SVG and
 turned into PNG with `sharp`, which the API already ships. The API's image needs a font: Debian

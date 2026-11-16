@@ -206,7 +206,7 @@ export const dcGlobalWallets = pgTable(
 
 export const ITEM_RARITIES = ["common", "uncommon", "rare", "epic", "legendary"] as const;
 export type ItemRarity = (typeof ITEM_RARITIES)[number];
-export const ITEM_KINDS = ["item", "consumable", "role", "badge", "background", "pet"] as const;
+export const ITEM_KINDS = ["item", "consumable", "role", "badge", "background", "pet", "furniture"] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 /** The catalog: what items are. `guildId` null = a global item (every server shows it). */

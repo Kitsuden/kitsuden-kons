@@ -122,6 +122,7 @@ beforeAll(async () => {
     "0007_message_cache.sql",
     "0008_guild_locale.sql",
     "0009_guild_plans.sql",
+    "0012_furniture.sql",
   ]);
   const db = await dropToAppRole(client);
   const auth = testAuth();

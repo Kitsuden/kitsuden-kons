@@ -196,7 +196,7 @@ function command(name: string, options: Record<string, unknown> = {}) {
 }
 
 beforeAll(async () => {
-  client = await migratedBase("kon-dc", ["0000_initial.sql", "0001_rewards_and_schedules.sql", "0002_global_profiles.sql", "0003_item_catalog.sql", "0004_voice.sql", "0005_activity.sql", "0006_characters.sql", "0007_message_cache.sql", "0008_guild_locale.sql", "0009_guild_plans.sql"]);
+  client = await migratedBase("kon-dc", ["0000_initial.sql", "0001_rewards_and_schedules.sql", "0002_global_profiles.sql", "0003_item_catalog.sql", "0004_voice.sql", "0005_activity.sql", "0006_characters.sql", "0007_message_cache.sql", "0008_guild_locale.sql", "0009_guild_plans.sql", "0012_furniture.sql"]);
   const db = await dropToAppRole(client);
   const auth = testAuth();
   const host = rlsHost(db, auth);

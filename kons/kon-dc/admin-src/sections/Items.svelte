@@ -81,6 +81,7 @@
           { const: "badge", title: "Badge (on the profile)" },
           { const: "background", title: "Background (behind the profile card)" },
           { const: "pet", title: "Pet" },
+          { const: "furniture", title: "Furniture (placed in /house)" },
         ],
         default: "item",
       },
