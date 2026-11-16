@@ -88,7 +88,7 @@ export { createCardKit, rankSvg, walletSvg, leaderboardSvg, statSvg, sharpRender
 export { stepCatalog, STEP_CATEGORIES, type StepEntry } from "./dc.catalog";
 export { KonCallError, createKitsudenClient, type KitsudenClient } from "./dc.kitsuden";
 export { BOOTH_SCOPES, TEMPLATES, buildTemplate, type BlueprintTemplate } from "./dc.templates";
-export { verifyInteraction, type MessagePayload, type SlashCommandPayload } from "./dc.rest";
+export { createDiscordRest, discordSettings, verifyInteraction, type DiscordRest, type DiscordSettings, type MessagePayload, type SlashCommandPayload } from "./dc.rest";
 export { registerDcPolicy, isStaff } from "./dc.policy";
 export { createDcRouter, dcOperations, KON_ID } from "./dc.routes";
 
