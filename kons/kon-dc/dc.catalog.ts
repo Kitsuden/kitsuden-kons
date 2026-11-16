@@ -205,8 +205,16 @@ Answer with ONE JSON object (the definition) in a \`\`\`json block, nothing else
 
 /** The first JSON object in a model's answer (a ```json block, or the outermost braces). */
 export function extractJson(text: string): unknown {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
-  const candidate = fenced ? fenced[1] : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+  // Found with indexOf, not a regular expression: the model's answer is input (no ReDoS).
+  const FENCE = "```";
+  let candidate = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+  const open = text.indexOf(FENCE);
+  if (open !== -1) {
+    let start = open + FENCE.length;
+    if (text.slice(start, start + 4).toLowerCase() === "json") start += 4;
+    const close = text.indexOf(FENCE, start);
+    if (close !== -1) candidate = text.slice(start, close);
+  }
   try {
     return JSON.parse(candidate.trim());
   } catch {
