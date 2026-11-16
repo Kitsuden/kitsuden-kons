@@ -1989,12 +1989,13 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
       );
     },
     async setModule(guildId, moduleId, enabled, config = {}) {
-      const module = await moduleById(moduleId);
+      // The extension authorized its caller (an owner signed in with Discord): kon-dc reads as the system.
+      const module = await asSystem(() => moduleById(moduleId));
       if (!module) return { error: `Module "${moduleId}" does not exist or is switched off here` };
       const parsed = module.config.safeParse(config);
       if (!parsed.success) return { error: `Invalid settings for module "${moduleId}"` };
       if (enabled) {
-        const refusal = await planRefusal(guildId, module.id);
+        const refusal = await asSystem(() => planRefusal(guildId, module.id));
         if (refusal) return { error: refusal };
       }
       const value = parsed.data as Record<string, unknown>;
@@ -2010,10 +2011,10 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
       return { ok: true };
     },
     async syncCommands(guildId) {
-      return (await syncCommands(guildId)).length;
+      return (await asSystem(() => syncCommands(guildId))).length;
     },
     async moduleIds() {
-      return (await availableModules()).map((m) => m.id);
+      return (await asSystem(() => availableModules())).map((m) => m.id);
     },
   });
   options.onEngine?.(engine);
