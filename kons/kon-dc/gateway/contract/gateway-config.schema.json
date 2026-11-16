@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "type": "number",
+      "const": 1
+    },
+    "intents": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Bitfield sent in IDENTIFY"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "GUILD_CREATE",
+          "GUILD_UPDATE",
+          "GUILD_DELETE",
+          "GUILD_MEMBER_ADD",
+          "GUILD_MEMBER_REMOVE",
+          "GUILD_BAN_ADD",
+          "MESSAGE_CREATE",
+          "MESSAGE_UPDATE",
+          "MESSAGE_DELETE",
+          "MESSAGE_REACTION_ADD",
+          "MESSAGE_REACTION_REMOVE",
+          "VOICE_STATE_UPDATE",
+          "GUILD_AUDIT_LOG_ENTRY_CREATE"
+        ]
+      },
+      "description": "Dispatch types to forward; the rest are dropped in the worker"
+    },
+    "revision": {
+      "type": "string",
+      "description": "Changes when intents or events change: the worker re-identifies"
+    }
+  },
+  "required": [
+    "contract",
+    "intents",
+    "events",
+    "revision"
+  ],
+  "additionalProperties": false
+}
