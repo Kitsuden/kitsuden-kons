@@ -43,6 +43,7 @@ import {
 } from "./koe.schema";
 import { send } from "./koe.send";
 import { isPushEndpoint, vapidKeys } from "./koe.notify";
+import { reportAccess } from "./koe.extensions";
 import { checkWindow, windowOf } from "./koe.window";
 import { Output, ParamId, type OperationsModule } from "./operations";
 import { queue } from "@kitsuden/engine";
@@ -260,6 +261,7 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
     async (c, input, h) => {
       await requireMember(db(), h.user);
       const conv = await conversationOr404(db(), input.params.id);
+      await reportAccess({ ctx, db: db(), kind: "view", conversationId: conv.id, contactId: conv.contactId, actor: { kind: (h.user as { role?: string } | null)?.role === "agent" ? "ai" : "agent", id: String((h.user as { id?: string } | null)?.id ?? "") || null } });
       const [contact] = (await db().select().from(koeContacts).where(eq(koeContacts.id, conv.contactId)).limit(1)) as Contact[];
       const [channel] = (await db().select().from(koeChannels).where(eq(koeChannels.id, conv.channelId)).limit(1)) as Channel[];
       return c.json({ data: view(conv, contact ?? null, channel ?? null) });
@@ -279,7 +281,8 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
     },
     async (c, input, h) => {
       await requireMember(db(), h.user);
-      await conversationOr404(db(), input.params.id);
+      const opened = await conversationOr404(db(), input.params.id);
+      await reportAccess({ ctx, db: db(), kind: "messages", conversationId: opened.id, contactId: opened.contactId, actor: { kind: (h.user as { role?: string } | null)?.role === "agent" ? "ai" : "agent", id: String((h.user as { id?: string } | null)?.id ?? "") || null } });
       const where = [eq(koeMessages.conversationId, input.params.id), ...(input.query.before ? [lt(koeMessages.createdAt, new Date(input.query.before))] : [])];
       const rows = (await db().select().from(koeMessages).where(and(...where)).orderBy(desc(koeMessages.createdAt)).limit(input.query.limit)) as Message[];
       rows.reverse();
@@ -512,6 +515,7 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
       for (const userId of input.body.mentions ?? []) {
         await queue.dispatch(QUEUES.notify, "mention", { userId, conversationId: input.params.id, by: me.userId, body: input.body.body.slice(0, 200) }, { attempts: 3 });
       }
+      await reportAccess({ ctx, db: db(), kind: "note", conversationId: input.params.id, contactId: null, actor: { kind: isAgentKey ? "ai" : "agent", id: me.userId }, detail: { noteId: note!.id } });
       publish(ctx, channelOf.conversation(input.params.id), { type: "note", conversationId: input.params.id, noteId: note!.id });
       return c.json({ data: note }, 201);
     }
@@ -560,6 +564,7 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
       await requireMember(db(), h.user);
       const [contact] = (await db().select().from(koeContacts).where(eq(koeContacts.id, input.params.id)).limit(1)) as Contact[];
       if (!contact) throw AppError.notFound("Contact not found");
+      await reportAccess({ ctx, db: db(), kind: "contact-view", conversationId: null, contactId: contact.id, actor: { kind: (h.user as { role?: string } | null)?.role === "agent" ? "ai" : "agent", id: String((h.user as { id?: string } | null)?.id ?? "") || null } });
       const identities = await db().select().from(koeIdentities).where(eq(koeIdentities.contactId, contact.id));
       const consents = await db().select().from(koeConsents).where(eq(koeConsents.contactId, contact.id));
       const conversations = await db().select().from(koeConversations).where(eq(koeConversations.contactId, contact.id)).orderBy(desc(koeConversations.updatedAt)).limit(50);
@@ -600,6 +605,7 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
         .set({ ...rest, ...(attributes ? { attributes: { ...(contact.attributes ?? {}), ...attributes } } : {}), updatedAt: new Date() })
         .where(eq(koeContacts.id, contact.id))
         .returning()) as Contact[];
+      await reportAccess({ ctx, db: db(), kind: "contact-update", conversationId: null, contactId: row!.id, actor: { kind: "agent", id: me.userId }, detail: { fields: Object.keys(input.body) } });
       emit(ctx, "contact.updated", { contactId: row!.id, by: me.userId });
       return c.json({ data: row });
     }

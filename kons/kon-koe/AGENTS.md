@@ -59,6 +59,7 @@ media, an AI relay to kon-chat, and automation (flows, rule steps, campaigns, se
 | `koe.sweep.ts`, `koe.hours.ts` | What happens because time passed; quiet and business hours. |
 | `koe.reports.ts` | Kon reports and the inbox summary. |
 | `koe.events.ts` | The event catalog. |
+| `koe.extensions.ts` | The public extension API (`beforeSend`, `onAccess`); koe Enterprise plugs in here. |
 | `channels/*` | Adapters: `whatsapp.ts`, `messenger.ts`, `instagram.ts` (shared `meta-messaging.ts`), `webchat.ts`; `graph.ts` (signatures, calls, errors, media downloads); `types.ts` (the contract). |
 | `migrations/0000_initial.sql` | Tables, indexes, row security and its helper functions. |
 | `admin-src/*`, `admin/*.js` | The admin view (`koe-admin`) and the inbox (`koe-inbox`); `admin/` is built, do not edit. |
@@ -67,7 +68,8 @@ media, an AI relay to kon-chat, and automation (flows, rule steps, campaigns, se
 
 ## Rules that must hold
 
-- Nothing leaves except through `send()`; the delivery job re-checks bot silence and the window.
+- Nothing leaves except through `send()`; the delivery job re-checks bot silence, the window and extension policies.
+- koe never imports an extension (koe Enterprise included); keep `koe.extensions.ts` the only seam and keep it backward compatible.
 - Every change of who answers goes through `changeState()`; never update `state` or `assignee_id` by hand
   (removing a member is the one bulk exception, and it goes to `queued`).
 - Every queue handler is idempotent: the queue delivers at least once.
@@ -92,7 +94,7 @@ media, an AI relay to kon-chat, and automation (flows, rule steps, campaigns, se
 
 `tests/unit/helpers/koe-bench.ts` mounts the kon on PGlite as a non-superuser with row security, replaces the
 queue (jobs run with `drain()`), secrets, storage, realtime, events and Meta's Graph API. Suites:
-`kon-koe-core`, `kon-koe-channels`, `kon-koe-media`, `kon-koe-ai`, `kon-koe-automation`, `kon-koe-web`.
+`kon-koe-core`, `kon-koe-extensions`, `kon-koe-channels`, `kon-koe-media`, `kon-koe-ai`, `kon-koe-automation`, `kon-koe-web`.
 
 ```bash
 pnpm vitest run tests/unit/kon-koe-core.test.ts tests/unit/kon-koe-channels.test.ts

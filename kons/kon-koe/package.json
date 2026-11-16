@@ -17,6 +17,7 @@
     "koe.common.ts",
     "koe.conversations.ts",
     "koe.events.ts",
+    "koe.extensions.ts",
     "koe.flows.ts",
     "koe.hours.ts",
     "koe.inbound.ts",
