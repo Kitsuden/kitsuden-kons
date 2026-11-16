@@ -52,12 +52,16 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
   on `globalThis` so an extension that loads its own copy of kon-dc still reaches the running one.
 - `dc.manage.ts` — the admin's overview, economy, member file, activity and schedules routes.
 - `dc.http.ts` — the checked fetch feeds use (https, no private addresses, redirects re-checked)
-  and the RSS/Atom reader.
+  and the RSS/Atom reader. `dc.feeds.ts`'s `presetSource` turns a YouTube channel, a subreddit or a
+  Bluesky handle (as an id, a link, `r/name` or `@handle`) into their public feed URL.
 - Built-in modules by family: `dc.rewards.ts` (economy, leveling, giveaways, role menus, reminders,
   scheduled messages, suggestions, polls), `dc.profile.ts`, `dc.items.ts`, `dc.stats.ts`,
   `dc.voice.ts` (temporary rooms), `dc.feeds.ts`, `dc.moderation.ts` (moderation, automod, logs,
   tickets), `dc.security.ts`, `dc.webhooks.ts` (characters, sticky), `dc.extras.ts` (reaction roles,
-  auto purge, birthdays). `dc.routes.ts` imports them so they register.
+  auto purge, birthdays), `dc.starboard.ts`, `dc.tags.ts` (tags, the embed builder),
+  `dc.utilities.ts` (autoresponder, AFK, highlights, and `matchesTrigger`: trigger matching with
+  `indexOf`, never a regular expression from what someone typed). `dc.routes.ts` imports them so
+  they register.
 - `dc.rest.ts` — Discord REST over `fetch`, Ed25519 verification, settings from the environment.
 - `dc.routes.ts` — the operations (REST route, OpenAPI entry and MCP tool each).
 - `dc.policy.ts` — the team policy.
@@ -109,6 +113,9 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
 - Rewards that can race (a quiz win, a trade, a stock) use one SQL write to claim
   (`kv_increment`, `take`, `reserve`): never read-then-write.
 - Events this kon emits carry ids and names, never message text.
+- Triggers, highlight words and tag names a server or a member writes are matched with plain string
+  search: never build a regular expression from them (CodeQL blocks it, and it can backtrack).
+- A starboard post is claimed with `lists.join` before it is sent: a message is never posted twice.
 
 ## Changing it
 

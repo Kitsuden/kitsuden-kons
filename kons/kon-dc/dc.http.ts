@@ -160,7 +160,8 @@ export function parseFeed(xml: string): FeedEntry[] {
       const id = tag(b, "guid") || tag(b, "id") || tag(b, "yt:videoId") || link;
       return {
         id: id.slice(0, 300),
-        title: tag(b, "title").slice(0, 300),
+        // Bluesky posts (and some RSS items) have no title: their text stands in.
+        title: (tag(b, "title") || tag(b, "description")).slice(0, 300),
         link: /^https?:\/\//.test(link) ? link.slice(0, 500) : "",
         author: (tag(b, "author") || tag(b, "dc:creator") || tag(b, "name")).slice(0, 100),
         published: tag(b, "pubDate") || tag(b, "published") || tag(b, "updated"),

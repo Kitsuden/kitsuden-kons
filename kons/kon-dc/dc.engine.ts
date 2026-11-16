@@ -308,6 +308,12 @@ export function normalizeEvent(e: GatewayEventEnvelope): DcEvent | null {
         content: str(d.content),
         emoji: null,
         memberRoles: rolesOf(d.member),
+        mentions: Array.isArray(d.mentions)
+          ? d.mentions
+              .map((m) => str((m as { id?: unknown } | null)?.id))
+              .filter((id): id is string => !!id && /^\d{15,20}$/.test(id))
+              .slice(0, 50)
+          : [],
       };
     }
     case "MESSAGE_DELETE":
