@@ -22,7 +22,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import { PGlite } from "@electric-sql/pglite";
-import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { drizzle } from "drizzle-orm/pglite";
 
 import { operationsOf, respondError } from "@kitsuden/engine";
@@ -44,9 +44,6 @@ const ROOT = resolve(__dirname, "../..");
 
 let app: ReturnType<typeof createKonBroadcast>;
 let client: PGlite;
-
-/** What the kon emitted on the core's bus (other kons and actions listen to it). */
-const emitted: { event: string; data: any }[] = [];
 
 /** Captures what would be broadcast over WebSocket to the connected overlays. */
 const broadcasts: { channel: string; message: any }[] = [];
@@ -113,7 +110,6 @@ beforeAll(async () => {
   const ctx = createTestKonContext({
     db: { instance: db } as any,
     auth: { requireAuth: fakeRequireAuth } as any,
-    events: { emit: (event: string, data: unknown) => void emitted.push({ event, data }), on: () => {} } as any,
   });
 
   app = createKonBroadcast(ctx);
@@ -411,139 +407,5 @@ describe("Kon Broadcast — live broadcast to the overlay", () => {
     expect(payload.channel).toBe(`state:broadcast:match:${liveId}`);
     expect(typeof payload.revision).toBe("number");
     expect(payload.data.players.a.name).toBe("DAIGO");
-  });
-});
-
-/**
- * What a booth operator does between sets (the parity with Viggo's console): reset for the next
- * set, swap seats keeping each seat's color, the score ceiling, start.gg import, and the events
- * other kons (kon-dc's Discord panel) follow instead of polling.
- */
-describe("Kon Broadcast — the operator's booth", () => {
-  let id: string;
-  const json = (method: string, b?: unknown) => ({
-    method,
-    headers: { "content-type": "application/json" },
-    ...(b === undefined ? {} : { body: JSON.stringify(b) }),
-  });
-
-  beforeAll(async () => {
-    const res = await app.request(
-      "/matches",
-      json("POST", {
-        eventTitle: "WEEKLY",
-        round: "Losers Final",
-        sideA: { name: "ANA", sponsor: "TS", chars: ["ahri"], losers: true },
-        sideB: { name: "BETO" },
-        casters: [{ name: "Mia", handle: "@mia" }],
-      })
-    );
-    id = (await body(res)).data.id;
-  });
-
-  test("every write is announced on the bus with only what is on screen", async () => {
-    emitted.length = 0;
-    await app.request(`/matches/${id}/score`, json("POST", { side: "a", delta: 1 }));
-    const e = emitted.find((x) => x.event === "broadcast:match:updated");
-    expect(e?.data).toMatchObject({ matchId: id, round: "Losers Final", sideA: { name: "ANA", score: 1 } });
-    expect(e?.data).not.toHaveProperty("ownerId");
-    expect(JSON.stringify(e?.data)).not.toContain(OPERATOR.id);
-  });
-
-  test("the score stays between 0 and 99", async () => {
-    const tooMuch = await app.request(`/matches/${id}/score`, json("POST", { side: "a", value: 150 }));
-    expect(tooMuch.status).toBe(422);
-    await app.request(`/matches/${id}/score`, json("POST", { side: "a", value: 99 }));
-    const up = await app.request(`/matches/${id}/score`, json("POST", { side: "a", delta: 5 }));
-    expect((await body(up)).data.sideA.score).toBe(99);
-  });
-
-  test("swap with keepColors: players change seats, colors stay on the seat", async () => {
-    const before = (await body(await app.request(`/matches/${id}`))).data;
-    const res = await app.request(`/matches/${id}/swap?keepColors=true`, json("POST"));
-    const { data } = await body(res);
-    expect(data.sideA.name).toBe("BETO");
-    expect(data.sideB.name).toBe("ANA");
-    expect(data.sideA.color).toBe(before.sideA.color);
-    expect(data.sideB.color).toBe(before.sideB.color);
-    // Without the flag, as before: the color follows the player.
-    const plain = await body(await app.request(`/matches/${id}/swap`, json("POST")));
-    expect(plain.data.sideA.name).toBe("ANA");
-    expect(plain.data.sideA.color).toBe(before.sideB.color);
-    await app.request(`/matches/${id}/swap`, json("POST"));
-  });
-
-  test("reset keeps the players by default and clears them with players=clear", async () => {
-    await app.request(`/matches/${id}/screens`, json("POST", { versus: true, ko: true }));
-    const kept = await body(await app.request(`/matches/${id}/reset`, json("POST")));
-    expect(kept.data.sideA.score).toBe(0);
-    expect(kept.data.sideB.score).toBe(0);
-    expect(kept.data.screens).toMatchObject({ versus: false, ko: false, casters: false, result: false });
-    expect(kept.data.ticker ?? null).toBeNull();
-    expect(kept.data.eventTitle).toBe("WEEKLY");
-
-    const cleared = await body(await app.request(`/matches/${id}/reset?players=clear`, json("POST")));
-    expect(cleared.data.sideA).toMatchObject({ name: "PLAYER 1", sponsor: "", chars: [], losers: false });
-    expect(cleared.data.sideA.color).toBe(kept.data.sideA.color);
-  });
-
-  test("start.gg: a set fills the scoreboard (round, sponsor split, losers), the token is never kept", async () => {
-    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-      const q = JSON.parse(String(init.body)) as { query: string };
-      const data = q.query.includes("Sets(")
-        ? {
-            event: {
-              name: "Ultimate Singles",
-              tournament: { name: "Weekly #12" },
-              sets: {
-                nodes: [
-                  { id: 91, fullRoundText: "Losers Semi-Final", state: 1, slots: [{ entrant: { name: "TS | Ana" } }, { entrant: { name: "Beto" } }] },
-                  { id: 92, fullRoundText: "Winners Final", state: 3, slots: [{ entrant: { name: "Zed" } }, { entrant: null }] },
-                ],
-              },
-            },
-          }
-        : {
-            set: {
-              id: 91,
-              fullRoundText: "Losers Semi-Final",
-              state: 2,
-              slots: [{ entrant: { name: "TS | Ana" } }, { entrant: { name: "Beto" } }],
-              event: { name: "Ultimate Singles", tournament: { name: "Weekly #12" } },
-            },
-          };
-      return new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    try {
-      const noToken = await app.request("/startgg/sets", json("POST", { event: "tournament/weekly/event/ultimate" }));
-      if (!process.env.STARTGG_TOKEN) expect(noToken.status).toBe(422);
-
-      const list = await body(
-        await app.request("/startgg/sets", json("POST", { event: "https://www.start.gg/tournament/weekly/event/ultimate/overview", token: "tok-0123456789" }))
-      );
-      expect(list.event).toBe("Weekly #12 · Ultimate Singles");
-      // A set without two entrants is left out.
-      expect(list.sets).toEqual([{ id: "91", round: "Losers Semi-Final", state: "open", entrants: ["TS | Ana", "Beto"], losers: true }]);
-
-      const applied = await body(await app.request(`/matches/${id}/startgg`, json("POST", { setId: "91", token: "tok-0123456789" })));
-      expect(applied.data.round).toBe("Losers Semi-Final");
-      expect(applied.data.eventTitle).toBe("Weekly #12 · Ultimate Singles");
-      expect(applied.data.sideA).toMatchObject({ name: "Ana", sponsor: "TS", losers: true, score: 0 });
-      expect(applied.data.sideB).toMatchObject({ name: "Beto", sponsor: "", losers: true });
-      expect(applied.data.startggSetId).toBe("91");
-      expect(JSON.stringify(applied)).not.toContain("tok-0123456789");
-      expect(String(fetchMock.mock.calls[0][0])).toBe("https://api.start.gg/gql/alpha");
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  test("deleting a set is announced too", async () => {
-    emitted.length = 0;
-    const tmp = (await body(await app.request("/matches", json("POST", { eventTitle: "TMP" })))).data.id;
-    // The test operator is an editor: delete is admin-only, so it answers 404 and emits nothing.
-    await app.request(`/matches/${tmp}`, json("DELETE"));
-    expect(emitted.some((e) => e.event === "broadcast:match:deleted")).toBe(false);
   });
 });

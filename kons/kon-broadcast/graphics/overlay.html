@@ -436,39 +436,8 @@
         display: none;
       }
 
-      /* The score that just changed: a short pop, so the change is seen live. */
-      .score.pop {
-        animation: score-pop 0.35s ease-out;
-      }
-      @keyframes score-pop {
-        0% {
-          transform: scale(1);
-        }
-        40% {
-          transform: scale(1.35);
-        }
-        100% {
-          transform: scale(1);
-        }
-      }
-
-      /* Versus: the bracket side and the format, as on the scoreboard. */
-      .vs-losers {
-        font-size: 14px;
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        color: #ffb020;
-      }
-      .vs-format {
-        font-size: 18px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        opacity: 0.85;
-      }
-
       @media (prefers-reduced-motion: reduce) {
         .layer,
-        .score.pop,
         .ko-text {
           transition: none;
           animation: none;
@@ -517,12 +486,10 @@
     <!-- Versus -->
     <div class="layer versus" data-layer="versus" hidden>
       <div class="vs-event" data-vs-event></div>
-      <div class="vs-format"><span data-vs-round></span> <span data-vs-ft></span></div>
       <div class="vs-side">
         <span class="vs-flag" data-vs-flag-a></span>
         <span class="vs-sponsor" data-vs-sponsor-a></span>
         <span class="vs-name" data-vs-name-a style="color: var(--a)"></span>
-        <span class="vs-losers" data-vs-losers-a hidden>Losers side</span>
         <div class="vs-chars" data-vs-chars-a></div>
       </div>
       <div class="vs-mark">VS</div>
@@ -530,7 +497,6 @@
         <span class="vs-flag" data-vs-flag-b></span>
         <span class="vs-sponsor" data-vs-sponsor-b></span>
         <span class="vs-name" data-vs-name-b style="color: var(--b)"></span>
-        <span class="vs-losers" data-vs-losers-b hidden>Losers side</span>
         <div class="vs-chars" data-vs-chars-b></div>
       </div>
     </div>

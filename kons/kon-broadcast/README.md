@@ -6,7 +6,7 @@ telemetry. For production teams who run the stream of an event.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.1.0 | `/api/broadcast` | — (core: `auth`; optional: `kon-esports`) |
+| beta | gaming | 1.0.4 | `/api/broadcast` | — (core: `auth`; optional: `kon-esports`) |
 
 ## Install
 
@@ -101,13 +101,10 @@ Sets (a session is required; "owner or admin" routes answer 404 to anyone else):
 | `GET /api/broadcast/matches/:id` | owner, admin | One set. |
 | `PATCH /api/broadcast/matches/:id` | owner, admin | Edit event, format, theme, sponsors, casters or sides (merged over the current side, then validated). `live: true` puts the set on air, `live: false` takes it off (see below). Changing `profileId` is a 409; putting a reported set on air is a 409. |
 | `DELETE /api/broadcast/matches/:id` | admin | Delete a set. |
-| `POST /api/broadcast/matches/:id/score` | owner, admin | `{ side, delta }` or `{ side, value }`; kept between 0 and 99. |
+| `POST /api/broadcast/matches/:id/score` | owner, admin | `{ side, delta }` or `{ side, value }`; never below zero. |
 | `POST /api/broadcast/matches/:id/screens` | owner, admin | Turn `versus`, `ko`, `casters`, `result` on or off. |
 | `POST /api/broadcast/matches/:id/ticker` | owner, admin | Set the ticker text (max 140), or `null` to remove it. |
-| `POST /api/broadcast/matches/:id/swap` | owner, admin | Swap side A and side B. `?keepColors=true` keeps each color on its seat instead of following the player. |
-| `POST /api/broadcast/matches/:id/reset` | owner, admin | The next set on the same booth: scores 0, every screen off, no ticker; event, round and format stay. `?players=clear` also resets names, sponsors, characters and losers (colors stay). |
-| `POST /api/broadcast/startgg/sets` | admin, editor | List an event's sets on start.gg (`event`: slug or URL; `token`, or `STARTGG_TOKEN` in the API, never stored): id, round, state, both entrants, losers. |
-| `POST /api/broadcast/matches/:id/startgg` | owner, admin | Fill this set from one start.gg set (`setId`): round, event title (unless `keepTitle`), both gamertags with the sponsor tag split off, losers flag, scores 0, K.O. off. |
+| `POST /api/broadcast/matches/:id/swap` | owner, admin | Swap side A and side B. |
 | `POST /api/broadcast/matches/:id/bind` | owner, admin | Fill a side from a `kon-esports` player (`playerId`, `null` unbinds; `overwriteSponsor`). 409 without `kon-esports`. |
 | `POST /api/broadcast/matches/:id/report` | owner, admin | Close a set built from a bracket and send the result (winner from the score; optional `dqParticipantId`, `eliminate`). 409 if not from a bracket, tied or not decided. |
 | `POST /api/broadcast/champions` | admin, editor | Upsert characters by `slug` (1 to 200); `replace: true` empties the roster first. Section `catalog`. |
@@ -189,17 +186,7 @@ Every route is an SDK operation and an MCP tool `broadcast__<operation>`, fine s
 | `swap-sides` | yes | `start-ingest` | yes |
 | `link-player` | yes | `ingest-token` | yes |
 | `create-set-from-bracket` | yes | `stop-ingest` | yes |
-| `reset-set` | yes | `close-game` | yes |
-| `startgg-sets` | no (reads start.gg) | `apply-startgg-set` | yes |
-
-### Events on the core's bus
-
-After each write, besides the overlay, the kon emits `broadcast:match:updated` with what is on
-screen (`matchId`, `status`, `live`, `eventTitle`, `round`, `firstTo`, both sides' name, sponsor,
-score, losers and characters, `screens`; never the owner or the start.gg id), and
-`broadcast:match:deleted` (`{ matchId }`) on delete. Other kons and the core's actions listen by
-name: kon-dc's broadcast booth redraws its Discord panel on it. `BROADCAST_EVENTS` and
-`matchEvent` are exported.
+| | | `close-game` | yes |
 
 `push-frame` is not an MCP tool: it authenticates with the per-game ingest token, not an agent key.
 `load-characters` and `delete-set` are sensitive: with human approval on, an agent's call answers

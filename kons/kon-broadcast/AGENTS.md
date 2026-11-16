@@ -27,10 +27,6 @@ live telemetry. It can read and write `kon-esports` brackets and players when th
 - 404 means missing **or** not yours: a set or game the caller may not view or update answers 404.
   A 409 on most routes means a section is off (the body has `section` and `enableWith`) or
   `kon-esports` is not available; read the body before anything else.
-- After every write the kon emits `broadcast:match:updated` (on-screen fields only) and, on delete,
-  `broadcast:match:deleted`: follow a set by listening, not by polling.
-- `reset-set` (scores 0, screens off; `?players=clear`), `startgg-sets` + `apply-startgg-set` (a
-  start.gg token in the body or `STARTGG_TOKEN`; never stored) fill the next set.
 - Not idempotent: `scoreboard` with `delta`, `swap-sides`, `create-game`, `draft-step`,
   `close-game` (it adds a point). Use `value` instead of `delta` for a safe retry, and pass an
   `idempotency_key` on POSTs you may repeat. `load-characters` is an upsert by slug.
@@ -52,8 +48,7 @@ live telemetry. It can read and write `kon-esports` brackets and players when th
 | --- | --- |
 | `index.ts` | `defineKonSdk`, admin views copied from `kon.json`, startup hooks (mail, Riot adapter), stops sessions on disable. |
 | `operations.ts` | `registry()` helper, `ANY_ACCOUNT`, `onTheSet(action)` (policy checked in the handler). |
-| `broadcast.routes.ts` | Set, overlay, roster, sections, classifications, bracket, reset and start.gg operations; overlay publishing and the `broadcast:match:*` events (`BROADCAST_EVENTS`, `matchEvent`). |
-| `broadcast.startgg.ts` | start.gg reads for one scoreboard set: an event's sets, one set, the `Sponsor` / `Name` split. |
+| `broadcast.routes.ts` | Set, overlay, roster, sections, classifications and bracket operations; overlay publishing. |
 | `broadcast.policy.ts` | The `broadcast` policy: `view`, `create`, `update`, `delete`, `actAsUser`. |
 | `broadcast.schema.ts` | Drizzle tables `broadcast_matches`, `broadcast_games`, `broadcast_champions`; defaults; `bestOf`/`firstTo` conversion. |
 | `broadcast.sections.ts` | `KON_ID`, section defaults, `resolveSections`, the 409 middleware `requiresSection`. |

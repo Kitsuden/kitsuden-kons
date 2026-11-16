@@ -18,20 +18,13 @@
  *
  * A visitor on a website is anyone. A public bot answers from its knowledge and nothing else: whatever is
  * taught to it, a stranger can read.
- *
- * ── CHANNEL BOTS ANSWER FOR ANOTHER KON ────────────────────────────────────
- *
- * koe owns WhatsApp, Messenger, Instagram and web chat conversations; a `channel` bot answers them. The two
- * kons never import each other: koe queues a turn on `chat-channel-turns` and hears the answer on the queue it
- * names (chat.channel.ts). The bot keeps its knowledge, limits and budget here; koe keeps the conversation.
  */
 
-import { defineKonSdk, operationsRouter, queue, type AnyOperation } from "@kitsuden/engine";
+import { defineKonSdk, operationsRouter, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import type { Hono } from "hono";
 
 import "./chat.policy.js";
-import { CHAT_CHANNEL_QUEUE, processChannelTurn } from "./chat.channel.js";
 import { chatOperations } from "./chat.operations.js";
 import { KON_ID } from "./operations.js";
 import manifest from "./kon.json" with { type: "json" };
@@ -41,15 +34,9 @@ const konTables = manifest.tables.map((t: string | { name: string }) => (typeof 
 
 export * from "./chat.schema.js";
 export { chunkText, search } from "./chat.knowledge.js";
-export { CHAT_CHANNEL_QUEUE, CHANNEL_RULES, handoffOf, processChannelTurn, type ChannelReply } from "./chat.channel.js";
 
 export function createKonChat(ctx: KonContext): Hono {
   return operationsRouter(KON_ID, chatOperations(ctx) as AnyOperation[], ctx);
-}
-
-/** The channel-turn queue's handler; registered at startup and by the tests. */
-export function registerChatQueues(ctx: KonContext): void {
-  queue.handle(CHAT_CHANNEL_QUEUE, (job) => processChannelTurn(ctx, job), { concurrency: 4 });
 }
 
 export const kon = defineKonSdk({
@@ -83,7 +70,6 @@ export const kon = defineKonSdk({
 
   hooks: {
     onStartup: async (ctx) => {
-      registerChatQueues(ctx);
       ctx.logger.info(ctx.agents ? "✅ Chat ready" : "⚠️ Chat mounted, but this host has no agent engine: bots cannot answer");
     },
   },

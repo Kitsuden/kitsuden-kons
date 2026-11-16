@@ -7,9 +7,7 @@ Repository-wide rules: [../../AGENTS.md](../../AGENTS.md).
 
 Chatbots over the core's agent identities, mounted at `/api/chat`. Team bots (admins and editors, optionally
 only named members) may use one tool group; public bots answer anyone on a website from taught knowledge
-only, never with tools; channel bots answer kon-koe's customers through the `chat-channel-turns` queue, with
-at most one read-only tool group. The kon stores bots, knowledge chunks, conversations and messages, and,
-for channel turns, only their cost (`chat_channel_turns`).
+only, never with tools. The kon stores bots, knowledge chunks, conversations and messages.
 
 ## Calling it
 
@@ -32,10 +30,7 @@ for channel turns, only their cost (`chat_channel_turns`).
 - Refused on purpose: a public bot with `toolset` or `members` (422), turning a team bot with tools public
   without clearing them first (422), unknown body fields (422), a `visitorId` shorter than 20 characters,
   more than 5 attachments per conversation, a slug already taken (409).
-- Whatever is taught to a public bot is readable by any visitor. Never add private material to one. The
-  same holds for a channel bot: anyone with the WhatsApp number talks to it.
-- A channel bot's `toolset` must be one `kon:<id>/<group>` (422 otherwise) and must be a READ-ONLY group;
-  the kon cannot tell reading tools from writing ones. It has no members (422).
+- Whatever is taught to a public bot is readable by any visitor. Never add private material to one.
 
 ## Map of the code
 
@@ -44,8 +39,7 @@ for channel turns, only their cost (`chat_channel_turns`).
 | `index.ts` | `defineKonSdk` definition, router, per-connection rate limit on `/public/bots/*`, admin view. |
 | `operations.ts` | Router-shaped registry of SDK operations; the `USE` and `CONFIGURE` permissions. |
 | `chat.operations.ts` | Every route: bots, knowledge, oversight, team chat, public chat, widget, attachments. |
-| `chat.service.ts` | One turn: limits, history, knowledge search, the agent run with or without tools, parts, cost; fork and rate. `spentSince`/`checkBotLimits` count channel turns too. |
-| `chat.channel.ts` | The `chat-channel-turns` queue handler: a channel bot's turn for kon-koe (knowledge, store context, handoff rule, read-only group, limits, cost row, reply on the caller's queue). |
+| `chat.service.ts` | One turn: limits, history, knowledge search, the agent run with or without tools, parts, cost; fork and rate. |
 | `chat.knowledge.ts` | Chunking, embeddings, search (pgvector in SQL or in memory, else by words), attachment text through kon-ingest. |
 | `chat.stream.ts` | The AI SDK UI message stream (SSE) around a turn. |
 | `chat.widget.ts` | The embeddable widget script served at `/public/widget.js`. |
@@ -55,7 +49,6 @@ for channel turns, only their cost (`chat_channel_turns`).
 | `migrations/0000_initial.sql` | Tables, indexes, the optional pgvector column, row security. |
 | `migrations/0001_agents_in_rls.sql` | Row security policies that admit agents opening the whole kon. |
 | `migrations/0002_fine_scopes_in_rls.sql` | Row security policies that admit agents with `chat:configure` or the fine scope of the operation that needs the table. |
-| `migrations/0003_channel_bots.sql` | The `channel` audience and `chat_channel_turns` (cost of channel turns, unique per reply queue and message id), with its row security. |
 | `admin/chat-admin.js` | The built admin view (custom element `chat-admin`). Generated; do not edit. |
 | `admin-src/ChatAdmin.svelte` | Entry of the admin view. |
 | `admin-src/sections/Bots.svelte`, `admin-src/sections/BotDetail.svelte` | The bot list (with the dialog that creates one) and one opened bot: how to embed it, what it knows, a try, its conversations. |
@@ -72,15 +65,7 @@ for channel turns, only their cost (`chat_channel_turns`).
 - A visitor is stored only as the SHA-256 of `visitorId` (`chat.operations.ts`; `tests/unit/kon-chat.test.ts`).
 - A conversation is used only by its speaker (`speakersConversation` in `chat.service.ts`), also for
   regenerate, fork, attach and rate (`tests/unit/kon-chat-routes.test.ts`).
-- Limits are checked before the engine is called, and a refused turn is not counted. The bot's daily
-  limit and budget include channel turns; a channel conversation has the hourly limit
-  (`visitorHourlyLimit`).
-- A channel turn never creates a `chat_conversations` row and stores no text; it is unique per reply queue
-  and message id, so a repeated job does not run twice (`tests/unit/kon-chat-channel.test.ts`).
-- A channel bot runs with `allowedTools: []` unless it has a `toolset`; the reply carries `handoff: true`
-  when the answer has a `HANDOFF:` line (`chat.channel.ts`).
-- The queue contract with kon-koe (`chat-channel-turns` in, the caller's `replyQueue` out) is shared by two
-  kons: change its fields only together with `kons/kon-koe/koe.bot.ts`.
+- Limits are checked before the engine is called, and a refused turn is not counted.
 - Visitors get `reply` and source titles only: no parts, tools, cost or internal ids (`forVisitor`).
 - Widget text from the server is set with `textContent`, never as HTML (`tests/unit/kon-chat.test.ts`).
 - Row security: conversations and messages are written only by the system, after the route authorizes.
@@ -102,11 +87,8 @@ for channel turns, only their cost (`chat_channel_turns`).
 ```bash
 pnpm vitest run tests/unit/kon-chat.test.ts
 pnpm vitest run tests/unit/kon-chat-routes.test.ts
-pnpm vitest run tests/unit/kon-chat-channel.test.ts
-pnpm vitest run tests/unit/kon-koe-ai.test.ts
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-chat"
 ```
 
-Run the unit files after touching `chat.operations.ts`, `chat.service.ts` or the policy, and
-`kon-chat-channel` and `kon-koe-ai` after `chat.channel.ts`; `kon-chat.test.ts`
+Run both unit files after touching `chat.operations.ts`, `chat.service.ts` or the policy; `kon-chat.test.ts`
 after `chat.knowledge.ts`, `chat.stream.ts` or `chat.widget.ts`.

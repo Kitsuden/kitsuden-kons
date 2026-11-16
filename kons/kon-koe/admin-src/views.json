@@ -1,4 +1,0 @@
-[
-  { "entry": "KoeAdmin.svelte", "out": "koe-admin.js" },
-  { "entry": "KoeInbox.svelte", "out": "koe-inbox.js" }
-]

@@ -10,15 +10,11 @@
  *   - a public bot runs with no tools at all: a visitor talks to its knowledge, never to the data behind it;
  *   - a team bot runs with the tool group it was given (`kon:crm/assistant`), and only within what its agent
  *     identity may already use. Without a group, it has no tools either: tools are opted into, not out of.
- *   - a channel bot (koe's customers on WhatsApp and the like) never comes through here: its turns arrive by a
- *     queue and run in chat.channel.ts, with the same knowledge search and limits.
  *
  * A tool the core holds for a person's approval is not an error: the answer says so and carries the proposal.
  *
  * Every turn is counted three ways before it runs: the bot's messages today, its spending today against its
- * budget, and the asker's own messages (per day for a person, per hour for a visitor). The bot's day includes
- * the turns it answered for a channel (`chat_channel_turns`): one bot, one limit and one budget, wherever it
- * speaks. The cost is the tokens
+ * budget, and the asker's own messages (per day for a person, per hour for a visitor). The cost is the tokens
  * at the prices the admin set for the bot, since only the admin knows what its agent's model costs.
  *
  * The core keeps memory and brain notes off for these runs and does not cache them: one agent serves many
@@ -28,10 +24,10 @@
 import { AppError, ErrorCode } from "@kitsuden/engine";
 import type { KonAgentEvent, KonContext } from "@kitsuden/shared";
 import { createId } from "@paralleldrive/cuid2";
-import { and, asc, desc, eq, gte, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 import { contextOf, search } from "./chat.knowledge";
-import { chatBots, chatChannelTurns, chatConversations, chatMessages, type MessagePart } from "./chat.schema";
+import { chatBots, chatConversations, chatMessages, type MessagePart } from "./chat.schema";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the host's Drizzle instance
 type Db = any;
@@ -72,35 +68,16 @@ export function costOf(bot: Bot, tokensIn: number, tokensOut: number): number {
   return (tokensIn * Number(bot.priceInPerMillion) + tokensOut * Number(bot.priceOutPerMillion)) / 1_000_000;
 }
 
-/**
- * What a bot asked and spent since `since`: its own conversations' questions plus the channel turns it ran
- * (`exceptTurn`: the channel turn being checked, already recorded so a repeated job finds it).
- */
-export async function spentSince(db: Db, botId: string, since: Date, exceptTurn?: string): Promise<{ asked: number; spent: number }> {
-  const [own] = await db
+async function checkLimits(db: Db, bot: Bot, speaker: Speaker): Promise<void> {
+  const day = new Date(Date.now() - 86_400_000);
+  const [today] = await db
     .select({ asked: sql<number>`count(*) FILTER (WHERE ${chatMessages.role} = 'user')::int`, spent: sql<string>`coalesce(sum(${chatMessages.costUsd}), 0)` })
     .from(chatMessages)
-    .where(and(eq(chatMessages.botId, botId), gte(chatMessages.createdAt, since)));
-  // A turn refused by a limit is not a question the bot answered.
-  const [channel] = await db
-    .select({ asked: sql<number>`count(*) FILTER (WHERE ${chatChannelTurns.status} <> 'refused')::int`, spent: sql<string>`coalesce(sum(${chatChannelTurns.costUsd}), 0)` })
-    .from(chatChannelTurns)
-    .where(and(eq(chatChannelTurns.botId, botId), gte(chatChannelTurns.createdAt, since), exceptTurn ? ne(chatChannelTurns.id, exceptTurn) : undefined));
-  return { asked: Number(own?.asked ?? 0) + Number(channel?.asked ?? 0), spent: Number(own?.spent ?? 0) + Number(channel?.spent ?? 0) };
-}
-
-/** The bot's own day: its daily messages and its budget, whoever asks and wherever. */
-export async function checkBotLimits(db: Db, bot: Bot, exceptTurn?: string): Promise<void> {
-  const today = await spentSince(db, bot.id, new Date(Date.now() - 86_400_000), exceptTurn);
-  if (today.asked >= bot.dailyLimit) throw limited("This assistant has answered all it can today. Try again tomorrow.");
-  if (bot.dailyBudgetUsd != null && today.spent >= Number(bot.dailyBudgetUsd)) {
+    .where(and(eq(chatMessages.botId, bot.id), gte(chatMessages.createdAt, day)));
+  if (Number(today?.asked ?? 0) >= bot.dailyLimit) throw limited("This assistant has answered all it can today. Try again tomorrow.");
+  if (bot.dailyBudgetUsd != null && Number(today?.spent ?? 0) >= Number(bot.dailyBudgetUsd)) {
     throw limited("This assistant has used today's budget. Try again tomorrow.");
   }
-}
-
-async function checkLimits(db: Db, bot: Bot, speaker: Speaker): Promise<void> {
-  await checkBotLimits(db, bot);
-  const day = new Date(Date.now() - 86_400_000);
   const mine = async (since: Date, column: "userId" | "visitorKey", value: string) => {
     const [row] = await db
       .select({ n: sql<number>`count(*)::int` })
