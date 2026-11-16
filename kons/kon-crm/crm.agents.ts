@@ -19,7 +19,7 @@ import { z } from "@kitsuden/engine/zod";
 import { accessOf } from "./crm.access";
 import { dbDe } from "./crm.context";
 import { activityKinds } from "./crm.entities";
-import { crmEntityConfigs } from "./crm.schema";
+import { entityTypes } from "./crm.entitystore";
 import { VIEW, type registry } from "./operations";
 
 const ORIENT = ["get-agent-guide", "get-my-access", "list-activity-kinds"];
@@ -123,15 +123,9 @@ export function agentOperations(routes: ReturnType<typeof registry>): void {
     },
     async (c) => {
       const db = dbDe(c);
-      const entities = await db
-        .select({
-          name: crmEntityConfigs.entityName,
-          singular: crmEntityConfigs.singularLabel,
-          plural: crmEntityConfigs.pluralLabel,
-          fields: crmEntityConfigs.fieldSchema,
-        })
-        .from(crmEntityConfigs)
-        .where(eq(crmEntityConfigs.isActive, true));
+      const entities = (await entityTypes(db).list())
+        .filter((t) => t.isActive !== false)
+        .map((t) => ({ name: t.entityName, singular: t.singularLabel, plural: t.pluralLabel, fields: t.fieldSchema }));
       return c.json({
         data: {
           guide: readFileSync(GUIDE, "utf8"),

@@ -32,8 +32,14 @@ const STATUS: Record<string, SubscriptionStatus> = {
   paused: "paused",
 };
 
-export function paddleProvider(env = process.env): PaymentProvider {
-  const apiKey = env.PADDLE_API_KEY;
+/**
+ * `http`: the organization's paddle connection in kon-connections, used when `PADDLE_API_KEY` is not set. It adds
+ * the key itself on every request, so the key never reaches this file. Webhook secrets stay in the environment:
+ * a signature is checked with the secret in hand.
+ */
+export function paddleProvider(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): PaymentProvider {
+  const send = (url: string, init?: RequestInit) => (http && !env.PADDLE_API_KEY ? http.fetch(url, init) : fetch(url, init));
+  const apiKey = env.PADDLE_API_KEY ?? (http ? "" : undefined);
   const webhookSecret = env.PADDLE_WEBHOOK_SECRET;
   // Sandbox and production are different hosts.
   const api =
@@ -42,10 +48,10 @@ export function paddleProvider(env = process.env): PaymentProvider {
   return {
     name: "paddle",
 
-    isConfigured: () => Boolean(apiKey),
+    isConfigured: () => Boolean(apiKey) || Boolean(http),
 
     async createCheckout(input: CheckoutInput): Promise<CheckoutSession> {
-      const res = await fetch(`${api}/transactions`, {
+      const res = await send(`${api}/transactions`, {
         signal: providerWait(),
         method: "POST",
         headers: {
@@ -137,7 +143,7 @@ export function paddleProvider(env = process.env): PaymentProvider {
     },
 
     async cancelSubscription(subscriptionId, immediately = false) {
-      const res = await fetch(`${api}/subscriptions/${subscriptionId}/cancel`, {
+      const res = await send(`${api}/subscriptions/${subscriptionId}/cancel`, {
         signal: providerWait(),
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },

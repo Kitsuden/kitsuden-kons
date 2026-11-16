@@ -35,8 +35,22 @@ its maturity in the table of the [README](README.md). This file records releases
   person and period, and a CSV import that marks the rows its duplicate detector matches. Its reports
   (funnel, conversion per stage, lost reasons) answer as `get-report` and are declared for Kitsuden's
   report engine.
+- kon-crm keeps its entity types in Kitsuden's entities when the host has them (`ctx.entities.define`,
+  `crm-<entityName>`, with flags, pipeline, numbering and activity kinds in `settings`) and stops reading
+  `crm_entity_configs`: each row moves once at startup and is marked `migratedTo`; a row the core refuses
+  stays readable. Migration 0014 drops the foreign key from `crm_deals.entity_config_id`, which now holds
+  the old row id or the entity's slug. Without `ctx.entities`, the table is used as before.
+- kon-payments (Stripe, Lemon Squeezy, Paddle) and kon-newsletter (Resend, Mailgun) can take their API key
+  from an organization connection in kon-connections instead of the environment; the key never reaches
+  them, and the environment still wins. kon-connections' API key providers can encode the key
+  (`apiKeyHeader.encode`, Mailgun's HTTP Basic).
 - Kons import Zod from `@kitsuden/engine/zod`, as Kitsuden's lint requires (73 files);
-  `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so.
+  `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so. Patch versions for the kons whose only
+  change is that import: kon-academy-lms 1.1.2, kon-agile 1.3.4, kon-analytics 1.0.3, kon-autobattler 1.0.2,
+  kon-blog 2.0.3, kon-booking 1.0.2, kon-broadcast 1.0.5, kon-cardsim 2.3.2, kon-character-builder 1.1.3,
+  kon-chat 1.0.4, kon-collection 1.0.2, kon-comments 1.0.3, kon-conta 1.0.3, kon-directory 1.0.1,
+  kon-dms 2.0.1, kon-esports 1.0.5, kon-formulas 1.0.2, kon-games 2.1.3, kon-maps 1.0.2, kon-members 1.0.2,
+  kon-ocr-training 1.1.2, kon-streamers 1.0.3, kon-tierlist 1.0.3, kon-vekstudio 1.0.2, kon-wiki 1.1.4.
 
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles

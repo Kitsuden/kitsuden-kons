@@ -19,6 +19,7 @@
     "crm.db.ts",
     "crm.dedupe.ts",
     "crm.entities.ts",
+    "crm.entitystore.ts",
     "crm.events.ts",
     "crm.evidence.ts",
     "crm.handlers.ts",

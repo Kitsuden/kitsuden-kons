@@ -37,18 +37,24 @@ const STATUS: Record<string, SubscriptionStatus> = {
   expired: "expired",
 };
 
-export function lemonSqueezyProvider(env = process.env): PaymentProvider {
-  const apiKey = env.LEMONSQUEEZY_API_KEY;
+/**
+ * `http`: the organization's lemonsqueezy connection in kon-connections, used when `LEMONSQUEEZY_API_KEY` is not set. It adds
+ * the key itself on every request, so the key never reaches this file. Webhook secrets stay in the environment:
+ * a signature is checked with the secret in hand.
+ */
+export function lemonSqueezyProvider(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): PaymentProvider {
+  const send = (url: string, init?: RequestInit) => (http && !env.LEMONSQUEEZY_API_KEY ? http.fetch(url, init) : fetch(url, init));
+  const apiKey = env.LEMONSQUEEZY_API_KEY ?? (http ? "" : undefined);
   const storeId = env.LEMONSQUEEZY_STORE_ID;
   const webhookSecret = env.LEMONSQUEEZY_WEBHOOK_SECRET;
 
   return {
     name: "lemonsqueezy",
 
-    isConfigured: () => Boolean(apiKey && storeId),
+    isConfigured: () => Boolean((apiKey || http) && storeId),
 
     async createCheckout(input: CheckoutInput): Promise<CheckoutSession> {
-      const res = await fetch(`${API}/checkouts`, {
+      const res = await send(`${API}/checkouts`, {
         signal: providerWait(),
         method: "POST",
         headers: {
@@ -98,7 +104,7 @@ export function lemonSqueezyProvider(env = process.env): PaymentProvider {
       }
       const total = input.lines.reduce((n, l) => n + l.unitAmount * l.quantity, 0);
       const minutes = Math.min(Math.max(input.expiresInMinutes ?? 60, 5), 1440);
-      const res = await fetch(`${API}/checkouts`, {
+      const res = await send(`${API}/checkouts`, {
         signal: providerWait(),
         method: "POST",
         headers: {
@@ -214,7 +220,7 @@ export function lemonSqueezyProvider(env = process.env): PaymentProvider {
 
     async createPortalSession(customerId) {
       // LS exposes the portal as a signed URL on the subscription resource.
-      const res = await fetch(`${API}/subscriptions/${customerId}`, {
+      const res = await send(`${API}/subscriptions/${customerId}`, {
         signal: providerWait(),
         headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/vnd.api+json" },
       });
@@ -225,7 +231,7 @@ export function lemonSqueezyProvider(env = process.env): PaymentProvider {
     },
 
     async cancelSubscription(subscriptionId) {
-      const res = await fetch(`${API}/subscriptions/${subscriptionId}`, {
+      const res = await send(`${API}/subscriptions/${subscriptionId}`, {
         signal: providerWait(),
         method: "DELETE",
         headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/vnd.api+json" },

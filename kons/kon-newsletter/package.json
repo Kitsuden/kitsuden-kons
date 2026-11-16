@@ -11,6 +11,7 @@
     "index.ts",
     "kon.json",
     "migrations",
+    "newsletter.connections.ts",
     "newsletter.db.ts",
     "newsletter.limits.ts",
     "newsletter.mails.ts",

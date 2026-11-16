@@ -48,8 +48,11 @@ export interface ProviderDefinition {
   scopeSets: Record<string, { description: string; scopes: string[] }>;
   /** Hosts the token may be sent to (https only). */
   apiHosts: string[];
-  /** How an API key goes on a request. Default: `Authorization: Bearer <key>`. */
-  apiKeyHeader?: { name: string; prefix?: string };
+  /**
+   * How an API key goes on a request. Default: `Authorization: Bearer <key>`. `encode` turns the key into
+   * the header's value when a prefix is not enough (Mailgun: `Basic base64("api:" + key)`).
+   */
+  apiKeyHeader?: { name: string; prefix?: string; encode?: (key: string) => string };
   /** Reads `{ accountId, accountEmail }` from the user info response. */
   identity?(userInfo: Record<string, unknown>): { accountId: string | null; accountEmail: string | null };
 }

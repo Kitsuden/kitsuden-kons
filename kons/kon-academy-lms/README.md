@@ -6,7 +6,7 @@ public verification, and Excel exports. For organisations that train their own s
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.1.1 | `/api/academy` | kon-media |
+| beta | business | 1.1.2 | `/api/academy` | kon-media |
 
 ## Install
 

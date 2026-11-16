@@ -32,7 +32,8 @@
       "auth"
     ],
     "optionalKons": [
-      "kon-conta"
+      "kon-conta",
+      "kon-connections"
     ]
   },
   "compatibility": {

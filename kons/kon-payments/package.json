@@ -11,6 +11,7 @@
     "kon.json",
     "migrations",
     "operations.ts",
+    "payments.connections.ts",
     "payments.orders.ts",
     "payments.policy.ts",
     "payments.routes.ts",

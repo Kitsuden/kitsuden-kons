@@ -6,7 +6,7 @@ draw an index and want a personal "have / missing" tracker on top of it.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.1 | `/api/collection` | — (core: `auth`) |
+| beta | gaming | 1.0.2 | `/api/collection` | — (core: `auth`) |
 
 ## Install
 

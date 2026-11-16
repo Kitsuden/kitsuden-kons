@@ -61,14 +61,16 @@ import manifest from "./kon.json" with { type: "json" };
 const konTables = manifest.tables.map((t: string | { name: string }) => (typeof t === "string" ? t : t.name));
 export { stripeProvider, lemonSqueezyProvider, paddleProvider, paypalProvider };
 export { openOrderCheckout, orderProviderNames } from "./payments.orders";
+import { connectedHttp, followConnections, refreshConnectedProviders } from "./payments.connections";
 export type { OrderCheckoutResult } from "./payments.orders";
 
 /** Builds the provider registry; skips those without keys. */
 export function buildProviders(env = process.env): Map<string, PaymentProvider> {
   const all = [
-    stripeProvider(env),
-    lemonSqueezyProvider(env),
-    paddleProvider(env),
+    // A key in the environment wins; otherwise the organization's connection in kon-connections, if any.
+    stripeProvider(env, connectedHttp("stripe")),
+    lemonSqueezyProvider(env, connectedHttp("lemonsqueezy")),
+    paddleProvider(env, connectedHttp("paddle")),
     paypalProvider(env),
   ];
 
@@ -206,6 +208,9 @@ const definition = defineKonSdk({
 
   hooks: {
     onStartup: async (ctx: KonContext) => {
+      // Keys stored in kon-connections (payments.connections.ts), before the registry is built.
+      await refreshConnectedProviders(ctx).catch(() => []);
+      followConnections(ctx);
       const providers = buildProviders();
       const names = Array.from(providers.keys());
       ctx.logger.info(

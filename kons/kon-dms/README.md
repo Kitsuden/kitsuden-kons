@@ -7,7 +7,7 @@ and needs to know who approved and who read what.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 2.0.0 | `/api/dms` | — (core `auth`) |
+| beta | business | 2.0.1 | `/api/dms` | — (core `auth`) |
 
 ## Install
 

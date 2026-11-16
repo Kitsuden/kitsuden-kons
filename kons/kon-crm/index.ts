@@ -39,6 +39,7 @@ import type { KonDefinition, KonContext } from "@kitsuden/shared";
 import { CRM_TOOLSETS } from "./crm.agents";
 import { listenToOtherKons } from "./crm.connected";
 import type { CrmDb } from "./crm.db";
+import { migrateEntityTypes, useEntityTypes } from "./crm.entitystore";
 import { CRM_ACTION_HANDLERS, syncStageRules } from "./crm.handlers";
 import { CRM_REPORTS } from "./crm.reports";
 import { CRM_EVENTS, useCrmEvents } from "./crm.events";
@@ -112,6 +113,12 @@ const hooks = {
       // (crm.connected.ts). With none of those kons installed nothing is ever emitted.
       useCrmEvents(ctx.events);
       listenToOtherKons(ctx);
+      // With Kitsuden's runtime entities, the CRM's entity types move there once (crm.entitystore.ts).
+      useEntityTypes(ctx as never);
+      const asSystemFirst = ctx.db.asSystem ?? (<T>(f: () => Promise<T>) => f());
+      const types = await asSystemFirst(() => migrateEntityTypes(ctx.db.instance as CrmDb));
+      if (types.moved.length) ctx.logger.info("[CRM] Entity types moved into Kitsuden's entities", { types: types.moved });
+      if (types.failed.length) ctx.logger.warn("[CRM] Some entity types stay in crm_entity_configs", { failed: types.failed });
       // With Kitsuden's rule engine, stage actions move into it once (crm.handlers.ts).
       const asSystem = ctx.db.asSystem ?? (<T>(f: () => Promise<T>) => f());
       const synced = await asSystem(() => syncStageRules(ctx, ctx.db.instance as CrmDb));

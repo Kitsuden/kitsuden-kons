@@ -265,6 +265,12 @@ cannot read cannot be filtered or grouped by (403).
 
 ## Configuration
 
+Entity types (cases, properties, projects…, with their custom fields, flags, default pipeline, numbering
+and activity kinds) live in Kitsuden's entities when the host has them (`ctx.entities`), as
+`crm-<entityName>`: at startup each row of `crm_entity_configs` is moved there once and marked
+`migratedTo`. Custom field values stay on the records (`custom_fields`). On a Kitsuden without runtime
+entities, `crm_entity_configs` is used as before.
+
 Only for receiving email (`crm.inbound.ts`); every lock is closed by default:
 
 | Variable | What it is |

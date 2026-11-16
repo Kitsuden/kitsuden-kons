@@ -60,7 +60,8 @@ function authorize(row: ConnectionRow, credential: Credential, headers: Headers)
   if (row.authType === "api_key") {
     const provider = providerOf(row.provider);
     const header = provider?.apiKeyHeader ?? { name: "authorization", prefix: "Bearer " };
-    headers.set(header.name, `${header.prefix ?? ""}${credential.apiKey ?? ""}`);
+    const key = credential.apiKey ?? "";
+    headers.set(header.name, "encode" in header && header.encode ? header.encode(key) : `${header.prefix ?? ""}${key}`);
     return;
   }
   headers.set("authorization", `Bearer ${credential.accessToken ?? ""}`);

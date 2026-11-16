@@ -2,7 +2,8 @@
  * What an installation defined: entities, their fields, activity kinds, numbering
  * ============================================================================
  *
- * A preset (or an admin) describes the business in `crm_entity_configs`. These helpers read it the same way
+ * A preset (or an admin) describes the business in entity types (crm.entitystore.ts: Kitsuden's entities, or
+ * `crm_entity_configs` on a Kitsuden without them). These helpers read it the same way
  * everywhere, so validation, filters, the portal and the ledger agree on which fields exist and what they mean.
  *
  *   - A deal's entity is the one it names, else the one whose default pipeline it is in, else the default one.
@@ -12,12 +13,13 @@
  *   - Numbering (`metadata.numbering: { field, prefix, padding }`) fills a deal field from a counter.
  */
 
-import { and, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 import type { CrmDb } from "./crm.db";
-import { crmEntityConfigs, type EntityFieldSchema } from "./crm.schema";
+import { entityTypes, type EntityType } from "./crm.entitystore";
+import type { EntityFieldSchema } from "./crm.schema";
 
-type EntityConfig = typeof crmEntityConfigs.$inferSelect;
+type EntityConfig = EntityType;
 
 export interface ActivityKind {
   key: string;
@@ -42,37 +44,31 @@ export interface ContaMapping {
   taxId?: string;
 }
 
-const active = eq(crmEntityConfigs.isActive, true);
-
+/** Through the entity type store (crm.entitystore.ts): Kitsuden's entities, or the CRM's old table. */
 export async function entityByName(db: CrmDb, name: string): Promise<EntityConfig | undefined> {
-  const [row] = await db.select().from(crmEntityConfigs).where(and(eq(crmEntityConfigs.entityName, name), active)).limit(1);
-  return row;
+  return entityTypes(db).byName(name);
 }
 
 export async function entityOfDeal(
   db: CrmDb,
   deal: { entityConfigId?: string | null; pipelineId?: string | null }
 ): Promise<EntityConfig | undefined> {
+  const store = entityTypes(db);
   if (deal.entityConfigId) {
-    const [row] = await db.select().from(crmEntityConfigs).where(and(eq(crmEntityConfigs.id, deal.entityConfigId), active));
-    if (row) return row;
+    const row = await store.byId(deal.entityConfigId);
+    if (row && row.isActive !== false) return row;
   }
+  const active = (await store.list()).filter((t) => t.isActive !== false);
   if (deal.pipelineId) {
-    const [row] = await db
-      .select()
-      .from(crmEntityConfigs)
-      .where(and(eq(crmEntityConfigs.defaultPipelineId, deal.pipelineId), active))
-      .limit(1);
+    const row = active.find((t) => t.defaultPipelineId === deal.pipelineId);
     if (row) return row;
   }
-  const [row] = await db.select().from(crmEntityConfigs).where(and(eq(crmEntityConfigs.isDefault, true), active)).limit(1);
-  return row;
+  return active.find((t) => t.isDefault);
 }
 
 /** Every field defined on any active entity: what `cf.<key>` filters may name. */
 export async function allFields(db: CrmDb): Promise<EntityFieldSchema[]> {
-  const rows = await db.select({ fieldSchema: crmEntityConfigs.fieldSchema }).from(crmEntityConfigs).where(active);
-  return rows.flatMap((r) => r.fieldSchema ?? []);
+  return (await entityTypes(db).list()).filter((t) => t.isActive !== false).flatMap((t) => t.fieldSchema ?? []);
 }
 
 function metadataOf(entity: EntityConfig | undefined): Record<string, unknown> {

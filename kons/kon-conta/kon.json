@@ -3,7 +3,7 @@
   "id": "kon-conta",
   "name": "Accounting",
   "description": "General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a business that bills clients runs through it: invoices, payments, work billed as quantity times rate, recurring fees, success fees, client funds, bank reconciliation, period close and an audit trail.",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

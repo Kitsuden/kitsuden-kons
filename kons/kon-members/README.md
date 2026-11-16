@@ -6,7 +6,7 @@ downloads area) call to decide whether a reader may see a piece of content.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| stable (tier `essential`) | core | 1.0.1 | `/api/members` | — (core `auth`; optional: kon-payments) |
+| stable (tier `essential`) | core | 1.0.2 | `/api/members` | — (core `auth`; optional: kon-payments) |
 
 ## Install
 

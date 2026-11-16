@@ -41,6 +41,7 @@ import { inboundOperations } from "./crm.inbound";
 import { customFieldFilters, likePattern, readableFields, recordOperations } from "./crm.records";
 import type { CrmDb } from "./crm.db";
 import { importOperations } from "./crm.import";
+import { entityTypes, useEntityTypes } from "./crm.entitystore";
 import { syncStageRules } from "./crm.handlers";
 import { moveDeal, validateStageTransition } from "./crm.moves";
 import { reportOperations } from "./crm.reports";
@@ -61,7 +62,6 @@ import {
   crmPipelineStages,
   crmDeals,
   crmActivities,
-  crmEntityConfigs,
   activityTypeEnum,
   priorityEnum,
   contactStatusEnum,
@@ -542,6 +542,7 @@ function ctxGet<T>(c: unknown, key: string): T | undefined {
 export function crmOperations(ctx: KonContext): AnyOperation[] {
   const crmRoutes = registry();
   useCrmEvents(ctx.events);
+  useEntityTypes(ctx as never);
   const { logger } = ctx;
 
   /** Who deletes an activity or document: its author or an admin. */
@@ -2610,11 +2611,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
     async (c, input) => {
       try {
         const konId = c.req.query("konId");
-        const configs = await dbDe(c)
-          .select()
-          .from(crmEntityConfigs)
-          .where(konId ? eq(crmEntityConfigs.konId, konId) : undefined)
-          .orderBy(desc(crmEntityConfigs.updatedAt));
+        const configs = (await entityTypes(dbDe(c)).list()).filter((t) => !konId || t.konId === konId);
 
         return c.json({ data: configs });
       } catch (error) {
@@ -2649,9 +2646,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         const body = input.body as z.infer<typeof CreateEntity>;
         const user = ctxGet<{ id?: string }>(c, "user");
 
-        const [config] = await dbDe(c)
-          .insert(crmEntityConfigs)
-          .values({
+        const config = await entityTypes(dbDe(c)).create({
             konId: body.konId,
             entityName: body.entityName,
             singularLabel: body.singularLabel,
@@ -2666,8 +2661,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
             isDefault: body.isDefault ?? false,
             metadata: body.metadata ?? {},
             createdBy: user?.id,
-          })
-          .returning();
+          });
 
         logger.info("[CRM] Entity config created", { configId: config.id });
         return c.json({ data: config }, 201);
@@ -2703,9 +2697,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         const id = c.req.param("id");
         const body = input.body as z.infer<typeof EditEntity>;
 
-        const updateData: Record<string, unknown> = {
-          updatedAt: new Date(),
-        };
+        const updateData: Record<string, unknown> = {};
 
         if (body.entityName !== undefined) updateData.entityName = body.entityName;
         if (body.singularLabel !== undefined) updateData.singularLabel = body.singularLabel;
@@ -2722,11 +2714,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         if (body.isDefault !== undefined) updateData.isDefault = body.isDefault;
         if (body.metadata !== undefined) updateData.metadata = body.metadata;
 
-        const [config] = await dbDe(c)
-          .update(crmEntityConfigs)
-          .set(updateData)
-          .where(eq(crmEntityConfigs.id, id))
-          .returning();
+        const config = await entityTypes(dbDe(c)).update(id, updateData);
 
         if (!config) {
           throw AppError.notFound("Entity config not found");

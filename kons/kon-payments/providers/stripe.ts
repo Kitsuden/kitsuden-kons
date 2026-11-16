@@ -57,12 +57,18 @@ const STATUS: Record<string, SubscriptionStatus> = {
   incomplete_expired: "expired",
 };
 
-export function stripeProvider(env = process.env): PaymentProvider {
-  const secretKey = env.STRIPE_SECRET_KEY;
+/**
+ * `http`: the organization's stripe connection in kon-connections, used when `STRIPE_SECRET_KEY` is not set. It adds
+ * the key itself on every request, so the key never reaches this file. Webhook secrets stay in the environment:
+ * a signature is checked with the secret in hand.
+ */
+export function stripeProvider(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): PaymentProvider {
+  const send = (url: string, init?: RequestInit) => (http && !env.STRIPE_SECRET_KEY ? http.fetch(url, init) : fetch(url, init));
+  const secretKey = env.STRIPE_SECRET_KEY ?? (http ? "" : undefined);
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
 
   async function call(path: string, body?: Record<string, unknown>): Promise<any> {
-    const res = await fetch(`${API}${path}`, {
+    const res = await send(`${API}${path}`, {
       signal: providerWait(),
       method: body ? "POST" : "GET",
       headers: {
@@ -81,7 +87,7 @@ export function stripeProvider(env = process.env): PaymentProvider {
   return {
     name: "stripe",
 
-    isConfigured: () => Boolean(secretKey),
+    isConfigured: () => Boolean(secretKey) || Boolean(http),
 
     async createCheckout(input: CheckoutInput): Promise<CheckoutSession> {
       const session = await call("/checkout/sessions", {
@@ -233,7 +239,7 @@ export function stripeProvider(env = process.env): PaymentProvider {
 
     async cancelSubscription(subscriptionId, immediately = false) {
       if (immediately) {
-        await fetch(`${API}/subscriptions/${subscriptionId}`, {
+        await send(`${API}/subscriptions/${subscriptionId}`, {
           signal: providerWait(),
           method: "DELETE",
           headers: { Authorization: `Bearer ${secretKey}` },

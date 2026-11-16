@@ -22,7 +22,8 @@ import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
-import { activityTypeEnum, crmDocumentTemplates, crmEntityConfigs, crmPipelineStages, crmPipelines } from "./crm.schema";
+import { entityTypes } from "./crm.entitystore";
+import { activityTypeEnum, crmDocumentTemplates, crmPipelineStages, crmPipelines } from "./crm.schema";
 import { CONFIGURE, KON_ID, VIEW, requiresEdit, type registry } from "./operations";
 
 const Field = z.object({
@@ -200,21 +201,19 @@ export function presetOperations(routes: ReturnType<typeof registry>): void {
           : []),
       ];
       for (const entity of entities) {
-        const [existing] = await db
-          .select({ id: crmEntityConfigs.id, metadata: crmEntityConfigs.metadata })
-          .from(crmEntityConfigs)
-          .where(and(eq(crmEntityConfigs.konId, KON_ID), eq(crmEntityConfigs.entityName, entity.entityName)));
+        const store = entityTypes(db);
+        const existing = (await store.list()).find((t) => t.konId === KON_ID && t.entityName === entity.entityName);
         if (existing) {
           // What the team set stays; only what is missing is added, so an older install gets the new settings.
           const current = (existing.metadata as Record<string, unknown> | null) ?? {};
           const missing = Object.fromEntries(Object.entries(entity.metadata).filter(([k]) => current[k] === undefined));
           if (Object.keys(missing).length > 0) {
-            await db.update(crmEntityConfigs).set({ metadata: { ...current, ...missing } }).where(eq(crmEntityConfigs.id, existing.id));
+            await store.update(existing.id, { metadata: { ...current, ...missing } });
             created.push(...Object.keys(missing).map((k) => `setting:${entity.entityName}.${k}`));
           }
           continue;
         }
-        await db.insert(crmEntityConfigs).values({ konId: KON_ID, ...entity, requiresContact: false, requiresCompany: false, isActive: true, createdBy });
+        await store.create({ konId: KON_ID, ...entity, requiresContact: false, requiresCompany: false, isActive: true, createdBy });
         created.push(`entity:${entity.entityName}`);
       }
 

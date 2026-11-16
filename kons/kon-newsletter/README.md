@@ -162,6 +162,11 @@ system after checking the token or signature.
 
 ## Configuration
 
+With kon-connections installed, an admin can store the Resend or Mailgun API key there instead of the
+environment (`POST /api/connections/api-keys`, provider `resend` or `mailgun`, scope `organization`).
+The key is sealed by the host and never reaches this kon. A key in the environment wins; Mailgun's domain
+and the webhook signing keys stay in the environment.
+
 Sending (the first configured one is used; `NEWSLETTER_TRANSPORT` picks one by name):
 
 | Variable | Effect |
