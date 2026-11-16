@@ -86,7 +86,7 @@ export { REWARD_MODULES, levelOf, xpFor } from "./dc.rewards";
 export { MODERATION_MODULES, automodRules } from "./dc.moderation";
 export { nextRun } from "./dc.engine";
 export { createCardKit, rankSvg, walletSvg, leaderboardSvg, statSvg, sharpRenderer, type CardKit, type CardTheme, type PngRenderer } from "./dc.cards";
-export { stepCatalog, STEP_CATEGORIES, type StepEntry } from "./dc.catalog";
+export { blueprintGuide, extractJson, stepCatalog, STEP_CATEGORIES, type StepEntry } from "./dc.catalog";
 export { KonCallError, createKitsudenClient, type KitsudenClient } from "./dc.kitsuden";
 export { BOOTH_SCOPES, TEMPLATES, buildTemplate, type BlueprintTemplate } from "./dc.templates";
 export { createDiscordRest, discordSettings, verifyInteraction, type DiscordRest, type DiscordSettings, type MessagePayload, type SlashCommandPayload } from "./dc.rest";
