@@ -55,7 +55,7 @@ caller's own marks; nothing reads anyone else's.
 ## Rules that must hold
 
 - The owner is the session user, never input: guarded by
-  `tests/unit/kon-collection-and-analytics-security.test.ts`.
+  `tests/unit/kon-collection-security.test.ts`.
 - Row security on `collection_marks` (owner, admin or system) is set by the core's
   `apps/api/src/db/rls-owned-tables.sql`, not by a migration here; the test
   `kon-collection-routes.test.ts` ("the database wall is really up") checks it is forced.
@@ -80,8 +80,7 @@ caller's own marks; nothing reads anyone else's.
 
 ```bash
 pnpm vitest run tests/unit/kon-collection-routes.test.ts
-pnpm vitest run tests/unit/kon-collection-and-analytics-security.test.ts
+pnpm vitest run tests/unit/kon-collection-security.test.ts
 ```
 
-Run both after touching `index.ts`, `operations.ts` or `collection.policy.ts`; the security test
-also covers kon-analytics, so a failure there may not be yours.
+Run both after touching `index.ts`, `operations.ts` or `collection.policy.ts`.
