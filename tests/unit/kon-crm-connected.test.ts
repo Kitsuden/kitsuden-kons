@@ -293,13 +293,15 @@ describe("with and without the other kons", () => {
     return { ctx, handlers, jobs };
   }
 
-  it("listens once per bus, to the six events, even when started twice", () => {
+  it("listens once per bus, to its eight events, even when started twice", () => {
     const { ctx, handlers } = fakeCtx();
     listenToOtherKons(ctx as never);
     listenToOtherKons(ctx as never);
     expect([...handlers.keys()].sort()).toEqual([
       "inbox:event.synced",
       "inbox:message.received",
+      "newsletter:address.suppressed",
+      "newsletter:address.unsuppressed",
       "newsletter:member.subscribed",
       "payment:payment.refunded",
       "payment:payment.succeeded",

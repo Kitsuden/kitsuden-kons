@@ -39,6 +39,11 @@ its maturity in the table of the [README](README.md). This file records releases
 - kon-payments (Stripe, Lemon Squeezy, Paddle) and kon-newsletter (Resend, Mailgun) register their providers
   in Kitsuden's connections (`ctx.connections`) and can take their API key from an organization connection
   instead of the environment; the key never reaches them, and the environment still wins.
+- One "do not contact" between kon-crm and kon-newsletter. An unsubscribe, a complaint or a manual
+  suppression in the newsletter excludes the address in the CRM, and an exclusion in the CRM suppresses it
+  in the newsletter (`newsletter:address.suppressed|unsuppressed`, `crm:address.suppressed|unsuppressed`).
+  Taking an address off one list lifts it from the other only if that is where it came from. A bounce is
+  not mirrored, and neither is a domain excluded in the CRM (the newsletter's list is by address).
 - Kons import Zod from `@kitsuden/engine/zod`, as Kitsuden's lint requires (73 files);
   `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so. Patch versions for the kons whose only
   change is that import: kon-academy-lms 1.1.2, kon-agile 1.3.4, kon-analytics 1.0.3, kon-autobattler 1.0.2,

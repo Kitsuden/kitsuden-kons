@@ -99,6 +99,8 @@ export const CRM_EVENTS = {
       },
     },
     "crm:quote.rejected": { description: "A quote was marked as rejected.", payload: { quoteId: "id", dealId: "id", number: "Q-0001" } },
+    "crm:address.suppressed": { description: "An email or a domain was put on the CRM's exclusion list.", payload: { kind: "email or domain", value: "the address or domain" } },
+    "crm:address.unsuppressed": { description: "An entry was taken off the CRM's exclusion list.", payload: { kind: "email or domain", value: "the address or domain" } },
     "crm:deal:created": { description: "A deal was created.", payload: { dealId: "id", pipelineId: "id", stageId: "id" } },
     "crm:deal:stage-changed": { description: "Old name of crm:deal.moved.", payload: { dealId: "id", fromStageId: "id", toStageId: "id" } },
     "crm:deal:status-changed": { description: "A deal's status changed (open, won, lost).", payload: { dealId: "id", status: "open, won or lost" } },
@@ -114,5 +116,7 @@ export const CRM_EVENTS = {
     "payment:payment.refunded",
     "inbox:message.received",
     "inbox:event.synced",
+    "newsletter:address.suppressed",
+    "newsletter:address.unsuppressed",
   ],
 };

@@ -162,6 +162,11 @@ system after checking the token or signature.
 
 ## Configuration
 
+The suppression list is shared with kon-crm when it is installed: an unsubscribe, a complaint or a manual
+suppression excludes the address in the CRM, and an address excluded in the CRM is suppressed here (stored
+with `source: kon-crm`). A bounce is not passed on. Removing a suppression lifts the CRM's entry only if
+it came from here.
+
 On a Kitsuden with connections (`ctx.connections`), an admin can store the Resend or Mailgun API key there instead of the
 environment (Kitsuden's connections API (`/api/connections/api-keys`), provider `resend` or `mailgun`, scope `organization`).
 The key is sealed by the host and never reaches this kon. A key in the environment wins; Mailgun's domain

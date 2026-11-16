@@ -43,6 +43,7 @@ import { eq } from "drizzle-orm";
 import type { CrmDb } from "./crm.db";
 import { findDuplicates, normalizeEmail } from "./crm.dedupe";
 import { emitCrm } from "./crm.events";
+import { listenToNewsletterExclusions } from "./crm.exclusions";
 import { candidatesFor, isSuppressed } from "./crm.intake";
 import { markQuotePaid } from "./crm.sales";
 import { crmContacts } from "./crm.schema";
@@ -309,4 +310,6 @@ export function listenToOtherKons(ctx: KonContext): void {
   );
   ctx.events.on("inbox:message.received", (data: unknown) => run("an email", (db) => onInboxMessage(db, data))());
   ctx.events.on("inbox:event.synced", (data: unknown) => run("a meeting", (db) => onInboxEvent(db, data))());
+  // One "do not contact" with the newsletter (crm.exclusions.ts).
+  listenToNewsletterExclusions(ctx);
 }

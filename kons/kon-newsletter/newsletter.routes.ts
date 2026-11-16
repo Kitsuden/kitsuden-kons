@@ -36,6 +36,7 @@ import {
   nlSegments,
   nlSuppressions,
 } from "./newsletter.schema";
+import { useNewsletterEvents } from "./newsletter.exclusions";
 import {
   applyFeedback,
   confirm,
@@ -156,6 +157,7 @@ export function createNewsletterRouter(
   transport: BulkTransport,
   feedbackAdapters: Map<string, FeedbackAdapter>
 ): Hono {
+  useNewsletterEvents(ctx.events);
   return operationsRouter(KON_ID, newsletterOperations(ctx, transport, feedbackAdapters), ctx);
 }
 
