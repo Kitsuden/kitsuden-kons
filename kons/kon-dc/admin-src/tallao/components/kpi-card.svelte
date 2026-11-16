@@ -113,8 +113,9 @@
     border-radius: var(--ta-radius-lg);
   }
   .ta-kpi-label { font-size: 0.75rem; color: rgb(var(--ta-text-dim)); }
-  .ta-kpi-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 0.75rem; min-width: 0; }
-  .ta-kpi-value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+  /* A narrow card puts the sparkline under the figure instead of breaking the figure ("35.1 / K"). */
+  .ta-kpi-main { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.5rem 0.75rem; min-width: 0; }
+  .ta-kpi-value { font-size: 1.75rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: break-word; }
   .ta-kpi-unit { margin-left: 0.125rem; font-size: 0.875rem; font-weight: 500; color: rgb(var(--ta-text-dim)); }
   .ta-kpi :global(.ta-kpi-trend) { margin-bottom: 0.125rem; }
 

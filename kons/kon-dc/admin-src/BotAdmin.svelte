@@ -32,6 +32,7 @@
   import Transfer from "./sections/Transfer.svelte";
   import type { ViewContext } from "./types";
   import View from "./ui/View.svelte";
+  import { remembered } from "./ui/remember.svelte";
 
   let { context }: { context?: ViewContext; params?: Record<string, unknown> | null } = $props();
 
@@ -45,14 +46,13 @@
     { id: "items", label: "Items" },
     { id: "transfer", label: "Export / import" },
   ];
-  let tab = $state("overview");
 </script>
 
 <View>
-  <Tabs items={tabs} bind:value={tab} ariaLabel="Discord bot" wrap>
+  <Tabs items={tabs} bind:value={remembered.tab} ariaLabel="Discord bot" wrap>
     {#snippet children(id)}
       {#if id === "overview"}
-        <Overview onGo={(t) => (tab = t)} />
+        <Overview onGo={(t) => (remembered.tab = t)} />
       {:else if id === "setup"}
         <Setup />
       {:else if id === "servers"}

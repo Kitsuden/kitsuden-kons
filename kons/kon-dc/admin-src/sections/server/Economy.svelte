@@ -7,6 +7,7 @@
   import { untrack } from "svelte";
 
   import {
+    Alert,
     Badge,
     Button,
     DashboardGrid,
@@ -80,7 +81,28 @@
     reason: "",
   });
   let adjusting = $state(false);
-  const adjustOk = $derived(SNOWFLAKE.test(adjust.userId) && /^[a-z0-9_-]{1,32}$/.test(adjust.currency) && adjust.amount !== null && adjust.amount >= 0);
+  const CURRENCY = /^[a-z0-9_-]{1,32}$/;
+  // Errors under the field they belong to, once something was typed there (not on an empty form).
+  const userIdError = $derived(adjust.userId && !SNOWFLAKE.test(adjust.userId) ? "A Discord id is 15 to 20 digits." : undefined);
+  const currencyError = $derived(
+    adjust.currency && !CURRENCY.test(adjust.currency) ? "Lowercase letters, digits, - and _ (up to 32)." : undefined
+  );
+  const amountError = $derived(adjust.amount === null || adjust.amount < 0 ? "A whole number, 0 or more." : undefined);
+  const adjustOk = $derived(!!adjust.userId && !!adjust.currency && !userIdError && !currencyError && !amountError);
+
+  /** The balance before a change, when the page already shows it: what Undo puts back. */
+  function knownBalance(userId: string, cur: string): number | null {
+    if (file?.userId === userId) return file.balances.find((b) => b.currency === cur)?.balance ?? 0;
+    if (economy?.currency === cur) return economy.docs.find((r) => r.userId === userId)?.value ?? 0;
+    return null;
+  }
+
+  async function setBalance(userId: string, cur: string, value: number) {
+    await api.put(`/guilds/${guildId}/economy/${userId}`, { currency: cur, set: value, reason: "Undo" });
+    toast.success(`Back to ${fmt.format(value)} ${cur}`);
+    await load.load();
+    if (fileOpen && file?.userId === userId) await openFile(userId);
+  }
 
   function openAdjust(userId = "", mode: Mode = "give") {
     adjust = { userId, currency: economy?.currency || "coins", mode, amount: mode === "set" ? 0 : 100, reason: "" };
@@ -90,6 +112,8 @@
   async function saveAdjust() {
     if (!adjustOk || adjust.amount === null) return;
     adjusting = true;
+    const { userId, currency: cur } = adjust;
+    const before = knownBalance(userId, cur);
     try {
       const body =
         adjust.mode === "set"
@@ -99,7 +123,12 @@
         ...body,
         ...(adjust.reason.trim() ? { reason: adjust.reason.trim() } : {}),
       });
-      toast.success(`New balance: ${fmt.format(r.balance)} ${adjust.currency}`);
+      toast.success(`New balance: ${fmt.format(r.balance)} ${cur}`, {
+        duration: 8000,
+        ...(before !== null && before !== r.balance
+          ? { action: { label: "Undo", onClick: () => void setBalance(userId, cur, before).catch((e) => failed("Could not undo", e)) } }
+          : {}),
+      });
       adjustOpen = false;
       currency = adjust.currency;
       await load.load();
@@ -117,7 +146,9 @@
   let fileError = $state<string | null>(null);
   let lookup = $state("");
 
+  let lookupId = $state("");
   async function openFile(userId: string) {
+    lookupId = userId;
     fileOpen = true;
     fileError = null;
     if (file?.userId !== userId) file = null;
@@ -142,14 +173,19 @@
     <Field label="Currency">
       <Select bind:value={currency} options={currencyOptions} onchange={() => void load.load()} />
     </Field>
-    <FormGrid label="Look up a member" onsubmit={() => SNOWFLAKE.test(lookup) && openFile(lookup)}>
-      <Field label="Member id">
+    <form
+      class="lookup"
+      aria-label="Look up a member"
+      onsubmit={(e) => {
+        e.preventDefault();
+        if (SNOWFLAKE.test(lookup)) void openFile(lookup);
+      }}
+    >
+      <Field label="Look up a member by id">
         <Input bind:value={lookup} inputmode="numeric" placeholder="123456789012345678" />
       </Field>
-      {#snippet actions()}
-        <Button variant="secondary" type="submit" disabled={!SNOWFLAKE.test(lookup)}>Open</Button>
-      {/snippet}
-    </FormGrid>
+      <Button variant="secondary" type="submit" disabled={!SNOWFLAKE.test(lookup)}>Open file</Button>
+    </form>
   </div>
 
   {#if economy}
@@ -199,10 +235,10 @@
 
 <Dialog bind:open={adjustOpen} title="Give, take or set a balance" closeLabel={CLOSE}>
   <FormGrid label="Change a balance" onsubmit={saveAdjust}>
-    <Field label="Member id">
+    <Field label="Member id" required error={userIdError}>
       <Input bind:value={adjust.userId} inputmode="numeric" placeholder="123456789012345678" />
     </Field>
-    <Field label="Currency">
+    <Field label="Currency" required error={currencyError}>
       <Input bind:value={adjust.currency} maxlength={32} placeholder="coins" />
     </Field>
     <ToggleGroup
@@ -215,7 +251,7 @@
         { value: "set", label: "Set to" },
       ]}
     />
-    <Field label={adjust.mode === "set" ? "New balance" : "Amount"}>
+    <Field label={adjust.mode === "set" ? "New balance" : "Amount"} required error={amountError}>
       <NumberInput bind:value={adjust.amount} min={0} step={10} stepper />
     </Field>
     <Field label="Reason (optional, goes with the kon event)">
@@ -233,7 +269,10 @@
 <Dialog bind:open={fileOpen} title={file?.profile?.name ? `${file.profile.name}` : "Member"} closeLabel={CLOSE} size="lg">
   <div class="file">
     {#if fileError}
-      <p class="quiet">{fileError}</p>
+      <Alert variant="error" title="The member file did not load">
+        {fileError}
+        <Button variant="outline" size="sm" onclick={() => lookupId && openFile(lookupId)}>Retry</Button>
+      </Alert>
     {:else if !file}
       <Skeleton lines={5} />
     {:else}
@@ -298,7 +337,19 @@
     display: grid;
     grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
     gap: 1rem;
-    align-items: start;
+    align-items: end;
+  }
+
+  .lookup {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .lookup :global(> :first-child) {
+    flex: 1;
+    min-width: 0;
   }
 
   @media (max-width: 47.99rem) {

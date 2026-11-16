@@ -147,6 +147,9 @@
 
   .ta-chart-data {
     align-self: flex-start;
+    /* WCAG 2.2 target size: at least 24 × 24 CSS px with a fine pointer (44 with a coarse one, below). */
+    min-height: 1.5rem;
+    min-width: 1.5rem;
     padding: 0.125rem 0;
     font: inherit;
     font-size: 0.75rem;

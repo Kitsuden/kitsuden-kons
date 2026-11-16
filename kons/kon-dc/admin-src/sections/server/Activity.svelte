@@ -7,7 +7,7 @@
 
   import { BarList, ChartCard, DashboardGrid, KpiCard, LineChart, ToggleGroup } from "$lib/components";
 
-  import { useApi } from "../../context";
+  import { dayLabel, useApi } from "../../context";
   import type { Activity } from "../../types";
   import Loadable from "../../ui/Loadable.svelte";
   import Panel from "../../ui/Panel.svelte";
@@ -27,10 +27,11 @@
     untrack(load.load);
   });
 
-  const days = $derived((activity?.days ?? []).map((d) => ({ ...d, day: d.date.slice(5) })));
+  const days = $derived((activity?.days ?? []).map((d) => ({ ...d, day: dayLabel(d.date) })));
   const busiest = $derived(days.reduce<{ day: string; messages: number } | null>((b, d) => (!b || d.messages > b.messages ? d : b), null));
-  const ranked = (rows: Activity["topMessages"], unit: (n: number) => string) =>
-    rows.map((r) => ({ label: r.name ?? r.userId, value: r.value, note: unit(r.value) }));
+  // One figure per row, with its unit: no second line repeating it.
+  const ranked = (rows: Activity["topMessages"]) => rows.map((r) => ({ label: r.name ?? r.userId, value: r.value }));
+  const hours = (minutes: number) => `${Math.round((minutes / 60) * 10) / 10} h`;
 </script>
 
 <Panel title="Activity" description="Messages and voice per day (UTC), counted while Stats or Levels is on.">
@@ -59,7 +60,7 @@
 </Panel>
 
 {#if activity}
-  <ChartCard title="Per day" level={2}>
+  <ChartCard title="Per day" description="Days in UTC." level={2}>
     <LineChart
       data={days}
       x="day"
@@ -76,11 +77,18 @@
   </ChartCard>
   <div class="tops">
     <ChartCard title="Most messages" level={2}>
-      <BarList data={ranked(activity.topMessages, (n) => `${n} messages`)} ariaLabel="Most messages" ranked emptyText="Nobody wrote in this window." />
+      <BarList
+        data={ranked(activity.topMessages)}
+        ariaLabel="Most messages"
+        ranked
+        format={(n) => `${n} msgs`}
+        emptyText="Nobody wrote in this window."
+      />
     </ChartCard>
     <ChartCard title="Most time in voice" level={2}>
       <BarList
-        data={ranked(activity.topVoice, (n) => `${Math.round((n / 60) * 10) / 10} h`)}
+        data={ranked(activity.topVoice)}
+        format={hours}
         ariaLabel="Most time in voice"
         ranked
         emptyText="Nobody talked in this window."

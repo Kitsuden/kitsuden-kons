@@ -35,6 +35,7 @@
   import RowMenu from "../ui/RowMenu.svelte";
   import { createLoad, message } from "../ui/load.svelte";
   import { failed, toast } from "../ui/notify";
+  import { remembered } from "../ui/remember.svelte";
   import { formable, fromJson, toJson } from "../ui/settings";
   import Activity from "./server/Activity.svelte";
   import Economy from "./server/Economy.svelte";
@@ -46,7 +47,11 @@
 
   // ── Servers ────────────────────────────────────────────────────────────────
   let guilds = $state<Guild[]>([]);
-  let guildId = $state("");
+  // The server picked survives switching to another tab and back.
+  let guildId = $state(remembered.guildId);
+  $effect(() => {
+    remembered.guildId = guildId;
+  });
   const guildsLoad = createLoad(async () => {
     guilds = (await api.get<{ docs: Guild[] }>("/guilds")).docs;
     if (!guildId || !guilds.some((g) => g.id === guildId)) guildId = guilds.find((g) => !g.leftAt)?.id ?? guilds[0]?.id ?? "";
@@ -82,7 +87,7 @@
     { id: "schedules", label: "Scheduled" },
     { id: "plan", label: "Plan & member page" },
   ];
-  let serverTab = $state("modules");
+
 
   // ── Modules, commands and panels of the chosen server ──────────────────────
   let modules = $state<ModuleState[]>([]);
@@ -281,7 +286,7 @@
 </Panel>
 
 {#if guildId}
-  <Tabs items={serverTabs} bind:value={serverTab} ariaLabel={current ? `Server: ${current.name}` : "Server"} variant="pills" wrap>
+  <Tabs items={serverTabs} bind:value={remembered.serverTab} ariaLabel={current ? `Server: ${current.name}` : "Server"} variant="pills" wrap>
     {#snippet children(id)}
       <div class="server-tab">
       {#if id === "economy"}
@@ -291,7 +296,7 @@
       {:else if id === "schedules"}
         <Schedules {guildId} {moduleName} />
       {:else if id === "plan"}
-        <Plan {guildId} {modules} onGoModules={() => (serverTab = "modules")} />
+        <Plan {guildId} {modules} onGoModules={() => (remembered.serverTab = "modules")} />
       {:else}
   <Panel title="Modules">
     <DataTable

@@ -8,7 +8,7 @@
 
   import { Alert, BarList, Button, ChartCard, DashboardGrid, KpiCard, LineChart, Skeleton } from "$lib/components";
 
-  import { useApi } from "../context";
+  import { dayLabel, useApi } from "../context";
   import type { Overview, Status } from "../types";
   import Loadable from "../ui/Loadable.svelte";
   import Panel from "../ui/Panel.svelte";
@@ -36,7 +36,7 @@
         ].filter((v): v is string => !!v)
       : []
   );
-  const days = $derived((overview?.days ?? []).map((d) => ({ ...d, day: d.date.slice(5) })));
+  const days = $derived((overview?.days ?? []).map((d) => ({ ...d, day: dayLabel(d.date) })));
   const messages30 = $derived(days.reduce((s, d) => s + d.messages, 0));
   const voiceHours30 = $derived(Math.round(days.reduce((s, d) => s + d.voiceMinutes, 0) / 60));
   // Week over week: the last 7 days against the 7 before.
@@ -45,7 +45,10 @@
     const before = days.slice(-14, -7).reduce((s, d) => s + d.messages, 0);
     return before > 0 ? Math.round(((last - before) / before) * 1000) / 10 : null;
   });
-  const top = $derived((overview?.topGuilds ?? []).map((g) => ({ label: g.name, value: g.messages, note: `${Math.round(g.voiceMinutes / 60)} h in voice` })));
+  const top = $derived(
+    (overview?.topGuilds ?? []).map((g) => ({ label: g.name, value: g.messages, note: `${Math.round(g.voiceMinutes / 60)} h in voice` }))
+  );
+  const messagesFmt = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
 </script>
 
 {#if missing.length}
@@ -104,7 +107,13 @@
       />
     </ChartCard>
     <ChartCard title="Busiest servers" description="Messages in the last 30 days." level={2}>
-      <BarList data={top} ariaLabel="Busiest servers" ranked emptyText="No activity counted yet." />
+      <BarList
+        data={top}
+        ariaLabel="Busiest servers, by messages"
+        ranked
+        format={(n) => `${messagesFmt.format(n)} msgs`}
+        emptyText="No activity counted yet."
+      />
       {#snippet footer()}
         <Button variant="ghost" size="sm" onclick={() => onGo("servers")}>Manage servers</Button>
       {/snippet}
