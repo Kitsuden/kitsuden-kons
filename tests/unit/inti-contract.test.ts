@@ -418,17 +418,7 @@ describe("declared version and contracts", () => {
       const ofAdapter = Object.fromEntries(
         [...block.matchAll(/'?([a-z-]+)'?\s*:\s*'([a-z-]+)'/g)].map((m) => [m[1], m[2]])
       );
-      // Contracts that only add a capability (`page-builder-publish`, `page-builder-patch`) live in the
-      // adapter apart, in OPTIONAL_CONTRACTS: it uses them when announced and never requires them.
-      const optional = Object.keys(
-        Object.fromEntries(
-          [...(source.match(/export const OPTIONAL_CONTRACTS\s*=\s*\{([^}]*)\}/)?.[1] ?? "").matchAll(/'?([a-z-]+)'?\s*:\s*\d+/g)].map((m) => [m[1], 1])
-        )
-      );
-      const required = Object.fromEntries(Object.entries(CONTRACT_KON).filter(([name]) => !optional.includes(name)));
-      expect(ofAdapter).toEqual(required);
-      // Every contract is either required by the adapter or one of its optional ones.
-      expect(Object.keys(CONTRACT_KON).sort()).toEqual([...Object.keys(ofAdapter), ...optional].sort());
+      expect(ofAdapter).toEqual(CONTRACT_KON);
     }
   );
 

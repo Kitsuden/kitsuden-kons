@@ -370,8 +370,6 @@ describe("the guide served at /llms.txt", () => {
     const guide = generateAgentGuide({
       baseUrl: "http://localhost:3000/api",
       routes: konRoutes(),
-      // `/llms.txt` is an index by default (one kon at a time); the full view lists every route.
-      view: "full",
     });
 
     expect(guide).toMatch(/matches\/tournament\/[:{]tournamentId}?\/report/);
