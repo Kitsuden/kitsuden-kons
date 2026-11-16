@@ -66,9 +66,22 @@ export interface StaffAction {
   detail: Record<string, unknown>;
 }
 
+/**
+ * What kon-dc lets an extension do on its own (onboarding a server it installed): register the
+ * server, switch a module on with settings (checked like the team's route), push its slash commands.
+ */
+export interface DcHost {
+  registerGuild(guildId: string, name: string): Promise<void>;
+  setModule(guildId: string, moduleId: string, enabled: boolean, config?: Record<string, unknown>): Promise<{ ok: true } | { error: string }>;
+  syncCommands(guildId: string): Promise<number>;
+  moduleIds(): Promise<string[]>;
+}
+
 export interface DcExtension {
   /** Unique: registering the same name again replaces it. */
   name: string;
+  /** Called with kon-dc's host once it runs (at once if it already does). */
+  attach?(host: DcHost): void;
   modules?: DcModule[];
   ai?(request: AiRequest): AiRunner | string | null | Promise<AiRunner | string | null>;
   afterAi?(usage: AiUsage): void | Promise<void>;
@@ -86,7 +99,7 @@ export interface DcExtension {
  * extension must reach the one that runs. `registryId()` lets an extension check it did.
  */
 const KEY = Symbol.for("kitsuden.kon-dc.extensions.v1");
-type Registry = { map: Map<string, DcExtension>; id: string };
+type Registry = { map: Map<string, DcExtension>; id: string; host?: DcHost };
 const holder = globalThis as unknown as Record<symbol, Registry | undefined>;
 const registry: Registry = (holder[KEY] ??= { map: new Map<string, DcExtension>(), id: Math.random().toString(36).slice(2) });
 
@@ -103,9 +116,16 @@ export function registerDcExtension(extension: DcExtension, registerModule: (mod
   if (!extension?.name) throw new TypeError("A kon-dc extension needs a name");
   for (const module of extension.modules ?? []) registerModule(module);
   registry.map.set(extension.name, extension);
+  if (registry.host) extension.attach?.(registry.host);
   return () => {
     if (registry.map.get(extension.name) === extension) registry.map.delete(extension.name);
   };
+}
+
+/** kon-dc's engine announces itself; every extension, registered now or later, gets the host. */
+export function attachDcHost(host: DcHost): void {
+  registry.host = host;
+  for (const ext of registry.map.values()) ext.attach?.(host);
 }
 
 export function dcExtensions(): readonly DcExtension[] {

@@ -49,6 +49,7 @@ export {
   type AiUsage,
   type BotCredentials,
   type DcExtension,
+  type DcHost,
   type StaffAction,
 } from "./dc.extensions";
 export * from "./dc.contract";

@@ -355,6 +355,7 @@ registerDcExtension({
   onStaffAction: (action) => {}, // every write the team makes through the API
   templates: () => [], // more ready-made blueprints
   isPremium: (guildId) => null, // a billing system's answer; null = the dc_guild_plans table
+  attach: (host) => {}, // kon-dc's host: register a server, switch a module on, sync its commands
 });
 ```
 

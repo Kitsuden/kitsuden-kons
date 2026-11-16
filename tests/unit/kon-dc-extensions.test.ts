@@ -304,4 +304,22 @@ describe("kon-dc extensions", () => {
     engine.forget(GUILD);
     expect((await (await request("staff", "GET", `/guilds/${GUILD}/plan`)).json()).active).toBe(false);
   });
+
+  it("an extension gets kon-dc's host: it registers a server, switches a module on and syncs", async () => {
+    let host: import("../../kons/kon-dc/dc.extensions").DcHost | null = null;
+    use({ name: "onboarding", attach: (h) => void (host = h) });
+    expect(host).not.toBeNull();
+    const NEW = "141414141414141414";
+    await host!.registerGuild(NEW, "Installed by onboarding");
+    expect((await (await request("staff", "GET", "/guilds")).json()).docs.some((g: { id: string }) => g.id === NEW)).toBe(true);
+    expect(await host!.setModule(NEW, "polls", true)).toEqual({ ok: true });
+    expect(await host!.setModule(NEW, "welcome", true, {})).toMatchObject({ error: expect.stringMatching(/Invalid settings/) });
+    expect(await host!.setModule(NEW, "nope", true)).toMatchObject({ error: expect.stringMatching(/does not exist/) });
+    const mods = await (await request("staff", "GET", `/guilds/${NEW}/modules`)).json();
+    expect(mods.docs.find((m: { id: string }) => m.id === "polls").enabled).toBe(true);
+    calls.length = 0;
+    expect(await host!.syncCommands(NEW)).toBeGreaterThan(0);
+    expect(calls.map((c) => c.fn)).toEqual(["syncGuildCommands"]);
+    expect((await host!.moduleIds()).includes("leveling")).toBe(true);
+  });
 });

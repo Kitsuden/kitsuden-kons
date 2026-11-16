@@ -88,7 +88,7 @@ import {
   type MessagePayload,
   type SlashCommandPayload,
 } from "./dc.rest";
-import { eventVerdict, premiumFromExtensions, settingsForGuild } from "./dc.extensions";
+import { attachDcHost, eventVerdict, premiumFromExtensions, settingsForGuild } from "./dc.extensions";
 import * as schema from "./dc.schema";
 import {
   dcBlueprints,
@@ -1978,6 +1978,44 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
     }, tickMs);
     (timer as { unref?: () => void }).unref?.();
   }
+  // Extensions (kon-dc Enterprise's onboarding) may register a server, switch modules on and sync.
+  attachDcHost({
+    async registerGuild(guildId, name) {
+      await asSystem(() =>
+        db()
+          .insert(dcGuilds)
+          .values({ id: guildId, name: name.slice(0, 100) })
+          .onConflictDoUpdate({ target: dcGuilds.id, set: { name: name.slice(0, 100), leftAt: null, updatedAt: new Date() } })
+      );
+    },
+    async setModule(guildId, moduleId, enabled, config = {}) {
+      const module = await moduleById(moduleId);
+      if (!module) return { error: `Module "${moduleId}" does not exist or is switched off here` };
+      const parsed = module.config.safeParse(config);
+      if (!parsed.success) return { error: `Invalid settings for module "${moduleId}"` };
+      if (enabled) {
+        const refusal = await planRefusal(guildId, module.id);
+        if (refusal) return { error: refusal };
+      }
+      const value = parsed.data as Record<string, unknown>;
+      await asSystem(() =>
+        db()
+          .insert(dcGuildModules)
+          .values({ guildId, moduleId: module.id, enabled, config: value })
+          .onConflictDoUpdate({ target: [dcGuildModules.guildId, dcGuildModules.moduleId], set: { enabled, config: value, updatedAt: new Date() } })
+      );
+      forget(guildId);
+      configure(guildId, module.id, enabled, value);
+      emit(DC_EVENTS.moduleSwitched, { guildId, moduleId: module.id, enabled });
+      return { ok: true };
+    },
+    async syncCommands(guildId) {
+      return (await syncCommands(guildId)).length;
+    },
+    async moduleIds() {
+      return (await availableModules()).map((m) => m.id);
+    },
+  });
   options.onEngine?.(engine);
   return engine;
 }
