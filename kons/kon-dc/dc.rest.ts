@@ -235,7 +235,10 @@ export interface DiscordRest {
   /** Allows or denies permissions for a role (type 0) or a member (type 1) in a channel. */
   setChannelPermission(channelId: string, targetId: string, type: 0 | 1, allow: string, deny: string): Promise<void>;
   /** The server's roles (the @everyone role's id is the server's id). */
-  listRoles(guildId: string): Promise<Array<{ id: string; name: string; permissions: string; position: number; managed: boolean }>>;
+  listRoles(guildId: string): Promise<Array<{ id: string; name: string; permissions: string; position: number; managed: boolean; color?: number; hoist?: boolean; mentionable?: boolean }>>;
+  /** Every channel of a server, with its permission overwrites (backups). */
+  listChannels(guildId: string): Promise<Array<{ id: string; name: string; type: number; parentId: string | null; position: number; overwrites: Array<{ id: string; type: 0 | 1; allow: string; deny: string }> }>>;
+  createRole(guildId: string, spec: { name: string; permissions: string; color?: number; hoist?: boolean; mentionable?: boolean }, reason?: string): Promise<{ id: string }>;
   editRole(guildId: string, roleId: string, changes: { permissions?: string }, reason?: string): Promise<void>;
   /** The server's owner (never acted on by anti-nuke). */
   getGuildOwner(guildId: string): Promise<string | null>;
@@ -547,7 +550,28 @@ export function createDiscordRest(
       await call("PUT", `/channels/${channelId}/permissions/${targetId}`, { type, allow, deny });
     },
     async listRoles(guildId) {
-      return (await call("GET", `/guilds/${guildId}/roles`)) as Array<{ id: string; name: string; permissions: string; position: number; managed: boolean }>;
+      return (await call("GET", `/guilds/${guildId}/roles`)) as Array<{ id: string; name: string; permissions: string; position: number; managed: boolean; color?: number; hoist?: boolean; mentionable?: boolean }>;
+    },
+    async listChannels(guildId) {
+      const rows = (await call("GET", `/guilds/${guildId}/channels`)) as Array<{
+        id: string;
+        name: string;
+        type: number;
+        parent_id?: string | null;
+        position?: number;
+        permission_overwrites?: Array<{ id: string; type: 0 | 1; allow: string; deny: string }>;
+      }>;
+      return rows.map((c) => ({ id: c.id, name: c.name, type: c.type, parentId: c.parent_id ?? null, position: c.position ?? 0, overwrites: c.permission_overwrites ?? [] }));
+    },
+    async createRole(guildId, spec, reason) {
+      const r = (await call(
+        "POST",
+        `/guilds/${guildId}/roles`,
+        { name: spec.name.slice(0, 100), permissions: spec.permissions, ...(spec.color !== undefined ? { color: spec.color } : {}), hoist: !!spec.hoist, mentionable: !!spec.mentionable },
+        true,
+        reason
+      )) as { id: string };
+      return { id: r.id };
     },
     async editRole(guildId, roleId, changes, reason) {
       await call("PATCH", `/guilds/${guildId}/roles/${roleId}`, changes, true, reason);
