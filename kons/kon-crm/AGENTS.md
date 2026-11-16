@@ -79,7 +79,8 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `crm.policy.ts` | Policies `crm` and `crm-authorship` |
 | `crm.context.ts` | `dbDe` and `userOf` for the request |
 | `crm.schema.ts`, `crm.db.ts` | Drizzle tables and enums; `CrmDb` type |
-| `presets/law-firm.json` | The example preset |
+| `presets/law-firm.json` | The law firm preset (the worked example) |
+| `presets/real-estate.json` | The real estate agency preset; properties live in kon-listings |
 | `admin-src/` | Svelte source of the two admin views (`CrmSettings.svelte`, `CrmSetup.svelte`, copied `tallao/`) |
 | `admin/settings.js`, `admin/setup.js` | Built admin views (generated; do not edit) |
 | `migrations/` | SQL 0000-0012 and `history.json` |

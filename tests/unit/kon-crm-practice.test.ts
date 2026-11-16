@@ -452,6 +452,37 @@ describe("presets are data, not code", () => {
 
   it("the shipped presets list", async () => {
     const list = (await json(await request("staff", "GET", "/presets"))).data;
-    expect(list.map((p: { id: string }) => p.id)).toContain("law-firm");
+    expect(list.map((p: { id: string }) => p.id)).toEqual(expect.arrayContaining(["law-firm", "real-estate"]));
+  });
+
+  it("the real estate preset is coherent: numbering, required and listing fields exist", async () => {
+    const { loadPresets } = await import("../../kons/kon-crm/crm.presets");
+    const preset = loadPresets().get("real-estate")!;
+    const dealKeys = preset.dealFields.map((f) => f.key);
+    expect(dealKeys).toContain(preset.numbering!.field);
+    expect(dealKeys).toEqual(expect.arrayContaining(["operationType", "listingRef", "offerAmount"]));
+    expect(new Set(dealKeys).size).toBe(dealKeys.length);
+    const contactKeys = preset.contactFields.map((f) => f.key);
+    expect(new Set(contactKeys).size).toBe(contactKeys.length);
+    // Probabilities only go up along the pipeline.
+    const probabilities = preset.stages.map((s) => s.probability);
+    expect([...probabilities].sort((a, b) => a - b)).toEqual(probabilities);
+    // A national ID is personal data: only the sensitive grant reads it.
+    expect(preset.contactFields.find((f) => f.key === "nationalId")?.sensitive).toBe(true);
+  });
+
+  it("the real estate preset sets up an agency, and repeating it changes nothing", async () => {
+    expect((await request("staff", "POST", "/presets/real-estate/apply")).status).toBe(403);
+    const first = await json(await request("admin", "POST", "/presets/real-estate/apply"));
+    expect(first.created).toEqual(
+      expect.arrayContaining([
+        "pipeline:Sales and rentals",
+        "entity:operation",
+        "template:Visit confirmation",
+        "template:Reservation agreement",
+      ])
+    );
+    expect(first.profiles.map((p: { profile: string }) => p.profile)).toEqual(["broker", "agent", "assistant"]);
+    expect((await json(await request("admin", "POST", "/presets/real-estate/apply"))).created).toEqual([]);
   });
 });

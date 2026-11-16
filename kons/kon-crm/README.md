@@ -8,7 +8,7 @@ admin views are configuration only.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.4 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
+| beta | business | 1.1.0 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
 
 ## Install
 
@@ -52,7 +52,10 @@ Environment variables are needed only to receive email into the CRM (see
 What the code does with them:
 
 - **Presets.** A JSON file in `presets/` sets up an entity with fields, a pipeline, deal roles,
-  document templates and kon-conta's words. `presets/law-firm.json` is the example.
+  document templates and kon-conta's words. Two ship with the kon: `presets/law-firm.json`
+  (numbered matters, KYC, hearings) and `presets/real-estate.json` (sales and rentals as numbered
+  operations tied to a listing, buyer and tenant requirements, visits and signings; the
+  properties themselves live in kon-listings).
 - **Access dials.** Per person or agent: `records` (all, or assigned/created; applied by row
   security), `sensitive`, `money` and `notes`. By default the team sees all records, amounts and
   notes, not sensitive data; an agent sees the same without notes. `crm:read-all` or a grant made

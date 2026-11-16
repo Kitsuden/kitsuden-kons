@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-crm",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Kitsuden Kon - CRM & Kanban Pipeline (contacts, companies, deals, activities)",
   "type": "module",
   "main": "./index.ts",

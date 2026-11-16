@@ -5,6 +5,16 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## Unreleased
 
+- New kon-listings 0.1.0 (experimental): listings of any kind (real estate, vehicles, jobs) with a
+  public search for the agency's own site, inquiries from visitors (announced as
+  `listings:inquiry.received`), and the XML feeds portals read, built from one mapping per portal.
+  Trovit and Mitula ship as unverified mappings: neither publishes its specification, so check
+  them against the one the portal sends and edit `portals/<portal>.json`. A new kind of listing or
+  a new portal is a JSON file, not code.
+- kon-crm 1.1.0: a `real-estate` preset for agencies: numbered sales and rentals tied to a listing,
+  buyer and tenant requirements on the contact, visits, valuations and signings, buyer, seller,
+  tenant and landlord roles, a visit confirmation and a reservation letter, and broker, agent and
+  assistant profiles.
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles
   are in sentence case ("New journal entry", "Reimbursable expenses", "New template").
