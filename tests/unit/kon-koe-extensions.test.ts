@@ -80,3 +80,21 @@ describe("koe extensions", () => {
     expect((await k.request("a", "GET", `/conversations/${conv}`)).status).toBe(200);
   });
 });
+
+describe("a second copy of koe", () => {
+  it("shares the one registry: an extension registered through another copy still runs", async () => {
+    const { vi } = await import("vitest");
+    const first = await import("../../kons/kon-koe/koe.extensions");
+    vi.resetModules();
+    const second = await import("../../kons/kon-koe/koe.extensions?copy=2");
+    expect(second).not.toBe(first);
+    expect(second.registryId()).toBe(first.registryId());
+    const off = second.registerKoeExtension({ name: "from-the-other-copy" });
+    try {
+      expect(first.koeExtensions().map((e) => e.name)).toContain("from-the-other-copy");
+    } finally {
+      off();
+    }
+    expect(first.koeExtensions().map((e) => e.name)).not.toContain("from-the-other-copy");
+  });
+});

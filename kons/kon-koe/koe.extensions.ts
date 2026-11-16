@@ -60,7 +60,22 @@ export interface KoeExtension {
   onAccess?(event: AccessEvent): void | Promise<void>;
 }
 
-const registered = new Map<string, KoeExtension>();
+/**
+ * The registry lives on `globalThis` under a registered symbol, not in this module. A host can end up with
+ * two copies of koe (one it mounted, one an extension's `import` resolved to): with a per-module map the
+ * extension would register into the copy nobody runs and silently do nothing. Every copy of this module,
+ * whatever version, shares the one map. `registryId()` lets an extension check it reached it.
+ */
+const KEY = Symbol.for("kitsuden.kon-koe.extensions.v1");
+type Registry = { map: Map<string, KoeExtension>; id: string };
+const holder = globalThis as unknown as Record<symbol, Registry | undefined>;
+const registry: Registry = (holder[KEY] ??= { map: new Map<string, KoeExtension>(), id: Math.random().toString(36).slice(2) });
+const registered = registry.map;
+
+/** The shared registry's id: the same in every copy of koe loaded in this process. */
+export function registryId(): string {
+  return registry.id;
+}
 
 /** Adds (or replaces) an extension. Returns a function that removes it. */
 export function registerKoeExtension(extension: KoeExtension): () => void {
