@@ -47,6 +47,8 @@ export * from "./koe.schema.js";
 export { transition, TRANSITIONS, botMaySpeak } from "./koe.states.js";
 export { checkWindow, windowOf, POLICIES } from "./koe.window.js";
 export { send } from "./koe.send.js";
+// The public extension API (koe.extensions.ts): how the Enterprise edition, or anyone, plugs in.
+export { registerKoeExtension, koeExtensions, registryId, type KoeExtension, type SendCheck, type AccessEvent, type AccessKind } from "./koe.extensions.js";
 export { applyMessage, applyEvent, receiveWebhook, processWebhook } from "./koe.inbound.js";
 
 const MODULES = [inboxOperations, setupOperations, mediaOperations, quickReplyOperations, aiOperations, automationOperations, webOperations];

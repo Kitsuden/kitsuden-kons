@@ -53,6 +53,7 @@ import {
   type Template,
 } from "./koe.schema";
 import { botMaySpeak } from "./koe.states";
+import { checkSend, reportAccess } from "./koe.extensions";
 import { channelFileOf } from "./koe.media";
 import { fillTemplate } from "./koe.templates";
 import { checkWindow } from "./koe.window";
@@ -75,7 +76,7 @@ export interface SendInput {
   take?: boolean;
 }
 
-export type SendErrorCode = "BOT_SILENCED" | "WINDOW_CLOSED" | "TAG_NOT_ALLOWED" | "TEMPLATE_NOT_SUPPORTED" | "OPTED_OUT" | "BLOCKED" | "UNSUPPORTED" | "TOO_LARGE" | "TEMPLATE_NOT_APPROVED" | "NOT_YOURS";
+export type SendErrorCode = "BOT_SILENCED" | "WINDOW_CLOSED" | "TAG_NOT_ALLOWED" | "TEMPLATE_NOT_SUPPORTED" | "OPTED_OUT" | "BLOCKED" | "UNSUPPORTED" | "TOO_LARGE" | "TEMPLATE_NOT_APPROVED" | "NOT_YOURS" | "POLICY";
 
 function refuse(code: SendErrorCode, message: string, extra: Record<string, unknown> = {}): AppError {
   return AppError.conflict(message, { koe: code, ...extra });
@@ -212,6 +213,22 @@ export async function send(sc: SendContext, input: SendInput): Promise<Message> 
   const decision = checkWindow(channel.kind, input.kind === "template" ? "template" : "free", author.kind, conversation.lastInboundAt, conversation.freeEntryUntil);
   if (!decision.ok) throw refuse(decision.code, decision.message);
 
+  // 7. Policies an extension adds (koe.extensions.ts): contact rules, quiet days…
+  const policy = await checkSend({
+    ctx,
+    db,
+    stage: "send",
+    conversation,
+    channel,
+    contact: contact ?? null,
+    message: { kind: input.kind, authorKind: author.kind, authorId: author.id ?? null, templateCategory: template?.category ?? null, body },
+    now: new Date(),
+  });
+  if (policy) throw refuse("POLICY", policy);
+  if (author.kind === "agent") {
+    await reportAccess({ ctx, db, kind: "send", conversationId: conversation.id, contactId: conversation.contactId, actor: { kind: author.kind, id: author.id ?? null }, detail: { kind: input.kind } });
+  }
+
   if (input.interactive) payload.interactive = input.interactive;
   if (input.location) payload.location = input.location;
   if (input.contacts) payload.contacts = input.contacts;
@@ -321,6 +338,19 @@ export async function deliver(ctx: KonContext, job: QueueJob<{ messageId?: strin
     }
     const decision = checkWindow(channel.kind, message.kind === "template" ? "template" : "free", message.authorKind, conversation.lastInboundAt, conversation.freeEntryUntil);
     if (!decision.ok) return fail(ctx, db, message, decision.code, decision.message);
+    const contactRow = await one<Contact>(db, db.select().from(koeContacts).where(eq(koeContacts.id, conversation.contactId)).limit(1));
+    const templateRow = message.templateId ? await one<Template>(db, db.select().from(koeTemplates).where(eq(koeTemplates.id, message.templateId)).limit(1)) : undefined;
+    const policy = await checkSend({
+      ctx,
+      db,
+      stage: "deliver",
+      conversation,
+      channel,
+      contact: contactRow ?? null,
+      message: { kind: message.kind, authorKind: message.authorKind, authorId: message.authorId, templateCategory: templateRow?.category ?? null, body: message.body },
+      now: new Date(),
+    });
+    if (policy) return fail(ctx, db, message, "POLICY", policy);
 
     const identity = await one<{ externalId: string }>(db, db.select({ externalId: koeIdentities.externalId }).from(koeIdentities).where(eq(koeIdentities.id, conversation.identityId)).limit(1));
     if (!identity) return fail(ctx, db, message, "gone", "The contact's identity is gone");

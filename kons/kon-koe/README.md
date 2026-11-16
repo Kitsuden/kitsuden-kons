@@ -65,6 +65,24 @@ Meta's rules (window lengths, tags, sizes, prices) change. They are data in `koe
   quiet hours, cost estimate, approval), sequences that stop when the contact answers, SLAs, reminders before
   a window closes, auto-resolve, payment promises and outcomes for collections, and reports.
 
+## Editions
+
+koe is MIT and complete on its own: channels, inbox, windows and templates, bots and AI relay, flows,
+campaigns, teams, SLAs, collections, reports. **koe Enterprise** (`kon-koe-ee`, a separate package under its
+own license) adds what organizations need to coordinate and prove things: an audit log of who read and
+changed each conversation, data retention with legal holds, and contact rules for collections law. It plugs
+in through the public extension API below; koe never imports it, and without it koe behaves the same.
+
+### Extension API
+
+`registerKoeExtension({ name, beforeSend?, onAccess? })`, exported from the kon (`koe.extensions.ts`):
+
+- `beforeSend(check)` runs in `send()` and again in the delivery job. Returning a sentence refuses the
+  message (409 `details.koe: "POLICY"` at send, `failed` with `POLICY` at delivery). A hook that throws
+  refuses too.
+- `onAccess(event)` hears reads and changes (`view`, `messages`, `send`, `state`, `note`,
+  `contact-view`, `contact-update`) inside the same transaction; if it throws, the request fails.
+
 ## HTTP API
 
 Every route answers `{ data }` (lists add `next` when there is more). `POST /api/koe/conversations/:id/messages`
@@ -239,6 +257,7 @@ steps: `kon-koe:send-message`, `send-template`, `assign`, `set-state`, `add-labe
 | `tests/unit/kon-koe-media.test.ts` | Downloads, uploads, voice notes, stickers, quick replies, visitor uploads. |
 | `tests/unit/kon-koe-ai.test.ts` | The kon-chat relay, handoff, store context, copilot. |
 | `tests/unit/kon-koe-automation.test.ts` | Flows, rule steps, campaigns, sequences, the sweep, collections, reports. |
+| `tests/unit/kon-koe-extensions.test.ts` | The extension API: refusals at send and delivery, failing hooks, access events. |
 | `tests/unit/kon-koe-web.test.ts` | The inbox page, service worker and widget routes. |
 | `media-sidecar/media_test.go` | The converter with real ffmpeg (`docker build --target test media-sidecar`). |
 

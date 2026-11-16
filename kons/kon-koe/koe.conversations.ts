@@ -17,6 +17,7 @@ import type { KonContext } from "@kitsuden/shared";
 import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { emit, newId, type Db } from "./koe.common";
+import { reportAccess } from "./koe.extensions";
 import { conversationChanged, toUser } from "./koe.realtime";
 import { koeConversationEvents, koeConversations, koeMembers, koeTeamMembers, koeTeams, type Conversation, type ConversationState } from "./koe.schema";
 import { transition, TransitionError, type Trigger } from "./koe.states";
@@ -126,6 +127,7 @@ export async function changeState(ctx: KonContext, db: Db, conversationId: strin
   }
 
   const [updated] = (await db.update(koeConversations).set(patch).where(eq(koeConversations.id, conversationId)).returning()) as Conversation[];
+  await reportAccess({ ctx, db, kind: "state", conversationId, contactId: current.contactId, actor: { kind: actor.kind, id: actor.id ?? null }, detail: { from: current.state, to: result.to, trigger: input.trigger } });
   await recordEvent(db, conversationId, "state", actor, {
     from: current.state,
     to: result.to,
