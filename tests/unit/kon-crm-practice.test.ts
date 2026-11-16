@@ -471,6 +471,88 @@ describe("presets are data, not code", () => {
     expect(preset.contactFields.find((f) => f.key === "nationalId")?.sensitive).toBe(true);
   });
 
+  it("an installation adds its own presets, and a broken file never hides the others", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { readPresets, presetSources } = await import("../../kons/kon-crm/crm.presets");
+    const own = mkdtempSync(resolve(tmpdir(), "own-presets-"));
+    const clinic = {
+      id: "clinic",
+      name: "Clinic",
+      description: "Patients and treatments.",
+      entity: { name: "treatment", singular: "Treatment", plural: "Treatments" },
+      contactFields: [],
+      dealFields: [{ key: "area", label: "Area", type: "text" }],
+      pipeline: "Treatments",
+      stages: [{ name: "Booked", probability: 30 }],
+    };
+    writeFileSync(resolve(own, "clinic.json"), JSON.stringify(clinic));
+    writeFileSync(resolve(own, "clinic-copy.json"), JSON.stringify({ ...clinic, name: "Second clinic" }));
+    writeFileSync(resolve(own, "broken.json"), "{ not json");
+    writeFileSync(resolve(own, "wrong.json"), JSON.stringify({ ...clinic, id: "wrong", stages: [] }));
+    writeFileSync(
+      resolve(own, "real-estate.json"),
+      JSON.stringify({ ...clinic, id: "real-estate", name: "Our agency", pipeline: "Our pipeline" })
+    );
+
+    const { presets, problems } = readPresets(presetSources({ CRM_PRESETS_DIR: own }));
+    expect(presets.get("clinic")).toMatchObject({ origin: "installation", file: "clinic-copy.json", replacesShipped: false });
+    expect(presets.get("law-firm")).toMatchObject({ origin: "shipped" });
+    // The installation's version of a shipped preset takes its place.
+    expect(presets.get("real-estate")).toMatchObject({ origin: "installation", replacesShipped: true });
+    expect(presets.get("real-estate")!.preset.name).toBe("Our agency");
+    expect(problems.map((p) => p.file).sort()).toEqual(["broken.json", "clinic.json", "wrong.json"]);
+    expect(problems.find((p) => p.file === "broken.json")!.message).toMatch(/not valid JSON/);
+    expect(problems.find((p) => p.file === "wrong.json")!.message).toMatch(/stages/);
+    expect(problems.find((p) => p.file === "clinic.json")!.message).toMatch(/same folder/);
+
+    // A folder that does not exist is a problem, not an outage.
+    const missing = readPresets(presetSources({ CRM_PRESETS_DIR: resolve(own, "nope") }));
+    expect(missing.presets.has("law-firm")).toBe(true);
+    expect(missing.problems).toEqual([expect.objectContaining({ origin: "installation", message: expect.stringMatching(/cannot be read/) })]);
+  });
+
+  it("the routes list and apply the installation's presets, and report the skipped files", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const own = mkdtempSync(resolve(tmpdir(), "own-presets-"));
+    writeFileSync(
+      resolve(own, "dental.json"),
+      JSON.stringify({
+        id: "dental",
+        name: "Dental practice",
+        description: "Patients and treatment plans.",
+        entity: { name: "plan", singular: "Plan", plural: "Plans" },
+        contactFields: [],
+        dealFields: [{ key: "teeth", label: "Teeth", type: "text" }],
+        pipeline: "Treatment plans",
+        stages: [{ name: "Proposed", probability: 40 }],
+      })
+    );
+    writeFileSync(resolve(own, "broken.json"), "[]");
+    const previous = process.env.CRM_PRESETS_DIR;
+    process.env.CRM_PRESETS_DIR = own;
+    try {
+      const listed = await json(await request("staff", "GET", "/presets"));
+      expect(listed.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "dental", origin: "installation", replacesShipped: false }),
+          expect.objectContaining({ id: "law-firm", origin: "shipped" }),
+        ])
+      );
+      expect(listed.problems).toEqual([expect.objectContaining({ file: "broken.json", origin: "installation" })]);
+      const applied = await json(await request("admin", "POST", "/presets/dental/apply"));
+      expect(applied.created).toEqual(expect.arrayContaining(["pipeline:Treatment plans", "entity:plan"]));
+    } finally {
+      if (previous === undefined) delete process.env.CRM_PRESETS_DIR;
+      else process.env.CRM_PRESETS_DIR = previous;
+    }
+    // Without the folder, its presets are gone from the list.
+    const after = await json(await request("staff", "GET", "/presets"));
+    expect(after.data.map((p: { id: string }) => p.id)).not.toContain("dental");
+    expect(after.problems).toEqual([]);
+  });
+
   it("the real estate preset sets up an agency, and repeating it changes nothing", async () => {
     expect((await request("staff", "POST", "/presets/real-estate/apply")).status).toBe(403);
     const first = await json(await request("admin", "POST", "/presets/real-estate/apply"));

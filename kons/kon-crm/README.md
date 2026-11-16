@@ -55,7 +55,9 @@ What the code does with them:
   document templates and kon-conta's words. Two ship with the kon: `presets/law-firm.json`
   (numbered matters, KYC, hearings) and `presets/real-estate.json` (sales and rentals as numbered
   operations tied to a listing, buyer and tenant requirements, visits and signings; the
-  properties themselves live in kon-listings).
+  properties themselves live in kon-listings). An installation adds its own in the folder named
+  by `CRM_PRESETS_DIR`; one with the id of a shipped preset replaces it. A broken file is skipped
+  and listed in `problems` by `GET /api/crm/presets`, so it never hides the others.
 - **Access dials.** Per person or agent: `records` (all, or assigned/created; applied by row
   security), `sensitive`, `money` and `notes`. By default the team sees all records, amounts and
   notes, not sensitive data; an agent sees the same without notes. `crm:read-all` or a grant made
@@ -253,10 +255,12 @@ cannot read cannot be filtered or grouped by (403).
 
 ## Configuration
 
-Only for receiving email (`crm.inbound.ts`); every lock is closed by default:
+For the installation's own presets, and for receiving email (`crm.inbound.ts`, where every lock
+is closed by default):
 
 | Variable | What it is |
 | --- | --- |
+| `CRM_PRESETS_DIR` | A folder with the installation's own preset files (`*.json`, same format as `presets/`); relative to the API's working directory. Unset: only the shipped presets |
 | `CRM_INBOUND_ALLOWED_SENDERS` | Comma-separated addresses or domains whose mail is accepted; empty rejects everything |
 | `MAILGUN_WEBHOOK_SIGNING_KEY` | Mailgun's signing key, for provider `mailgun` |
 | `CRM_INBOUND_POSTMARK_TOKEN` | The password in Postmark's inbound webhook URL, for provider `postmark` |

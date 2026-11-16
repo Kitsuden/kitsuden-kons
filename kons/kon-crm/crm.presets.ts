@@ -10,9 +10,16 @@
  *
  * Applying twice changes nothing: what exists, by name, stays as the team left it. A preset never grants access by
  * itself, it only suggests the profiles to grant.
+ *
+ * Two places hold presets:
+ *   · `presets/` next to this file: the ones the kon ships (law firm, real estate);
+ *   · the folder in `CRM_PRESETS_DIR`, if set: the installation's own. One with the id of a shipped preset replaces
+ *     it, so an agency can adjust `real-estate` without forking the kon.
+ * A broken file is reported by name (`GET /presets` → `problems`) and skipped: it never hides the others.
  */
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { AppError } from "@kitsuden/engine";
@@ -91,15 +98,118 @@ export type Preset = z.infer<typeof Preset>;
 
 const DIR = fileURLToPath(new URL("./presets/", import.meta.url));
 
-/** Every preset file, validated: a broken file is reported by name instead of half-applied. */
-export function loadPresets(dir = DIR): Map<string, Preset> {
-  const out = new Map<string, Preset>();
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".json")).sort()) {
-    const parsed = Preset.safeParse(JSON.parse(readFileSync(`${dir}/${file}`, "utf8")));
-    if (!parsed.success) throw new Error(`Preset ${file} is not valid: ${parsed.error.issues[0]?.message ?? ""}`);
-    out.set(parsed.data.id, parsed.data);
+/** Where a preset comes from: shipped with the kon, or the installation's own folder. */
+export type PresetOrigin = "shipped" | "installation";
+
+export interface PresetProblem {
+  file: string;
+  origin: PresetOrigin;
+  message: string;
+}
+
+export interface CatalogPreset {
+  preset: Preset;
+  origin: PresetOrigin;
+  /** The file it was read from, without its folder. */
+  file: string;
+  /** An installation preset that took the place of a shipped one with the same id. */
+  replacesShipped: boolean;
+}
+
+export interface PresetCatalog {
+  presets: Map<string, CatalogPreset>;
+  problems: PresetProblem[];
+}
+
+export interface PresetSource {
+  dir: string;
+  origin: PresetOrigin;
+}
+
+/** A preset is a few kilobytes; anything far bigger is not one. */
+const MAX_PRESET_BYTES = 256 * 1024;
+
+/** The installation's own presets folder (`CRM_PRESETS_DIR`), resolved from the working directory, or `null`. */
+export function installationPresetsDir(env: Record<string, string | undefined> = process.env): string | null {
+  const raw = env.CRM_PRESETS_DIR?.trim();
+  return raw ? resolve(raw) : null;
+}
+
+/** The shipped folder, then the installation's when it is set. */
+export function presetSources(env: Record<string, string | undefined> = process.env): PresetSource[] {
+  const own = installationPresetsDir(env);
+  return [{ dir: DIR, origin: "shipped" }, ...(own ? [{ dir: own, origin: "installation" as const }] : [])];
+}
+
+function issueOf(error: z.ZodError): string {
+  const issue = error.issues[0];
+  if (!issue) return "not a valid preset";
+  return issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message;
+}
+
+/**
+ * Every preset in `sources`, each file on its own: a file that cannot be read, is not JSON or does not fit the
+ * format goes to `problems` with the reason, and the rest load. Files are read in name order; inside one folder
+ * the first file with an id wins and a second one is a problem; an installation preset replaces a shipped one.
+ */
+export function readPresets(sources: PresetSource[] = presetSources()): PresetCatalog {
+  const presets = new Map<string, CatalogPreset>();
+  const problems: PresetProblem[] = [];
+  for (const { dir, origin } of sources) {
+    let files: string[];
+    try {
+      files = readdirSync(dir).filter((f) => f.endsWith(".json")).sort();
+    } catch (err) {
+      problems.push({ file: dir, origin, message: `the folder cannot be read (${(err as NodeJS.ErrnoException).code ?? "error"})` });
+      continue;
+    }
+    const seenHere = new Set<string>();
+    for (const file of files) {
+      const path = join(dir, file);
+      let raw: string;
+      try {
+        if (statSync(path).size > MAX_PRESET_BYTES) {
+          problems.push({ file, origin, message: `larger than ${MAX_PRESET_BYTES / 1024} KB` });
+          continue;
+        }
+        raw = readFileSync(path, "utf8");
+      } catch (err) {
+        problems.push({ file, origin, message: `cannot be read (${(err as NodeJS.ErrnoException).code ?? "error"})` });
+        continue;
+      }
+      let json: unknown;
+      try {
+        json = JSON.parse(raw);
+      } catch (err) {
+        problems.push({ file, origin, message: `not valid JSON: ${(err as Error).message}` });
+        continue;
+      }
+      const parsed = Preset.safeParse(json);
+      if (!parsed.success) {
+        problems.push({ file, origin, message: issueOf(parsed.error) });
+        continue;
+      }
+      const preset = parsed.data;
+      if (seenHere.has(preset.id)) {
+        problems.push({ file, origin, message: `another file in the same folder already has the id "${preset.id}"` });
+        continue;
+      }
+      seenHere.add(preset.id);
+      const replacesShipped = origin === "installation" && presets.get(preset.id)?.origin === "shipped";
+      presets.set(preset.id, { preset, origin, file, replacesShipped });
+    }
   }
-  return out;
+  return { presets, problems };
+}
+
+/**
+ * The presets of one folder, strictly: the first broken file throws with its name. For tooling and tests that want
+ * a bad file to stop them; the routes use `readPresets`, which skips it.
+ */
+export function loadPresets(dir = DIR): Map<string, Preset> {
+  const { presets, problems } = readPresets([{ dir, origin: "shipped" }]);
+  if (problems.length > 0) throw new Error(`Preset ${problems[0].file} is not valid: ${problems[0].message}`);
+  return new Map([...presets].map(([id, entry]) => [id, entry.preset]));
 }
 
 interface ContaPresetBridge {
@@ -136,13 +246,25 @@ export function presetOperations(routes: ReturnType<typeof registry>): void {
     {
       id: "list-presets",
       summary: "List the ready-made setups",
-      description: "Each preset's id, name and description. Requires CRM view access.",
+      description:
+        "Each preset's id, name, description and `origin` (`shipped` with the kon, or `installation` from the folder in CRM_PRESETS_DIR; an installation preset with a shipped id replaces it). `problems` lists the files that were skipped and why. Requires CRM view access.",
       access: "session",
       permission: VIEW,
       output: { schema: z.object({}).passthrough() },
     },
-    async (c) =>
-      c.json({ data: [...loadPresets().values()].map(({ id, name, description }) => ({ id, name, description })) })
+    async (c) => {
+      const { presets, problems } = readPresets();
+      return c.json({
+        data: [...presets.values()].map(({ preset, origin, replacesShipped }) => ({
+          id: preset.id,
+          name: preset.name,
+          description: preset.description,
+          origin,
+          replacesShipped,
+        })),
+        problems,
+      });
+    }
   );
 
   routes.post(
@@ -161,7 +283,7 @@ export function presetOperations(routes: ReturnType<typeof registry>): void {
       output: { schema: z.object({}).passthrough() },
     },
     async (c, input) => {
-      const preset = loadPresets().get(input.params.id);
+      const preset = readPresets().presets.get(input.params.id)?.preset;
       if (!preset) throw AppError.notFound("Unknown preset");
       const db = dbDe(c);
       const createdBy = userOf(c)?.id ?? null;

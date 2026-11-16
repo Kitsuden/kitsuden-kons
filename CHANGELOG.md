@@ -14,7 +14,9 @@ its maturity in the table of the [README](README.md). This file records releases
 - kon-crm 1.1.0: a `real-estate` preset for agencies: numbered sales and rentals tied to a listing,
   buyer and tenant requirements on the contact, visits, valuations and signings, buyer, seller,
   tenant and landlord roles, a visit confirmation and a reservation letter, and broker, agent and
-  assistant profiles.
+  assistant profiles. Presets are also read from the installation's own folder (`CRM_PRESETS_DIR`);
+  one with a shipped id replaces it, and a broken file is skipped and listed in `problems` by
+  `GET /api/crm/presets` instead of breaking the list and every apply.
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles
   are in sentence case ("New journal entry", "Reimbursable expenses", "New template").

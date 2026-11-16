@@ -72,7 +72,7 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `crm.scoring.ts` | Score model, versions and scoring |
 | `crm.records.ts` | Activity reopen, activity kinds, documents across deals |
 | `crm.work.ts` | Task inbox, agenda, deal contacts, saved views, document templates |
-| `crm.presets.ts` | Presets from `presets/` and applying them (with kon-conta's words) |
+| `crm.presets.ts` | Presets from `presets/` and `CRM_PRESETS_DIR` (a broken file is skipped and reported) and applying them (with kon-conta's words) |
 | `crm.entities.ts` | Entities, fields, activity kinds, numbering |
 | `crm.events.ts` | `emitCrm`: events after commit, ids only |
 | `crm.mails.ts` | The kon's email templates, registered at startup |
@@ -81,6 +81,7 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `crm.schema.ts`, `crm.db.ts` | Drizzle tables and enums; `CrmDb` type |
 | `presets/law-firm.json` | The law firm preset (the worked example) |
 | `presets/real-estate.json` | The real estate agency preset; properties live in kon-listings |
+| `CRM_PRESETS_DIR` (env) | The installation's own presets folder, read by `readPresets` next to `presets/` |
 | `admin-src/` | Svelte source of the two admin views (`CrmSettings.svelte`, `CrmSetup.svelte`, copied `tallao/`) |
 | `admin/settings.js`, `admin/setup.js` | Built admin views (generated; do not edit) |
 | `migrations/` | SQL 0000-0012 and `history.json` |
