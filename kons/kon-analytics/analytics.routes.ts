@@ -26,7 +26,7 @@ import { defineOperation, operationsRouter, type AnyOperation } from "@kitsuden/
 import type { KonContext } from "@kitsuden/shared";
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { analyticsViews, MEASURABLE_SUBJECTS, type MeasurableSubject } from "./analytics.schema";
 

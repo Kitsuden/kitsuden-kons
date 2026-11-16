@@ -27,11 +27,11 @@ import type { KonContext } from "@kitsuden/shared";
 import { eq, and, or, ilike, desc, asc, sql, inArray, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { accessOperations } from "./crm.access";
 import { billingOperations } from "./crm.billing";
-import { SUPPORTED_ACTIONS, runStageActions } from "./crm.automation";
+import { SUPPORTED_ACTIONS } from "./crm.automation";
 import { rlsContext, dbDe, userOf } from "./crm.context";
 import { entityOfDeal, formatNumber, nextNumber, numberingOf } from "./crm.entities";
 import { agentOperations } from "./crm.agents";
@@ -41,6 +41,11 @@ import { inboundOperations } from "./crm.inbound";
 import { customFieldFilters, likePattern, readableFields, recordOperations } from "./crm.records";
 import type { CrmDb } from "./crm.db";
 import { importOperations } from "./crm.import";
+import { syncStageRules } from "./crm.handlers";
+import { moveDeal, validateStageTransition } from "./crm.moves";
+import { reportOperations } from "./crm.reports";
+import { salesOperations } from "./crm.sales";
+import { timelineOperations } from "./crm.timeline";
 import { intakeOperations } from "./crm.intake";
 import { registerCrmPolicy } from "./crm.policy";
 import { presetOperations } from "./crm.presets";
@@ -57,15 +62,12 @@ import {
   crmDeals,
   crmActivities,
   crmEntityConfigs,
-  crmStageTransitions,
   activityTypeEnum,
   priorityEnum,
   contactStatusEnum,
   dealStatusEnum,
   crmDocuments,
   type StageAction,
-  type StageEntryRequirements,
-  type ValidationResult,
 } from "./crm.schema";
 
 registerCrmPolicy();
@@ -1946,7 +1948,9 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         if (!deal) {
           throw AppError.notFound("Deal not found");
         }
-        if (body.status !== undefined) emitCrm("deal:status-changed", { dealId: deal.id, status: deal.status });
+        if (body.status !== undefined) {
+          emitCrm("deal:status-changed", { dealId: deal.id, status: deal.status, lostReason: deal.lostReason ?? null });
+        }
 
         return c.json({ data: deal });
       } catch (error) {
@@ -2743,127 +2747,6 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
   // PHASE 1: STAGE VALIDATIONS & TIME TRACKING
   // ============================================================================
 
-  /**
-   * Helper: Validate stage transition
-   */
-  async function validateStageTransition(
-    dealId: string,
-    targetStageId: string,
-    tx: CrmDb
-  ): Promise<ValidationResult> {
-    const result: ValidationResult = {
-      canMove: true,
-      missingFields: [],
-      missingDocuments: [],
-      failedValidations: [],
-      warnings: [],
-    };
-
-    // Get deal with custom fields
-    const [deal] = await tx.select().from(crmDeals).where(eq(crmDeals.id, dealId));
-
-    if (!deal) {
-      result.canMove = false;
-      result.warnings.push("Deal not found");
-      return result;
-    }
-
-    // Get target stage with requirements
-    const [stage] = await tx
-      .select()
-      .from(crmPipelineStages)
-      .where(eq(crmPipelineStages.id, targetStageId));
-
-    if (!stage) {
-      result.canMove = false;
-      result.warnings.push("Target stage not found");
-      return result;
-    }
-
-    const requirements = (stage.entryRequirements || {}) as StageEntryRequirements;
-    const customFields = (deal.customFields || {}) as Record<string, unknown>;
-
-    // Validate required fields
-    if (requirements.requiredFields?.length) {
-      for (const fieldKey of requirements.requiredFields) {
-        const value = customFields[fieldKey];
-        if (value === undefined || value === null || value === "") {
-          result.missingFields.push({
-            key: fieldKey,
-            label: fieldKey, // Could be enhanced to get from schema
-            currentValue: value,
-          });
-          result.canMove = false;
-        }
-      }
-    }
-
-    // Validate custom validations
-    if (requirements.customValidations?.length) {
-      for (const validation of requirements.customValidations) {
-        const value = customFields[validation.field];
-        let passes = false;
-
-        switch (validation.operator) {
-          case "==":
-            passes = value === validation.value;
-            break;
-          case "!=":
-            passes = value !== validation.value;
-            break;
-          case ">":
-            passes = Number(value) > Number(validation.value);
-            break;
-          case "<":
-            passes = Number(value) < Number(validation.value);
-            break;
-          case ">=":
-            passes = Number(value) >= Number(validation.value);
-            break;
-          case "<=":
-            passes = Number(value) <= Number(validation.value);
-            break;
-          case "exists":
-            passes = value !== undefined && value !== null && value !== "";
-            break;
-        }
-
-        if (!passes) {
-          result.failedValidations.push({
-            field: validation.field,
-            operator: validation.operator,
-            expected: validation.value,
-            actual: value,
-            message: `Field ${validation.field} must be ${validation.operator} ${validation.value}`,
-          });
-          result.canMove = false;
-        }
-      }
-    }
-
-    // Validate required documents (basic check for Phase 1)
-    if (requirements.requiredDocuments?.length) {
-      const uploadedDocs = await tx
-        .select({ type: crmDocuments.documentType })
-        .from(crmDocuments)
-        .where(eq(crmDocuments.dealId, dealId));
-
-      const uploadedTypes = new Set(uploadedDocs.map((d: { type: string | null }) => d.type));
-
-      for (const docType of requirements.requiredDocuments) {
-        if (!uploadedTypes.has(docType)) {
-          result.missingDocuments.push({
-            type: docType,
-            label: docType,
-          });
-          // Note: Not blocking move in Phase 1, just warning
-          result.warnings.push(`Missing required document: ${docType}`);
-        }
-      }
-    }
-
-    return result;
-  }
 
   /**
    * POST /api/crm/deals/:id/validate-move
@@ -3073,7 +2956,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
       id: "configure-stage",
       summary: "Configure a CRM stage's rules",
       description:
-        "Sets a stage's builder rules: `trackTimeInStage`, `estimatedDays`, `entryRequirements` (required fields, documents, custom validations checked by `move-deal`), `onEnterActions`, `onExitActions`. Returns the row; 404 if it does not exist. Admin only.",
+        "Sets a stage's builder rules: `trackTimeInStage`, `estimatedDays`, `entryRequirements` (required fields, documents, custom validations checked by `move-deal`), `onEnterActions`, `onExitActions`. On a Kitsuden with the rule engine the actions are stored as the kon's rules `stage-<id>-enter` / `-exit` (listed in `automationRules`) and the stage's own columns stay empty. Returns the row; 404 if it does not exist. Admin only.",
       access: "session",
       permission: CONFIGURE,
       before: [requiresEdit],
@@ -3109,6 +2992,14 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
         }
 
         logger.info("[CRM] Stage config updated", { stageId: id });
+        // With Kitsuden's rule engine, a stage's actions are stored as the kon's rules (crm.handlers.ts).
+        if (body.onEnterActions !== undefined || body.onExitActions !== undefined) {
+          const synced = await syncStageRules(ctx, dbDe(c), [id]);
+          if (synced.engine) {
+            const [current] = await dbDe(c).select().from(crmPipelineStages).where(eq(crmPipelineStages.id, id));
+            return c.json({ data: current ?? stage, automationRules: synced.rules });
+          }
+        }
         return c.json({ data: stage });
       } catch (error) {
         if (error instanceof AppError) throw error;
@@ -3291,102 +3182,24 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
           throw AppError.forbidden("Only an administrator moves a deal without meeting the requirements");
         }
 
-        // Get current deal
-        const [deal] = await dbDe(c).select().from(crmDeals).where(eq(crmDeals.id, dealId));
-
-        if (!deal) {
-          throw AppError.notFound("Deal not found");
-        }
-
-        // Skip if already in target stage
-        if (deal.stageId === targetStageId) {
-          return c.json({ data: deal, message: "Already in target stage" });
-        }
-
-        // Validate transition (unless skipped)
-        if (!skipValidation) {
-          const validation = await validateStageTransition(dealId, targetStageId, dbDe(c));
-          if (!validation.canMove) {
-            throw AppError.badRequest("Validation failed", validation);
-          }
-        }
-
-        // Get target stage for SLA tracking
-        const [targetStage] = await dbDe(c)
-          .select()
-          .from(crmPipelineStages)
-          .where(eq(crmPipelineStages.id, targetStageId));
-
-        // A stage from ANOTHER pipeline left the deal on a board that is not
-        // its own (and, with skipValidation, without passing any requirement).
-        if (!targetStage || targetStage.pipelineId !== deal.pipelineId) {
-          throw AppError.validation("Target stage not found in this pipeline");
-        }
-
-        // Close current transition (time tracking)
-        if (deal.currentTransitionId) {
-          await dbDe(c)
-            .update(crmStageTransitions)
-            .set({ exitedAt: new Date() })
-            .where(eq(crmStageTransitions.id, deal.currentTransitionId));
-        }
-
-        // Create new transition record
-        const [newTransition] = await dbDe(c)
-          .insert(crmStageTransitions)
-          .values({
-            dealId,
-            fromStageId: deal.stageId,
-            toStageId: targetStageId,
-            enteredAt: new Date(),
-            estimatedDays: targetStage?.estimatedDays ?? null,
-            movedBy: user?.id,
-            moveReason,
-            validationResult: skipValidation ? { skipped: true } : {},
-          })
-          .returning();
-
-        // Update deal
-        const updateData: Record<string, unknown> = {
-          stageId: targetStageId,
-          currentTransitionId: newTransition.id,
-          updatedAt: new Date(),
-        };
-        // The probability is the stage's, as when creating it: otherwise the
-        // weighted forecast keeps the origin stage's (phase D).
-        if (targetStage.probability !== null && targetStage.probability !== undefined) {
-          updateData.probability = targetStage.probability;
-        }
-
+        const moved = await moveDeal(dbDe(c), {
+          dealId,
+          targetStageId,
+          skipValidation,
+          moveReason,
+          userId: user?.id ?? null,
+        });
         void newOrder; // `crm_deals` has no order column.
-
-        const [updatedDeal] = await dbDe(c)
-          .update(crmDeals)
-          .set(updateData)
-          .where(eq(crmDeals.id, dealId))
-          .returning();
-
-        // The deal already moved: a broken action leaves a note, it does not undo the move.
-        const [sourceStage] = await dbDe(c)
-          .select({ onExitActions: crmPipelineStages.onExitActions })
-          .from(crmPipelineStages)
-          .where(eq(crmPipelineStages.id, deal.stageId));
-        const exit = await runStageActions(dbDe(c), sourceStage?.onExitActions as StageAction[], updatedDeal, user?.id ?? null);
-        const enter = await runStageActions(dbDe(c), targetStage.onEnterActions as StageAction[], updatedDeal, user?.id ?? null);
-        ctx.events.emit("crm:deal:stage-changed", { dealId, fromStageId: deal.stageId, toStageId: targetStageId });
+        if (moved.already) return c.json({ data: moved.deal, message: "Already in target stage" });
 
         logger.info("[CRM] Deal moved", {
           dealId,
-          fromStage: deal.stageId,
+          fromStage: moved.fromStageId,
           toStage: targetStageId,
-          transitionId: newTransition.id,
+          transitionId: moved.transition!.id,
         });
 
-        return c.json({
-          data: updatedDeal,
-          transition: newTransition,
-          automation: { ran: [...exit.ran, ...enter.ran], failed: [...exit.failed, ...enter.failed] },
-        });
+        return c.json({ data: moved.deal, transition: moved.transition, automation: moved.automation });
       } catch (error) {
         if (error instanceof AppError) throw error;
         throwInputError(error);
@@ -3399,6 +3212,9 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
   accessOperations(crmRoutes);
   intakeOperations(crmRoutes);
   importOperations(crmRoutes);
+  timelineOperations(crmRoutes);
+  salesOperations(crmRoutes);
+  reportOperations(crmRoutes);
   workOperations(crmRoutes);
   recordOperations(crmRoutes);
   agentOperations(crmRoutes);

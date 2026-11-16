@@ -17,6 +17,7 @@ import { eq } from "drizzle-orm";
 
 import { logDealWork } from "./crm.billing";
 import type { CrmDb } from "./crm.db";
+import { emitCrm } from "./crm.events";
 import { crmActivities, crmDeals, type StageAction } from "./crm.schema";
 
 export const SUPPORTED_ACTIONS = [
@@ -63,7 +64,7 @@ export function conditionHolds(action: StageAction, deal: Deal): boolean {
   }
 }
 
-async function runOne(db: CrmDb, action: StageAction, deal: Deal, userId: string | null): Promise<void> {
+export async function runOne(db: CrmDb, action: StageAction, deal: Deal, userId: string | null): Promise<void> {
   const common = {
     subject: action.title ?? deal.title,
     dealId: deal.id,
@@ -102,6 +103,11 @@ async function runOne(db: CrmDb, action: StageAction, deal: Deal, userId: string
       }
       if (!UPDATABLE.has(action.field)) throw new Error(`A stage cannot change ${action.field}`);
       await db.update(crmDeals).set({ [action.field]: action.value }).where(eq(crmDeals.id, deal.id));
+      // A stage that closes the deal says so like a person closing it would: crm:deal.won / crm:deal.lost.
+      if (action.field === "status" && action.value !== deal.status) {
+        deal.status = action.value as Deal["status"];
+        emitCrm("deal:status-changed", { dealId: deal.id, status: deal.status, lostReason: deal.lostReason ?? null });
+      }
       return;
     }
     default:

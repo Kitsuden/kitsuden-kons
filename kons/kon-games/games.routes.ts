@@ -49,7 +49,7 @@ import {
   type AnyColumn,
 } from "drizzle-orm";
 import type { Context, Hono, MiddlewareHandler } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 // Registers the "game" policy (side-effect).
 import "./games.policy";

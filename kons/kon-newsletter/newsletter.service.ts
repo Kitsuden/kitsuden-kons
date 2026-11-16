@@ -241,7 +241,7 @@ export async function confirm(
   db: Db,
   token: string,
   meta: { ip?: string; source?: string; appUrl?: string } = {}
-): Promise<{ ok: boolean; member?: NlMember; welcome?: Promise<unknown> }> {
+): Promise<{ ok: boolean; member?: NlMember; welcome?: Promise<unknown>; confirmedNow?: boolean }> {
   if (!token) return { ok: false };
 
   const [member] = await db
@@ -302,7 +302,7 @@ export async function confirm(
     return null;
   });
 
-  return { ok: true, member: updated, welcome };
+  return { ok: true, member: updated, welcome, confirmedNow: true };
 }
 
 // ── Unsubscribe and suppression ──────────────────────────────────────────────

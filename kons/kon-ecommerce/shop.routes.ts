@@ -49,7 +49,7 @@ import type { KonContext } from "@kitsuden/shared";
 import { konSetting } from "@kitsuden/shared";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { require, KON_ID, policy, registry, onTheRow } from "./operations";
 

@@ -21,7 +21,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { sql } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   clusterMarkers,

@@ -1,0 +1,55 @@
+{
+  "name": "@kitsuden/kon-inbox",
+  "version": "0.1.0",
+  "description": "A person's mailbox and calendar synced through kon-connections, matched to CRM contacts",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "inbox.policy.ts",
+    "inbox.schema.ts",
+    "inbox.sources.ts",
+    "inbox.sync.ts",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "operations.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "inbox",
+    "email",
+    "calendar"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@kitsuden/kon-connections": "workspace:*"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7",
+    "@kitsuden/kon-connections": "workspace:*"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-inbox",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-inbox"
+  }
+}

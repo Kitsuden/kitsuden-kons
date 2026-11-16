@@ -8,7 +8,7 @@ admin views are configuration only.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.4 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
+| beta | business | 1.1.0 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
 
 ## Install
 
@@ -101,6 +101,21 @@ admin. "Person" = refused to agents whatever their scopes.
 | `PATCH /api/crm/contacts/:id` | edit | Update a contact |
 | `DELETE /api/crm/contacts/:id` | delete | Delete a contact |
 | `POST /api/crm/contacts/import` | edit | Import a CSV: preview without `apply`, write with `apply: true` (5000 rows max) |
+| `GET /api/crm/timeline` | view | One contact (with its deals) or one deal, newest first: activities, stage moves, and what other kons linked (orders, payments, newsletter, mail, meetings) |
+| `GET /api/crm/deals/:id/lines` | view | A deal's product lines and totals |
+| `POST /api/crm/deals/:id/lines` | edit | Add a line: price frozen when added; product by shape (`productType` + `productId`) |
+| `PATCH /api/crm/deal-lines/:id` | edit | Quantity, discount, tax or name (never the frozen price) |
+| `DELETE /api/crm/deal-lines/:id` | edit | Remove a line; the deal's value follows its lines |
+| `GET /api/crm/deals/:id/quotes` | view | A deal's quotes |
+| `POST /api/crm/deals/:id/quotes` | edit | A draft quote: a numbered snapshot of the deal's lines |
+| `GET /api/crm/quotes/:id` | view | One quote |
+| `POST /api/crm/quotes/:id/send` | edit | draft → sent |
+| `POST /api/crm/quotes/:id/reject` | edit | sent → rejected |
+| `POST /api/crm/quotes/:id/accept` | edit | → accepted; `then: payment` opens a kon-payments payment, `then: order` asks kon-ecommerce for an order |
+| `GET /api/crm/forecast` | view | Per person and period: open, weighted, won, target, attainment |
+| `GET /api/crm/targets` | view | Sales targets |
+| `PUT /api/crm/targets` | configure | Set a person's target for a period |
+| `GET /api/crm/reports/:id` | view | `funnel`, `stage-conversion`, `lost-reasons` |
 | `GET /api/crm/contacts/:id/duplicates` | view | Possible duplicates with score and reasons |
 | `POST /api/crm/contacts/:id/merge` | edit; runs for a person with delete | Merge two contacts; from an agent, a 202 request for a person |
 | `GET /api/crm/merge-requests` | view | Merges agents asked for |

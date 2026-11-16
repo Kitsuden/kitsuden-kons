@@ -10,7 +10,7 @@
 import { AppError, can } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, or, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { planCapture, type FormSubmission } from "./crm.capture";
 import { dbDe, userOf } from "./crm.context";
@@ -80,7 +80,7 @@ export async function isSuppressed(db: CrmDb, email: string): Promise<boolean> {
 }
 
 /** Contacts that could be the same person: only by what the score can match on, so the whole base is not read. */
-async function candidatesFor(db: CrmDb, contact: Partial<ContactLike>) {
+export async function candidatesFor(db: CrmDb, contact: Partial<ContactLike>) {
   const conditions = [];
   const email = normalizeEmail(contact.email);
   if (email) conditions.push(sql`lower(${crmContacts.email}) = ${email}`);

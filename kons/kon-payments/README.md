@@ -7,7 +7,7 @@ can optionally write journal entries into kon-conta.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 1.1.1 | `/api/payments` | — (optional: kon-conta) |
+| experimental | business | 1.2.0 | `/api/payments` | — (optional: kon-conta) |
 
 ## Install
 

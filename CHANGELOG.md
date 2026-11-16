@@ -5,6 +5,39 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## Unreleased
 
+- The CRM, the shop, payments and the newsletter know about each other, through events and links, with
+  none importing another (kon-crm 1.1.0, kon-ecommerce 1.2.0, kon-payments 1.2.0, kon-newsletter 1.1.0):
+  - new event names `crm:contact.created`, `crm:deal.moved`, `crm:deal.won`, `crm:deal.lost`,
+    `shop:order.delivered` and `newsletter:member.subscribed`; the old names still go out.
+    `shop:order.paid` carries the buyer, and `payment:payment.*` the `pay_events` row
+    (`paymentEventId`). Each kon declares what it emits and listens to (`events`), for Kitsuden's
+    catalog.
+  - kon-crm turns a paid order, a newsletter subscription and a payment into a contact (through its
+    duplicate detector, never from an address on the exclusion list) and a link (`ordered_by`,
+    `same_person`, `paid_by`). `view-timeline` shows a contact's or a deal's activities, stage moves
+    and links together.
+  - kon-ecommerce declares kon-payments as optional (it always charged through it at runtime).
+- kon-crm contributes six steps to Kitsuden's automation rules (`kon-crm:create-activity`,
+  `create-task`, `create-calendar-event`, `log-time`, `update-field`, `move-stage`). On a Kitsuden
+  with the rule engine (`ctx.automation`) a stage's on-enter and on-exit actions become rules of the kon
+  and leave the stage; on one without it, the CRM's own runner keeps them. Moving a deal lives in one
+  place (`crm.moves.ts`).
+- New kon-connections 0.1.0: Google, Microsoft and API key accounts per person or for the organization,
+  sealed by the host (`ctx.secrets`, refused without it), refreshed before they expire, revocable, with
+  `connections:connection.created|expired|revoked`. Other kons get a client that sends the credential
+  only to the provider's hosts and never shows it. Row security keeps people apart, admins included.
+- New kon-inbox 0.1.0: a person's Gmail and Google Calendar or Microsoft 365 mailbox, synced
+  incrementally on the queue through kon-connections, metadata only (no bodies). The owner picks the
+  mailboxes and shares threads with the team; removing a mailbox or revoking its connection deletes what
+  it brought. kon-crm puts each message and meeting on the contacts' timeline.
+- kon-crm sells: product lines on a deal with a frozen price, quotes (draft, sent, accepted, rejected)
+  whose acceptance can open a kon-payments payment or a kon-ecommerce order, forecast and targets per
+  person and period, and a CSV import that marks the rows its duplicate detector matches. Its reports
+  (funnel, conversion per stage, lost reasons) answer as `get-report` and are declared for Kitsuden's
+  report engine.
+- Kons import Zod from `@kitsuden/engine/zod`, as Kitsuden's lint requires (73 files);
+  `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so.
+
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles
   are in sentence case ("New journal entry", "Reimbursable expenses", "New template").

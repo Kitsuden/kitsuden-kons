@@ -715,9 +715,13 @@ describe("the kon listens to kon-payments", () => {
     const { kon } = await import("../../kons/kon-ecommerce/index");
     const handlers = new Map<string, Array<(d: unknown) => void>>();
     const emitted: string[] = [];
+    const payloads = new Map<string, Record<string, unknown>>();
     const events = {
       on: (name: string, h: (d: unknown) => void) => handlers.set(name, [...(handlers.get(name) ?? []), h]),
-      emit: (name: string) => emitted.push(name),
+      emit: (name: string, data: Record<string, unknown>) => {
+        emitted.push(name);
+        payloads.set(name, data);
+      },
     };
     const ctx = createTestKonContext({
       db: { instance: db, execute: async () => undefined, tableExists: async () => true },
@@ -737,6 +741,15 @@ describe("the kon listens to kon-payments", () => {
     const [row] = await q<{ status: string }>(`SELECT status FROM shop_orders WHERE id = '${body.orderId}'`);
     expect(row.status).toBe("delivered");
     expect(emitted).toContain("shop:order.paid");
+    // The buyer travels with the event, so a CRM finds them without reading shop_orders.
+    expect(payloads.get("shop:order.paid")).toMatchObject({
+      orderId: body.orderId,
+      // As the buyer typed it: the CRM normalizes it through its duplicate detector.
+      customerEmail: "Compradora@Ejemplo.com",
+      totalCents: 900,
+    });
+    // A digital order goes on to delivered by itself, and says so.
+    expect(payloads.get("shop:order.delivered")).toMatchObject({ orderId: body.orderId });
     expect(sent.some((m) => m.subject.includes("paid") && /[A-Z0-9]{5}-[A-Z0-9]{5}/.test(m.html))).toBe(true);
   });
 });
@@ -769,5 +782,50 @@ describe("the team's status change", () => {
     await flush();
     expect(sent[0]?.html).toContain("TRK123");
     expect(sent[0]?.html).toContain("https://carrier.example/TRK123");
+  });
+});
+
+describe("a quote accepted in the CRM becomes an order", () => {
+  const accepted = (over: Record<string, unknown> = {}) => ({
+    quoteId: "q-1",
+    dealId: "d-1",
+    number: "Q-0001",
+    then: "order",
+    customerEmail: "deal@contact.example",
+    customerName: "Deal Contact",
+    lines: [{ name: "Guide", productType: "shop_variants", productId: "v-guia", quantity: 2, unitPrice: 800 }],
+    ...over,
+  });
+
+  it("creates the order at the shop's prices, once, and links it to the deal", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    // The core's links table: the order is linked to the deal through it.
+    await db.$client.exec(readFileSync(resolve(__dirname, "../../.kitsuden/apps/api/src/db/migrations/0032_links.sql"), "utf8"));
+    const { orderFromQuote } = await import("../../kons/kon-ecommerce/shop.quotes");
+    const first = await orderFromQuote(db, accepted());
+    expect(first).toMatchObject({ outcome: "created" });
+    const orderId = (first as { orderId: string }).orderId;
+    const [order] = await q<{ total_cents: number; customer_email: string; status: string }>(
+      `SELECT total_cents, customer_email, status FROM shop_orders WHERE id = '${orderId}'`
+    );
+    // The shop's own price (900), not the quote's (800): the shop never takes a price from outside.
+    expect(order).toMatchObject({ total_cents: 1800, customer_email: "deal@contact.example", status: "pending" });
+    expect(await q(`SELECT relation FROM kitsuden_links WHERE from_id = '${orderId}' AND to_type = 'crm_deals' AND to_id = 'd-1'`)).toEqual([
+      { relation: "related" },
+    ]);
+    const again = await orderFromQuote(db, accepted());
+    expect((again as { orderId: string }).orderId).toBe(orderId);
+  });
+
+  it("refuses what the shop cannot sell or deliver from here, and ignores other outcomes", async () => {
+    const { orderFromQuote } = await import("../../kons/kon-ecommerce/shop.quotes");
+    expect(await orderFromQuote(db, accepted({ lines: [{ name: "Consulting", quantity: 1, unitPrice: 5000 }] }))).toMatchObject({
+      outcome: "refused",
+      reason: "Not shop products: Consulting",
+    });
+    expect(await orderFromQuote(db, accepted({ customerEmail: null }))).toMatchObject({ outcome: "refused" });
+    expect(await orderFromQuote(db, accepted({ fulfillmentType: "shipping" }))).toMatchObject({ outcome: "refused" });
+    expect(await orderFromQuote(db, accepted({ then: "payment" }))).toEqual({ outcome: "ignored" });
   });
 });

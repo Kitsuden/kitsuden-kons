@@ -31,7 +31,7 @@ import {
   renderBlocks,
 } from "@kitsuden/shared";
 import { eq, and, asc, desc, ilike, inArray, ne, or, sql, type SQL } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { isTeam, registerBlogPolicy } from "./blog.policy";
 import { blogContentTarget } from "./content-target";

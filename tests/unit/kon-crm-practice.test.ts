@@ -310,7 +310,7 @@ describe("import", () => {
     const body = csv + "x@blocked.example;S;S;;\n";
     const preview = await json(await request("staff", "POST", "/contacts/import", { csv: body }));
     expect(preview.applied).toBe(false);
-    expect(preview.summary).toEqual({ new: 1, existing: 1, repeated: 1, suppressed: 1, invalid: 1 });
+    expect(preview.summary).toEqual({ new: 1, existing: 1, duplicate: 0, repeated: 1, suppressed: 1, invalid: 1 });
     expect(preview.ignoredColumns).toEqual(["Ignored"]);
     expect((await json(await request("staff", "GET", "/contacts?search=new@i"))).data).toEqual([]);
 

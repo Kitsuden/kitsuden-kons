@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { AppError } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";

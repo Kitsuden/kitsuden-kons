@@ -26,6 +26,7 @@ let client: PGlite;
 let app: any;
 let service: any;
 const SITE = "https://sitio.example";
+const emitted: Array<{ name: string; data: any }> = [];
 
 const high = (body: unknown) =>
   app.request("/subscribe", {
@@ -80,6 +81,7 @@ beforeAll(async () => {
     db: { instance: drizzle(client) } as any,
     config: { siteUrl: SITE, siteName: "Sitio", environment: "test" } as any,
     auth: auth as any,
+    events: { emit: (name: string, data: unknown) => emitted.push({ name, data }), on: () => {}, off: () => {} } as any,
   });
   app = createNewsletterRouter(ctx, { name: "nullable" } as any, new Map());
 });
@@ -167,6 +169,19 @@ describe("double opt-in", () => {
     }
     const [m] = mail.sent("newsletter.welcome");
     expect(m.html).toContain(`${SITE}/api/newsletter/unsubscribe?token=`);
+  });
+});
+
+describe("newsletter:member.subscribed", () => {
+  test("the click that confirms announces the member once; a second click announces nothing", async () => {
+    await high({ email: "evento@example.com", name: "Eva Ruiz" });
+    const row = await waitForRow("evento@example.com");
+    emitted.length = 0;
+    expect((await app.request(`/confirm?token=${row.confirm_token}`)).status).toBe(200);
+    expect((await app.request(`/confirm?token=${row.confirm_token}`)).status).toBe(400);
+    const subscribed = emitted.filter((e) => e.name === "newsletter:member.subscribed");
+    expect(subscribed).toHaveLength(1);
+    expect(subscribed[0].data).toMatchObject({ memberId: row.id, email: "evento@example.com" });
   });
 });
 

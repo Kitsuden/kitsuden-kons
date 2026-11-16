@@ -82,12 +82,14 @@ use a kon has had, not how many features it has:
 | `kon-academy-lms` | beta | 1.1.1 | 1 | `/api/academy` | Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment… |
 | `kon-agile` | beta | 1.3.3 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
 | `kon-booking` | beta | 1.0.1 | 1 | `/api/booking` | Room and resource reservation system with availability tracking, amenities management and conflict detection. |
+| `kon-connections` | beta | 0.1.0 | 1 | `/api/connections` | Accounts at Google, Microsoft and other services, connected once (OAuth or API key), sealed, refreshed, and… |
 | `kon-conta` | beta | 1.0.2 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
-| `kon-crm` | beta | 1.0.4 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |
+| `kon-crm` | beta | 1.1.0 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |
 | `kon-directory` | beta | 1.0.0 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.0.0 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
-| `kon-ecommerce` | beta | 1.1.2 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
-| `kon-payments` | experimental | 1.1.1 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
+| `kon-ecommerce` | beta | 1.2.0 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
+| `kon-inbox` | beta | 0.1.0 | 1 | `/api/inbox` | A person's mailbox and calendar (Gmail, Google Calendar, Microsoft 365), synced through kon-connections… |
+| `kon-payments` | experimental | 1.2.0 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
 
 ### Content and community
 
@@ -95,7 +97,7 @@ use a kon has had, not how many features it has:
 | --- | --- | --- | --- | --- | --- |
 | `kon-analytics` | beta | 1.0.2 | 1 | `/api/analytics` | Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments. |
 | `kon-comments` | beta | 1.0.2 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
-| `kon-newsletter` | beta | 1.0.1 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
+| `kon-newsletter` | beta | 1.1.0 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
 | `kon-wiki` | beta | 1.1.3 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
 | `kon-chat` | experimental | 1.0.3 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what… |
 

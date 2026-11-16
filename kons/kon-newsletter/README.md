@@ -7,7 +7,7 @@ newsletter service.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.0.1 | `/api/newsletter` | core `auth`; optional: kon-blog, kon-payments |
+| beta | content | 1.1.0 | `/api/newsletter` | core `auth`; optional: kon-blog, kon-payments |
 
 ## Install
 

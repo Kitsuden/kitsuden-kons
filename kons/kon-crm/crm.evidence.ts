@@ -19,7 +19,7 @@ import { AppError } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { accessOf, customFieldProblems, hiddenFieldKeys } from "./crm.access";
 import { dbDe, userOf } from "./crm.context";

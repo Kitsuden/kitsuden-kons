@@ -37,6 +37,11 @@ import { defineKonSdk } from "@kitsuden/engine";
 import type { KonDefinition, KonContext } from "@kitsuden/shared";
 
 import { CRM_TOOLSETS } from "./crm.agents";
+import { listenToOtherKons } from "./crm.connected";
+import type { CrmDb } from "./crm.db";
+import { CRM_ACTION_HANDLERS, syncStageRules } from "./crm.handlers";
+import { CRM_REPORTS } from "./crm.reports";
+import { CRM_EVENTS, useCrmEvents } from "./crm.events";
 import { createCRMRouter, crmOperations } from "./crm.routes";
 import { KON_ID } from "./operations";
 import manifest from "./kon.json" with { type: "json" };
@@ -103,6 +108,16 @@ const hooks = {
         return;
       }
       ctx.logger.info("[CRM] ✓ All tables verified");
+      // Orders, subscriptions, payments and mail from the other kons become contacts and links
+      // (crm.connected.ts). With none of those kons installed nothing is ever emitted.
+      useCrmEvents(ctx.events);
+      listenToOtherKons(ctx);
+      // With Kitsuden's rule engine, stage actions move into it once (crm.handlers.ts).
+      const asSystem = ctx.db.asSystem ?? (<T>(f: () => Promise<T>) => f());
+      const synced = await asSystem(() => syncStageRules(ctx, ctx.db.instance as CrmDb));
+      if (synced.stages.length > 0) {
+        ctx.logger.info("[CRM] Stage actions moved into automation rules", { rules: synced.rules });
+      }
     } catch (err) {
       ctx.logger.error("[CRM] Failed to verify tables", {
         error: err instanceof Error ? err.message : String(err),
@@ -192,8 +207,21 @@ const definition = defineKonSdk({
   hooks,
 });
 
+/**
+ * What the CRM emits and listens to (crm.events.ts), in the shape `defineKon({ events })` takes. Set after
+ * `defineKonSdk`: a Kitsuden whose `KonDefinition` does not have the field yet ignores it.
+ */
+const events = CRM_EVENTS;
+
+/** Steps for Kitsuden's automation rules (crm.handlers.ts), exposed as `kon-crm:<id>`. */
+const actionHandlers = CRM_ACTION_HANDLERS;
+
+/** Reports for Kitsuden's report engine (crm.reports.ts), served as `kon:kon-crm/<id>`. */
+const reports = CRM_REPORTS;
+
 export const kon: KonDefinition = {
   ...definition,
+  ...({ events, actionHandlers, reports } as object),
   createRouter: (ctx: KonContext) => createCRMRouter(ctx),
 };
 

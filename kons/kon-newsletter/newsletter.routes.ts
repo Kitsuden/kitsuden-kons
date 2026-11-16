@@ -24,7 +24,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Context, Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { NewsletterDb } from "./newsletter.db";
 import { registerNewsletterPolicy } from "./newsletter.policy";
@@ -285,6 +285,15 @@ export function newsletterOperations(
           },
           400
         );
+      }
+      // Only the click that confirmed: a second click on the same link announces nothing.
+      if (result.confirmedNow && result.member) {
+        ctx.events.emit("newsletter:member.subscribed", {
+          memberId: result.member.id,
+          email: result.member.email,
+          name: result.member.name ?? null,
+          locale: result.member.locale ?? null,
+        });
       }
       return c.json({ ok: true, message: "Subscription confirmed" });
     }

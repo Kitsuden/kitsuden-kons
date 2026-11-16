@@ -20,7 +20,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { OF_TEAM, KON_ID, registry } from "./operations";
 import { registerStreamersPolicy } from "./streamers.policy";
