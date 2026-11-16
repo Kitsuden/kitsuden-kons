@@ -5,7 +5,11 @@
  *   rss       any RSS or Atom URL (https; fetched through dc.http's checks: no private addresses)
  *   youtube   a channel id (UC…): its videos feed
  *   reddit    a subreddit: its new posts
+ *   bluesky   a handle (name.bsky.social, @name…, a profile link) or a did:plc: its posts' RSS
  *   twitch    a login: when it goes live (needs TWITCH_CLIENT_ID and TWITCH_CLIENT_SECRET in the API)
+ *
+ * YouTube, Reddit and Bluesky sources may be written loosely (a channel or profile link, `r/name`,
+ * `@handle`): `presetSource` turns them into the id or name their public RSS/Atom URL takes.
  *
  * Polled every N minutes (a recurring schedule). The first poll of a feed only remembers what is
  * already there, so switching it on never floods a channel. At most 3 new items per feed and poll.
@@ -69,34 +73,98 @@ export function twitchClient(env: Record<string, string | undefined> = process.e
 
 // ── The module ──────────────────────────────────────────────────────────────────────────────────
 
-const KINDS = ["rss", "youtube", "reddit", "twitch"] as const;
+const KINDS = ["rss", "youtube", "reddit", "bluesky", "twitch"] as const;
 
 const DEFAULT_MESSAGE: Record<(typeof KINDS)[number], string> = {
   rss: "📰 **{{feed.title}}**\n{{feed.link}}",
   youtube: "▶️ New video from {{feed.author}}: **{{feed.title}}**\n{{feed.link}}",
   reddit: "New in r/{{feed.source}}: **{{feed.title}}**\n{{feed.link}}",
+  bluesky: "🦋 New post from @{{feed.source}}:\n{{feed.title}}\n{{feed.link}}",
   twitch: "🔴 **{{stream.name}}** is live: {{stream.title}} ({{stream.game}})\nhttps://twitch.tv/{{stream.login}}",
 };
+
+/** The part of a link after `marker` (`/channel/`, `/r/`, `/profile/`), up to the next `/`, `?` or `#`. */
+function after(source: string, marker: string): string | null {
+  const at = source.indexOf(marker);
+  if (at === -1) return null;
+  const rest = source.slice(at + marker.length);
+  let end = rest.length;
+  for (const stop of ["/", "?", "#"]) {
+    const i = rest.indexOf(stop);
+    if (i !== -1 && i < end) end = i;
+  }
+  return rest.slice(0, end);
+}
+
+/** A Bluesky handle (`name.bsky.social`, a custom domain) or a `did:plc:` id, in lower case. */
+function blueskyId(value: string): string | null {
+  const v = value.toLowerCase();
+  if (/^did:plc:[a-z2-7]{24}$/.test(v)) return v;
+  if (v.length > 253) return null;
+  const labels = v.split(".");
+  if (labels.length < 2) return null;
+  const ok = labels.every((l) => /^[a-z0-9-]{1,63}$/.test(l) && !l.startsWith("-") && !l.endsWith("-"));
+  return ok && /^[a-z]/.test(labels[labels.length - 1]) ? v : null;
+}
+
+/** The host of an https link, or null. */
+function httpsHost(value: string): string | null {
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" ? u.hostname.toLowerCase() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A feed's source as its public URL takes it, from what the staff typed; null when it is not one.
+ *   youtube  UC… or https://www.youtube.com/channel/UC…
+ *   reddit   name, r/name, /r/name or a link to the subreddit
+ *   bluesky  name.bsky.social, @name.bsky.social, https://bsky.app/profile/<handle>, or did:plc:…
+ */
+export function presetSource(kind: (typeof KINDS)[number], source: string): string | null {
+  const s = source.trim();
+  const host = s.startsWith("https://") ? httpsHost(s) : null;
+  switch (kind) {
+    case "rss":
+      return host ? s : null;
+    case "youtube": {
+      const id = host ? (host === "youtube.com" || host.endsWith(".youtube.com") ? after(s, "/channel/") : null) : s;
+      return id && /^UC[\w-]{22}$/.test(id) ? id : null;
+    }
+    case "reddit": {
+      const name = host
+        ? host === "reddit.com" || host.endsWith(".reddit.com")
+          ? after(s, "/r/")
+          : null
+        : s.startsWith("/r/")
+          ? s.slice(3)
+          : s.startsWith("r/")
+            ? s.slice(2)
+            : s;
+      return name && /^[A-Za-z0-9_]{2,21}$/.test(name) ? name : null;
+    }
+    case "bluesky": {
+      const handle = host ? (host === "bsky.app" ? after(s, "/profile/") : null) : s.startsWith("@") ? s.slice(1) : s;
+      return handle ? blueskyId(handle) : null;
+    }
+    case "twitch":
+      return /^[a-zA-Z0-9_]{3,25}$/.test(s) ? s : null;
+  }
+}
 
 const Feed = z
   .object({
     id: LocalId.meta({ title: "Id" }),
     kind: z.enum(KINDS).meta({ title: "Kind" }),
-    source: z.string().min(1).max(500).meta({ title: "Source", description: "rss: an https URL · youtube: a channel id (UC…) · reddit: a subreddit · twitch: a login" }),
+    source: z.string().min(1).max(500).meta({ title: "Source", description: "rss: an https URL · youtube: a channel id (UC…) or its link · reddit: a subreddit (r/name) · bluesky: a handle (@name.bsky.social) · twitch: a login" }),
     channelId: Snowflake.meta({ title: "Channel id" }),
     message: z.string().min(1).max(2000).optional().meta({ title: "Message", description: "{{feed.title}} {{feed.link}} {{feed.author}}; twitch: {{stream.name}} {{stream.title}} {{stream.game}}" }),
   })
   .strict()
   .superRefine((f, ctx) => {
-    const ok =
-      f.kind === "rss"
-        ? /^https:\/\//.test(f.source)
-        : f.kind === "youtube"
-          ? /^UC[\w-]{22}$/.test(f.source)
-          : f.kind === "reddit"
-            ? /^[A-Za-z0-9_]{2,21}$/.test(f.source)
-            : /^[a-zA-Z0-9_]{3,25}$/.test(f.source);
-    if (!ok) ctx.addIssue({ code: "custom", path: ["source"], message: `Not a ${f.kind} source` });
+    if (presetSource(f.kind, f.source) === null) ctx.addIssue({ code: "custom", path: ["source"], message: `Not a ${f.kind} source` });
   });
 type Feed = z.output<typeof Feed>;
 
@@ -113,9 +181,13 @@ const FeedsConfig = z
   .strict();
 
 export function feedUrl(f: Pick<Feed, "kind" | "source">): string | null {
-  if (f.kind === "rss") return f.source;
-  if (f.kind === "youtube") return `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(f.source)}`;
-  if (f.kind === "reddit") return `https://www.reddit.com/r/${encodeURIComponent(f.source)}/new/.rss`;
+  const source = presetSource(f.kind, f.source);
+  if (!source) return null;
+  if (f.kind === "rss") return source;
+  if (f.kind === "youtube") return `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(source)}`;
+  if (f.kind === "reddit") return `https://www.reddit.com/r/${encodeURIComponent(source)}/new/.rss`;
+  // Bluesky serves an RSS feed of each profile's posts; a handle and a did:plc both work there.
+  if (f.kind === "bluesky") return `https://bsky.app/profile/${source}/rss`;
   return null;
 }
 
@@ -139,7 +211,7 @@ async function pollFeed(f: Feed, rt: ModuleRuntime, fetchText: TextFetcher) {
 }
 
 async function post(f: Feed, e: FeedEntry, rt: ModuleRuntime) {
-  const scope = { ...baseVars(rt), feed: { ...e, source: f.source, id: f.id } };
+  const scope = { ...baseVars(rt), feed: { ...e, source: presetSource(f.kind, f.source) ?? f.source, id: f.id } };
   await rt.rest.sendMessage(f.channelId, clip(render(f.message ?? DEFAULT_MESSAGE[f.kind], scope)));
   rt.emit("dc:feed:new", { guildId: rt.guildId, feedId: f.id, kind: f.kind, link: e.link, title: e.title });
 }
@@ -171,7 +243,7 @@ async function pollTwitch(feeds: Feed[], rt: ModuleRuntime, twitch: TwitchClient
 export const feedsModule = defineDcModule({
   id: "feeds",
   name: "Feeds",
-  description: "Posts new RSS items, YouTube videos, Reddit posts and Twitch streams going live in a channel.",
+  description: "Posts new RSS items, YouTube videos, Reddit and Bluesky posts and Twitch streams going live in a channel.",
   config: FeedsConfig,
   intents: 0,
   events: [],

@@ -187,6 +187,33 @@ export interface ThreadSpec {
   autoArchiveMinutes?: number;
 }
 
+/** A message as starboards and the embed editor read it. */
+export interface MessageInfo {
+  id: string;
+  channelId: string;
+  authorId: string | null;
+  authorName: string;
+  authorAvatar: string | null;
+  authorBot: boolean;
+  /** Empty for other members' messages when the app lacks the Message Content intent. */
+  content: string;
+  timestamp: string;
+  attachments: Array<{ url: string; filename: string; contentType: string | null }>;
+  embeds: Array<Record<string, unknown>>;
+  /** `emoji` as reactions name it: a unicode emoji, or `name:id`. */
+  reactions: Array<{ emoji: string; count: number }>;
+}
+
+/** A channel as the permission and age-restriction checks read it. */
+export interface ChannelInfo {
+  id: string;
+  type: number;
+  guildId: string | null;
+  parentId: string | null;
+  nsfw: boolean;
+  overwrites: Array<{ id: string; type: 0 | 1; allow: string; deny: string }>;
+}
+
 export interface DiscordRest {
   syncGuildCommands(guildId: string, commands: SlashCommandPayload[]): Promise<unknown[]>;
   /** Posts a message; gives back its id. A plain string is a message with only text. */
@@ -246,6 +273,12 @@ export interface DiscordRest {
   createWebhook(channelId: string, name: string): Promise<{ id: string; token: string }>;
   /** Posts through a webhook. A 404 means it was deleted: make a new one. */
   executeWebhook(webhookId: string, token: string, message: MessagePayload & { username?: string; avatarUrl?: string; threadId?: string }): Promise<{ id: string | null }>;
+  /** One message (starboard, the embed editor). */
+  getMessage(channelId: string, messageId: string): Promise<MessageInfo>;
+  /** One channel: type, parent, age restriction and permission overwrites. */
+  getChannel(channelId: string): Promise<ChannelInfo>;
+  /** Who reacted with an emoji (`name:id` or unicode), up to 100 ids. */
+  reactionUsers(channelId: string, messageId: string, emoji: string, limit: number): Promise<string[]>;
   listAutoModRules(guildId: string): Promise<Array<{ id: string; name: string }>>;
   createAutoModRule(guildId: string, rule: Record<string, unknown>): Promise<void>;
   editAutoModRule(guildId: string, ruleId: string, rule: Record<string, unknown>): Promise<void>;
@@ -264,6 +297,8 @@ export interface SlashCommandOptionPayload {
   max_value?: number;
   min_length?: number;
   max_length?: number;
+  /** For a channel option: the kinds of channel it offers. */
+  channel_types?: number[];
   options?: SlashCommandOptionPayload[];
 }
 
@@ -599,6 +634,59 @@ export function createDiscordRest(
         false
       )) as { id?: string } | null;
       return { id: sent?.id ?? null };
+    },
+    async getMessage(channelId, messageId) {
+      const m = (await call("GET", `/channels/${channelId}/messages/${messageId}`)) as {
+        id: string;
+        channel_id?: string;
+        content?: string;
+        timestamp?: string;
+        author?: { id: string; username?: string; global_name?: string | null; avatar?: string | null; bot?: boolean };
+        attachments?: Array<{ url?: string; filename?: string; content_type?: string }>;
+        embeds?: Array<Record<string, unknown>>;
+        reactions?: Array<{ count?: number; emoji?: { id?: string | null; name?: string | null } }>;
+      };
+      return {
+        id: m.id,
+        channelId: m.channel_id ?? channelId,
+        authorId: m.author?.id ?? null,
+        authorName: m.author?.global_name || m.author?.username || m.author?.id || "",
+        authorAvatar: m.author?.avatar ?? null,
+        authorBot: !!m.author?.bot,
+        content: m.content ?? "",
+        timestamp: m.timestamp ?? "",
+        attachments: (m.attachments ?? [])
+          .filter((a) => typeof a.url === "string")
+          .map((a) => ({ url: a.url as string, filename: a.filename ?? "", contentType: a.content_type ?? null })),
+        embeds: m.embeds ?? [],
+        reactions: (m.reactions ?? []).map((r) => ({
+          emoji: r.emoji?.id ? `${r.emoji.name ?? ""}:${r.emoji.id}` : (r.emoji?.name ?? ""),
+          count: Number(r.count ?? 0),
+        })),
+      };
+    },
+    async getChannel(channelId) {
+      const c = (await call("GET", `/channels/${channelId}`)) as {
+        id: string;
+        type?: number;
+        guild_id?: string;
+        parent_id?: string | null;
+        nsfw?: boolean;
+        permission_overwrites?: Array<{ id: string; type: number; allow?: string; deny?: string }>;
+      };
+      return {
+        id: c.id,
+        type: Number(c.type ?? 0),
+        guildId: c.guild_id ?? null,
+        parentId: c.parent_id ?? null,
+        nsfw: c.nsfw === true,
+        overwrites: (c.permission_overwrites ?? []).map((o) => ({ id: o.id, type: o.type === 1 ? 1 : 0, allow: o.allow ?? "0", deny: o.deny ?? "0" })),
+      };
+    },
+    async reactionUsers(channelId, messageId, emoji, limit) {
+      const n = Math.min(100, Math.max(1, limit));
+      const list = (await call("GET", `/channels/${channelId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}?limit=${n}`)) as Array<{ id: string }>;
+      return list.map((u) => u.id);
     },
     async listAutoModRules(guildId) {
       return (await call("GET", `/guilds/${guildId}/auto-moderation/rules`)) as Array<{ id: string; name: string }>;

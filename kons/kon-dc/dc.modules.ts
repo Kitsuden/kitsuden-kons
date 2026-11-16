@@ -344,6 +344,8 @@ export interface DcEvent {
   emoji: string | null;
   /** The member's roles, when Discord sends them (messages, joins). */
   memberRoles?: string[];
+  /** MESSAGE_CREATE: ids of the members the message pings (Discord sends them without Message Content). */
+  mentions?: string[];
   /** GUILD_AUDIT_LOG_ENTRY_CREATE: what a moderator, a bot or an integration did (the user is who did it). */
   audit?: { action: number; targetId: string | null };
   /** GUILD_MEMBER_ADD: the account's age and flags, for join gates. */

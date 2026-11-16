@@ -6,7 +6,7 @@ separate Go gateway worker.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | content | 0.2.0 | `/api/dc` | — |
+| experimental | content | 0.3.0 | `/api/dc` | — |
 
 A bot here is **configuration, not code**. Each server switches on the modules it wants (welcome,
 auto role, levels, AI answers, kon announcements) and any number of **blueprints**: commands,
@@ -126,7 +126,7 @@ Built-in modules, each switched on per server with its own settings:
 | `polls` | `/poll`: Discord's own polls | — |
 | `stats` | `/stats`, `/top` by day, week, month or all time; a weekly ranking with prizes and a champion role | Guild Messages, Voice States |
 | `temp-voice` | join a hub, get your own voice room; `/voice rename limit lock` | Voice States |
-| `feeds` | RSS, YouTube, Reddit and Twitch-going-live posts | — (Twitch keys in the API) |
+| `feeds` | RSS, YouTube (a channel id or link), Reddit (`r/name`), Bluesky (`@handle`) and Twitch-going-live posts | — (Twitch keys in the API) |
 | `moderation` | `/warn /warnings /timeout /kick /ban /purge /slowmode`, cases, a log channel, automatic steps at N warnings | — |
 | `automod` | Discord's own AutoMod rules from settings (words, invites, links, mention spam, spam) | — |
 | `security` | anti-nuke from the live audit log, a join gate, raid mode, image captcha, `/lockdown` | Guild Moderation, Server Members |
@@ -136,6 +136,19 @@ Built-in modules, each switched on per server with its own settings:
 | `sticky` | a message kept at the bottom of a channel | Guild Messages |
 | `auto-purge` | channels cleared on a schedule, pins kept | — |
 | `member-page` | a web page for the server: rankings, the store, each member's stats, a Discord login | — |
+| `starboard` | a message that reaches N reactions of an emoji is reposted to a starboard channel with a live count (self-stars, ignored channels and age-restricted channels as settings) | Guild Message Reactions |
+| `tags` | `/tag <name>` posts a saved text; `/tags create edit delete` for the staff (a form), `/tags list info` for everyone; names autocomplete | — |
+| `embeds` | `/embed post` opens a form and posts an embed; `/embed edit <message link>` changes one the bot posted; staff only | — |
+| `autoresponder` | rules: exact, contains, starts with or a whole word, `*` for anything; a text (with placeholders) or a reaction; channels, roles, a cooldown, delete the trigger | Guild Messages, Message Content (privileged) |
+| `afk` | `/afk [reason]`: who mentions you is told since when; your next message ends it; an optional welcome back and `[AFK]` nickname | Guild Messages |
+| `highlights` | `/highlight add remove list`: a DM when a word is said in a channel you can see (up to 10 words, a cooldown) | Guild Messages, Message Content (privileged) |
+
+Message Content is a privileged intent: switch it on in the Developer Portal (Bot → Message Content
+Intent) before turning on `autoresponder` or `highlights`, or the gateway refuses to connect. `afk`
+does not need it (Discord sends who a message pings without it). `starboard` reads the starred
+message through the REST API: without the intent switched on for the application, Discord gives an
+empty text for other members' messages and the post shows the author, the image and the link only.
+These modules keep their state in `dc_kv` and `dc_list_members`: no new table.
 
 The bot answers in each member's Discord language (English, Spanish and Portuguese for now), and
 in the server's for what it says by itself; slash commands carry Discord's localized descriptions.
