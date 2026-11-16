@@ -36,7 +36,7 @@ export function isPushEndpoint(raw: string): boolean {
   }
 }
 
-const b64url = (b: Buffer) => b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const b64url = (b: Buffer) => b.toString("base64url");
 
 interface Vapid {
   publicKey: string;

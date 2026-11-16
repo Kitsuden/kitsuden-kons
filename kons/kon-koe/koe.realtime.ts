@@ -60,12 +60,18 @@ export async function maySeeConversation(db: Db, user: { id: string | null; role
   return !!t;
 }
 
+/** `ctx.realtime.channels` arrived with Kitsuden's kon realtime channels; an older host does not have it. */
+type ChannelsCapable = {
+  channels?: (authorize: (rest: string, user: { id: string | null; role: string | null }) => boolean | Promise<boolean>) => void;
+};
+
 export function registerRealtime(ctx: KonContext): void {
-  if (!ctx.realtime.channels) {
+  const realtime = ctx.realtime as unknown as ChannelsCapable;
+  if (!realtime.channels) {
     ctx.logger.warn("koe: this host has no kon realtime channels; the inbox will refresh by polling");
     return;
   }
-  ctx.realtime.channels(async (channel, user) => {
+  realtime.channels(async (channel, user) => {
     const db = dbOf(ctx);
     if (channel === "inbox") return (await koeRoleOf(db, user)) !== null;
     const v = rest.visitor.exec(channel);

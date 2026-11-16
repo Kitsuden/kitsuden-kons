@@ -105,14 +105,25 @@ export const CHANNEL_RULES = [
   "If the customer asks for a person, or you cannot help, answer exactly `HANDOFF: <one-line summary of what the customer needs>` and nothing else.",
 ].join("\n");
 
-const HANDOFF_LINE = /^\s*HANDOFF\s*:\s*(.*)$/im;
-
-/** A reply that asks for a person: the `HANDOFF:` line anywhere in it, and its summary. */
+/**
+ * A reply that asks for a person: a line that starts with `HANDOFF:` (any case, spaces allowed around the
+ * colon), and its summary. Read line by line without a regular expression over the model's text, so a long
+ * reply cannot make it slow (CodeQL js/polynomial-redos).
+ */
 export function handoffOf(reply: string): { handoff: boolean; summary?: string } {
-  const m = HANDOFF_LINE.exec(reply);
-  if (!m) return { handoff: false };
-  const summary = m[1]!.replace(/[`*]+/g, "").trim().slice(0, 500);
-  return { handoff: true, ...(summary ? { summary } : {}) };
+  for (const raw of reply.split("\n")) {
+    const line = raw.trim();
+    if (line.slice(0, 7).toUpperCase() !== "HANDOFF") continue;
+    const rest = line.slice(7).trimStart();
+    if (!rest.startsWith(":")) continue;
+    const summary = [...rest.slice(1)]
+      .filter((ch) => ch !== "`" && ch !== "*")
+      .join("")
+      .trim()
+      .slice(0, 500);
+    return { handoff: true, ...(summary ? { summary } : {}) };
+  }
+  return { handoff: false };
 }
 
 /** Same-role turns merged, starting with the customer: what every model's API accepts. */
