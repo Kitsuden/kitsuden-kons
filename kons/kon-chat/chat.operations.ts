@@ -5,7 +5,8 @@
  * Admins set bots up, give them knowledge and read what happened (conversations, feedback, spending). The team
  * talks to team bots; anyone talks to a public bot through `/public/…`, which the core's gates leave open and the
  * kon limits by itself. Each way of talking comes twice: a plain answer, and the same answer streamed in the AI
- * SDK's protocol (`/stream`).
+ * SDK's protocol (`/stream`). A channel bot has no route to talk to: another kon (koe) reaches it through the
+ * `chat-channel-turns` queue (chat.channel.ts); here it is only set up and overseen.
  */
 
 import { createHash } from "node:crypto";
@@ -17,9 +18,10 @@ import { and, desc, eq, gte, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "zod";
 
+import { CHANNEL_TOOLSET, channelUsageByDay } from "./chat.channel";
 import { addDocument, textOfFile } from "./chat.knowledge";
 import { chatBots, chatConversations, chatDocuments, chatMessages } from "./chat.schema";
-import { MAX_MESSAGE_CHARS, converse, fork, mayUse, messagesOf, rate, speakersConversation, type Bot, type Speaker } from "./chat.service";
+import { MAX_MESSAGE_CHARS, converse, fork, mayUse, messagesOf, rate, spentSince, speakersConversation, type Bot, type Speaker } from "./chat.service";
 import { streamTurn } from "./chat.stream";
 import { widgetScript } from "./chat.widget";
 import { CONFIGURE, USE, registry } from "./operations";
@@ -33,19 +35,25 @@ const BotFields = z.object({
   slug: z.string().regex(/^[a-z0-9][a-z0-9-]{1,59}$/).describe("Its address: lowercase letters, digits and dashes"),
   name: z.string().trim().min(1).max(200),
   agentId: z.string().min(1).max(100).describe("The core agent identity that answers: its model, prompt and scopes"),
-  audience: z.enum(["team", "public"]).describe("`team`: signed-in admins and editors. `public`: anyone, through the widget, with no tools"),
+  audience: z
+    .enum(["team", "public", "channel"])
+    .describe(
+      "`team`: signed-in admins and editors. `public`: anyone, through the widget, with no tools. `channel`: another kon's customers (koe's WhatsApp, Messenger, Instagram, web chat) through a queue"
+    ),
   toolset: z
     .string()
     .max(500)
     .nullable()
     .optional()
-    .describe("Team bots only: the tool group it may use, as `kon:<id>/<group>` (`kon:crm/assistant`). Without it, no tools"),
+    .describe(
+      "Team and channel bots: the tool group it may use, as `kon:<id>/<group>` (`kon:crm/assistant`). A channel bot's must be a READ-ONLY group (`kon:ecommerce/assistant`): anyone with the number talks to it. Without it, no tools"
+    ),
   greeting: z.string().trim().max(1000).nullable().optional(),
   members: z.array(z.string().min(1).max(100)).max(500).optional().describe("Team bots: only these user ids may talk to it. Empty = the whole team"),
   allowedOrigins: z.array(z.string().url().max(300)).max(20).optional().describe("Public bots: the sites that may embed it. Empty = any"),
   dailyLimit: z.number().int().min(1).max(100_000).optional(),
   userDailyLimit: z.number().int().min(1).max(100_000).optional().describe("Questions per person per day (team bots)"),
-  visitorHourlyLimit: z.number().int().min(1).max(1000).optional(),
+  visitorHourlyLimit: z.number().int().min(1).max(1000).optional().describe("Questions per visitor per hour (public bots), per conversation per hour (channel bots)"),
   priceInPerMillion: z.number().min(0).max(10_000).optional().describe("USD per million input tokens of its agent's model"),
   priceOutPerMillion: z.number().min(0).max(10_000).optional().describe("USD per million output tokens"),
   dailyBudgetUsd: z.number().positive().max(1_000_000).nullable().optional().describe("Stops answering for the day once spent"),
@@ -90,6 +98,20 @@ function originAllowed(bot: Bot, origin: string | undefined): boolean {
   if (allowed.length === 0) return true;
   if (!origin) return false;
   return allowed.some((o) => new URL(o).origin === origin);
+}
+
+/**
+ * The rules of each audience, for a bot as it would be after the change. A public bot has no tools and no
+ * members; a channel bot has no members (nobody signs in to it) and at most one named tool group, which the
+ * admin must keep read-only: the kon checks its shape, not what its tools do.
+ */
+function checkAudience(bot: { audience?: string; toolset?: string | null; members?: string[] | null }, changing: boolean): void {
+  if (bot.audience === "public" && bot.toolset) throw AppError.validation(changing ? "A public bot cannot use tools: clear `toolset` first" : "A public bot cannot use tools: leave `toolset` out");
+  if (bot.audience === "public" && (bot.members ?? []).length) throw AppError.validation(changing ? "A public bot has no members: clear `members` first" : "A public bot has no members: it is for anyone");
+  if (bot.audience === "channel" && (bot.members ?? []).length) throw AppError.validation("A channel bot has no members: its customers write through another kon");
+  if (bot.audience === "channel" && bot.toolset && !CHANNEL_TOOLSET.test(bot.toolset)) {
+    throw AppError.validation("A channel bot's `toolset` is one read-only group, as `kon:<id>/<group>` (`kon:ecommerce/assistant`)");
+  }
 }
 
 const money = (n: number | undefined | null) => (n === undefined ? undefined : n === null ? null : n.toFixed(4));
@@ -161,7 +183,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
       id: "create-chatbot",
       summary: "Create a chatbot",
       description:
-        "A channel to one of the core's agents. A `public` bot answers anyone on a website and never uses tools; a `team` bot may use one tool group (`toolset`), within what its agent may already do, and may be limited to some `members`. Prices per million tokens make spending and `dailyBudgetUsd` meaningful. 409 if the slug is taken. Admin only.",
+        "A channel to one of the core's agents. A `public` bot answers anyone on a website and never uses tools; a `team` bot may use one tool group (`toolset`), within what its agent may already do, and may be limited to some `members`; a `channel` bot answers another kon's customers (koe) through a queue, from its knowledge and at most one read-only tool group (`kon:<id>/<group>`). Prices per million tokens make spending and `dailyBudgetUsd` meaningful. 409 if the slug is taken. Admin only.",
       access: "session",
       permission: CONFIGURE,
       sensitive: true,
@@ -171,8 +193,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
     },
     async (c, input) => {
       const body = input.body as z.infer<typeof BotFields>;
-      if (body.audience === "public" && body.toolset) throw AppError.validation("A public bot cannot use tools: leave `toolset` out");
-      if (body.audience === "public" && body.members?.length) throw AppError.validation("A public bot has no members: it is for anyone");
+      checkAudience(body, false);
       if (await botBy("slug", body.slug)) throw AppError.conflict("That slug is taken");
       const user = c.get("user") as { id?: string } | undefined;
       const [row] = await db()
@@ -188,7 +209,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "update-chatbot",
       summary: "Change a chatbot",
-      description: "Any of its settings. A public bot still cannot have tools or members (422). 404 if it does not exist. Admin only.",
+      description: "Any of its settings. A public bot still cannot have tools or members, nor a channel bot members or a toolset that is not `kon:<id>/<group>` (422). 404 if it does not exist. Admin only.",
       access: "session",
       permission: CONFIGURE,
       sensitive: true,
@@ -199,8 +220,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
       const bot = await botBy("id", input.params.id);
       if (!bot) throw AppError.notFound("Bot not found");
       const next = { ...bot, ...input.body };
-      if (next.audience === "public" && next.toolset) throw AppError.validation("A public bot cannot use tools: clear `toolset` first");
-      if (next.audience === "public" && (next.members ?? []).length) throw AppError.validation("A public bot has no members: clear `members` first");
+      checkAudience(next, true);
       if (input.body.slug && input.body.slug !== bot.slug && (await botBy("slug", input.body.slug))) throw AppError.conflict("That slug is taken");
       const [row] = await db()
         .update(chatBots)
@@ -320,7 +340,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
       id: "get-chatbot-usage",
       summary: "See what a chatbot answered and spent",
       description:
-        "Per day for the last `days` (default 30, at most 365): questions, tokens in and out, cost in USD at the bot's prices, and ratings up and down. Plus today's totals against its limits and budget. Admin only.",
+        "Per day for the last `days` (default 30, at most 365): questions, tokens in and out, cost in USD at the bot's prices, and ratings up and down; turns answered for a channel (koe) count too, and `channelQuestions` says how many of them they were. Plus today's totals against its limits and budget. Admin only.",
       access: "session",
       permission: CONFIGURE,
       input: { params: ParamId, query: z.object({ days: z.string().optional() }) },
@@ -346,15 +366,24 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
         .where(and(eq(chatMessages.botId, bot.id), gte(chatMessages.createdAt, since)))
         .groupBy(sql`1`)
         .orderBy(sql`1 DESC`);
-      const last24 = new Date(Date.now() - 86_400_000);
-      const [today] = await db()
-        .select({ questions: sql<number>`count(*) FILTER (WHERE ${chatMessages.role} = 'user')::int`, costUsd: sql<string>`coalesce(sum(${chatMessages.costUsd}), 0)` })
-        .from(chatMessages)
-        .where(and(eq(chatMessages.botId, bot.id), gte(chatMessages.createdAt, last24)));
+      // Channel turns (koe) have no messages here: their counts join the same days.
+      const byDay = new Map<string, Record<string, unknown>>(rows.map((r: Record<string, unknown>) => [String(r.day), { ...r, costUsd: Number(r.costUsd), channelQuestions: 0 }]));
+      for (const t of await channelUsageByDay(db(), bot.id, since)) {
+        const d = byDay.get(t.day) ?? { day: t.day, questions: 0, tokensIn: 0, tokensOut: 0, costUsd: 0, up: 0, down: 0, channelQuestions: 0 };
+        byDay.set(t.day, {
+          ...d,
+          questions: Number(d.questions) + t.questions,
+          tokensIn: Number(d.tokensIn) + t.tokensIn,
+          tokensOut: Number(d.tokensOut) + t.tokensOut,
+          costUsd: Number(d.costUsd) + t.costUsd,
+          channelQuestions: t.questions,
+        });
+      }
+      const today = await spentSince(db(), bot.id, new Date(Date.now() - 86_400_000));
       return c.json({
         data: {
-          days: rows.map((r: Record<string, unknown>) => ({ ...r, costUsd: Number(r.costUsd) })),
-          last24h: { questions: today?.questions ?? 0, costUsd: Number(today?.costUsd ?? 0), dailyLimit: bot.dailyLimit, dailyBudgetUsd: bot.dailyBudgetUsd == null ? null : Number(bot.dailyBudgetUsd) },
+          days: [...byDay.values()].sort((a, b) => String(b.day).localeCompare(String(a.day))),
+          last24h: { questions: today.asked, costUsd: today.spent, dailyLimit: bot.dailyLimit, dailyBudgetUsd: bot.dailyBudgetUsd == null ? null : Number(bot.dailyBudgetUsd) },
         },
       });
     }

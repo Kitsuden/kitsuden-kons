@@ -1,0 +1,41 @@
+{
+  "components": [
+    "alert",
+    "avatar",
+    "badge",
+    "button",
+    "card",
+    "card-content",
+    "card-footer",
+    "card-header",
+    "card-title",
+    "checkbox",
+    "confirm-dialog",
+    "copy-button",
+    "data-table",
+    "description-list",
+    "dialog",
+    "dropdown-menu",
+    "empty-state",
+    "field",
+    "input",
+    "kbd",
+    "menu-item",
+    "menu-label",
+    "menu-separator",
+    "popover",
+    "save-bar",
+    "select",
+    "skeleton",
+    "spinner",
+    "switch",
+    "tabs",
+    "textarea",
+    "theme-scope",
+    "toaster"
+  ],
+  "modules": [
+    "motion",
+    "toast.svelte"
+  ]
+}

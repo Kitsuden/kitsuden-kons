@@ -1,12 +1,13 @@
 # kon-chat
 
-Chatbots over the agents the Kitsuden core already runs: team bots that may use one tool group, and public
-bots on a website that answer from what you teach them. For site admins who want a support or team
-assistant without writing an agent loop.
+Chatbots over the agents the Kitsuden core already runs: team bots that may use one tool group, public
+bots on a website that answer from what you teach them, and channel bots that answer kon-koe's customers on
+WhatsApp, Messenger, Instagram and web chat. For site admins who want a support or team assistant without
+writing an agent loop.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | content | 1.0.3 | `/api/chat` | — (core `auth`; the core's agent engine; kon-ingest optional) |
+| experimental | content | 1.1.0 | `/api/chat` | — (core `auth`; the core's agent engine; kon-ingest optional) |
 
 A bot is a channel to one agent identity: the agent brings the model (whatever provider the core is
 configured with), its prompt and its permissions; the bot adds who may talk to it, what it knows, which
@@ -32,8 +33,8 @@ so pass `--enable` or switch it on in the admin panel (**Kons**).
 
 ## What it adds
 
-- **Bots** (`chat_bots`): slug, name, agent identity, audience (`team` or `public`), tool group, greeting,
-  members, allowed origins, limits, token prices and daily budget.
+- **Bots** (`chat_bots`): slug, name, agent identity, audience (`team`, `public` or `channel`), tool group,
+  greeting, members, allowed origins, limits, token prices and daily budget.
 - **Knowledge** (`chat_documents`, `chat_chunks`): documents an admin teaches a bot, cut into chunks of about
   800 characters with a small overlap. A document with a `conversation_id` is an attachment that only its
   conversation searches.
@@ -41,6 +42,8 @@ so pass `--enable` or switch it on in the admin panel (**Kons**).
   SHA-256 hash of a random key the browser keeps; nothing else identifies a visitor).
 - **Messages** (`chat_messages`): kept as parts (text, tools called with their input and whether they
   worked, approvals waited for, sources), with tokens, cost and the rating people gave.
+- **Channel turns** (`chat_channel_turns`): one row per turn a channel bot answered for another kon, with
+  its outcome, tokens, cost, sources and tool names, and no text: that kon keeps the conversation.
 
 Two kinds of question:
 
@@ -56,6 +59,39 @@ Two kinds of question:
 | Where | The `/api/chat/bots/:slug/...` routes, from an app built on top | The widget: `<script src=".../api/chat/public/widget.js" data-bot="help" defer></script>` |
 | Tools | One tool group (`toolset`), within its agent's `allowedTools`; none without it | Never |
 | Limits | Per person per day, the bot's daily messages and budget | Per visitor per hour, the bot's daily messages and budget, 30 requests a minute per connection |
+
+### Channel bots (kon-koe)
+
+kon-chat is the bot, kon-koe is the channel. koe owns the WhatsApp, Messenger, Instagram and web chat
+conversations and their messages; a bot with `audience: "channel"` answers them. The two kons never import
+each other: they talk through the core's Postgres queue.
+
+- koe puts a job on `chat-channel-turns`: `{ botSlug, replyQueue, ref: { conversationId, messageId },
+  message, history: [{ role, content }], context, contact: { name, locale } }`. `context` is koe's store
+  context (the customer, open payment promises, recent kon-ecommerce orders, the kon-crm record), short
+  plain text that reaches the model as reference data.
+- kon-chat runs the bot and puts the answer on `replyQueue`: `{ ref, reply, sources, handoff, summary?,
+  costUsd, tokensIn, tokensOut, error?, errorCode? }`. `errorCode` is `unavailable` (no active channel bot
+  with that slug), `no-engine`, `limit` (daily limit, budget, or the conversation's hourly limit),
+  `failed` (the run failed on its last attempt, or answered nothing) or `invalid` (a malformed turn).
+- Knowledge is searched exactly as for a public bot (the bot's documents; there are no attachments).
+- Memory and brain notes stay off, as for every bot run here.
+- Handoff: the run is told to answer exactly `HANDOFF: <one-line summary>` when the customer asks for a
+  person or it cannot help. kon-chat finds that line and answers `handoff: true` with the summary, and no
+  reply text.
+- Tools: a channel bot may have one tool group, `kon:<id>/<group>` (checked on create and update). Only a
+  READ-ONLY group belongs there (`kon:ecommerce/assistant`: look an order up, never refund it): anyone with
+  the number talks to the bot. The kon checks the shape of the group, not what its tools do; that is the
+  admin's choice. Without a group the bot has no tools.
+- Limits: the bot's `dailyLimit` and `dailyBudgetUsd` count channel turns together with its other
+  messages. There is no visitor, so `visitorHourlyLimit` is the limit per conversation of the channel per
+  hour. A refused turn costs nothing and is not counted.
+- Cost: each turn leaves a row in `chat_channel_turns`; `GET /bots/:id/usage` adds them to its days
+  (`channelQuestions` says how many were channel turns) and to the last 24 hours. No `chat_conversations`
+  row is created.
+- At least once: the row is unique per reply queue and message id, so a repeated job finds it and neither
+  runs nor pays for the turn again.
+- A channel bot is not reachable through the team or public routes (404).
 
 Runs go through the core's agent engine with memory and brain notes off and without caching: one agent
 serves many people here, and one must never read what another said.
@@ -81,14 +117,14 @@ Admin (configure):
 | Method and path | What it does |
 | --- | --- |
 | `GET /api/chat/bots` | Every bot with its settings. |
-| `POST /api/chat/bots` | Create a bot. 409 if the slug is taken; 422 for a public bot with `toolset` or `members`. |
+| `POST /api/chat/bots` | Create a bot. 409 if the slug is taken; 422 for a public bot with `toolset` or `members`, or a channel bot with `members` or a `toolset` that is not `kon:<id>/<group>`. |
 | `PATCH /api/chat/bots/:id` | Change any setting. Same rules; 404 if missing. |
 | `DELETE /api/chat/bots/:id` | Delete a bot with its knowledge, conversations and messages. |
 | `GET /api/chat/bots/:id/knowledge` | Its documents (not attachments), with chunk counts and whether they have embeddings. |
 | `POST /api/chat/bots/:id/knowledge` | Teach it a document (`title`, `content`). 400 past 5,000 chunks per bot without pgvector. |
 | `DELETE /api/chat/knowledge/:id` | Forget a document and its chunks. |
 | `GET /api/chat/bots/:id/conversations` | Its latest 200 conversations, newest first. |
-| `GET /api/chat/bots/:id/usage` | Per day for `days` (default 30, max 365): questions, tokens, cost, ratings; plus the last 24 hours against the limits. |
+| `GET /api/chat/bots/:id/usage` | Per day for `days` (default 30, max 365): questions, tokens, cost, ratings, with channel turns included (`channelQuestions`); plus the last 24 hours against the limits. |
 | `GET /api/chat/bots/:id/feedback` | Rated answers with the question before each; `rating=up` or `rating=down`. |
 
 Team (use):
@@ -132,7 +168,8 @@ The policy is `chat.policy.ts` (resource `chat`):
 
 Row security (`migrations/0001_agents_in_rls.sql`): bots are written by admins and read by the team;
 documents and chunks are admin-only; a person reads only their own conversations and messages, an admin
-reads all. "Admin" and "team" in those policies are the core's effective ones: the human role, or an agent
+reads all. Channel turns (`migrations/0003_channel_bots.sql`) are written by the system only (the queue
+handler) and read by admins and by an agent with `chat:configure` or `kon:chat:get-chatbot-usage`. "Admin" and "team" in those policies are the core's effective ones: the human role, or an agent
 whose key opens the whole kon (`chat:*`, `kon:chat:*` or `admin`). `migrations/0002_fine_scopes_in_rls.sql`
 also lets in an agent whose key grants the admin operation that needs the table: `chat:configure` for all of
 them, or one operation's fine scope (`kon:chat:list-chatbots` reads bots, `kon:chat:add-chatbot-knowledge`
@@ -145,7 +182,7 @@ a public bot reached from a team route (or the reverse).
 ## Configuration
 
 Per bot, through the API or the **Chatbots** admin view: `dailyLimit` (default 500), `userDailyLimit`
-(default 200), `visitorHourlyLimit` (default 30), `priceInPerMillion`, `priceOutPerMillion`,
+(default 200), `visitorHourlyLimit` (default 30; per conversation for a channel bot), `priceInPerMillion`, `priceOutPerMillion`,
 `dailyBudgetUsd`, `allowedOrigins`, `members`, `toolset`, `greeting`, `active`.
 
 The kon reads no environment variables of its own. It uses the core's agent engine and embeddings, and the
@@ -182,10 +219,13 @@ the whole kon. Details in [AGENTS.md](AGENTS.md).
 | --- | --- |
 | `tests/unit/kon-chat.test.ts` | Setting bots up, public and team turns, streaming, approvals, regenerate, fork, attachments, usage, budget, the widget. |
 | `tests/unit/kon-chat-routes.test.ts` | Who reaches which route (accounts, agents, denials), validation, limits, ownership of conversations, attachments and ratings. |
+| `tests/unit/kon-chat-channel.test.ts` | Channel bots: audience validation, the queue turn (knowledge, store context, handoff, read-only group), limits, budget, cost, usage, repeated jobs. |
+| `tests/unit/kon-koe-ai.test.ts` | The same contract end to end with kon-koe on one database. |
 
 ```bash
 pnpm vitest run tests/unit/kon-chat.test.ts
 pnpm vitest run tests/unit/kon-chat-routes.test.ts
+pnpm vitest run tests/unit/kon-chat-channel.test.ts
 ```
 
 ## License

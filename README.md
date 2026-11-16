@@ -87,6 +87,7 @@ use a kon has had, not how many features it has:
 | `kon-directory` | beta | 1.0.0 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.0.0 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.1.2 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
+| `kon-koe` | experimental | 0.1.0 | 1 | `/api/koe` | One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and… |
 | `kon-payments` | experimental | 1.1.1 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
 
 ### Content and community
@@ -97,7 +98,7 @@ use a kon has had, not how many features it has:
 | `kon-comments` | beta | 1.0.2 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
 | `kon-newsletter` | beta | 1.0.1 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
 | `kon-wiki` | beta | 1.1.3 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
-| `kon-chat` | experimental | 1.0.3 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what… |
+| `kon-chat` | experimental | 1.1.0 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, public on a website answering from what you… |
 
 ### Gaming
 
