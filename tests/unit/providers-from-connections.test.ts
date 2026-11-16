@@ -1,14 +1,14 @@
 /**
- * kon-payments and kon-newsletter take their providers' keys from kon-connections
+ * kon-payments and kon-newsletter take their providers' keys from Kitsuden's connections
  * ============================================================================
  *
- * kon-connections is a double with its contract (`registerProvider`, `connectedClient`); its own suite
- * checks the real one. What these tests hold:
+ * Kitsuden's `ctx.connections` is a double with its contract (`registerProvider`, `client`); the core's
+ * own suite checks the real one. What these tests hold:
  *   - an organization's connection makes Stripe (or Resend) available without a key in the environment,
  *     and the provider's requests go through the connection's client, never carrying a key of their own;
  *   - a key in the environment wins over a connection;
  *   - Mailgun's key travels as HTTP Basic (`api:<key>`), the way Mailgun asks for it;
- *   - without kon-connections, nothing changes.
+ *   - on a Kitsuden without connections, nothing changes.
  */
 
 import { afterEach, describe, expect, it } from "vitest";
@@ -26,9 +26,10 @@ function fakeConnections(connected: string[]) {
   return {
     registered,
     calls,
-    kon: {
-      registerProvider: (p: Registered) => registered.push(p),
-      connectedClient: async (_ctx: unknown, req: { provider: string }) => {
+    ctx: {
+      connections: {
+      registerProvider: (_konId: string, p: Registered) => registered.push(p),
+      client: async (_konId: string, req: { provider: string }) => {
         if (!connected.includes(req.provider)) throw new Error("NO_CONNECTION");
         return {
           fetch: async (url: string, init?: RequestInit) => {
@@ -40,23 +41,24 @@ function fakeConnections(connected: string[]) {
           },
         };
       },
-    },
+      },
+    } as never,
   };
 }
 
-const ctx = {} as never;
+const none = {} as never;
 const env = (over: Record<string, string>) => ({ ...over }) as NodeJS.ProcessEnv;
 
 afterEach(async () => {
-  // Leave both kons as if kon-connections were not installed.
-  await paymentsRefresh(ctx, null);
-  await newsletterRefresh(ctx, null);
+  // Leave both kons as on a Kitsuden without connections.
+  await paymentsRefresh(none);
+  await newsletterRefresh(none);
 });
 
 describe("kon-payments", () => {
   it("an organization's Stripe connection makes Stripe available, and requests go through it", async () => {
     const f = fakeConnections(["stripe"]);
-    expect(await paymentsRefresh(ctx, f.kon as never, env({}))).toEqual(["stripe"]);
+    expect(await paymentsRefresh(f.ctx, env({}))).toEqual(["stripe"]);
     expect(f.registered.map((p) => p.id)).toEqual(["stripe", "lemonsqueezy", "paddle"]);
     expect(f.registered[0]!.apiHosts).toEqual(["api.stripe.com"]);
 
@@ -74,11 +76,11 @@ describe("kon-payments", () => {
 
   it("a key in the environment wins over the connection", async () => {
     const f = fakeConnections(["stripe"]);
-    expect(await paymentsRefresh(ctx, f.kon as never, env({ STRIPE_SECRET_KEY: "sk_env" }))).toEqual([]);
+    expect(await paymentsRefresh(f.ctx, env({ STRIPE_SECRET_KEY: "sk_env" }))).toEqual([]);
   });
 
-  it("without kon-connections nothing changes", async () => {
-    expect(await paymentsRefresh(ctx, null)).toEqual([]);
+  it("on a Kitsuden without connections nothing changes", async () => {
+    expect(await paymentsRefresh(none)).toEqual([]);
     expect([...buildProviders(env({})).keys()]).toEqual([]);
   });
 });
@@ -86,7 +88,7 @@ describe("kon-payments", () => {
 describe("kon-newsletter", () => {
   it("a Resend connection becomes the sending service, and sends through the connection", async () => {
     const f = fakeConnections(["resend"]);
-    expect(await newsletterRefresh(ctx, f.kon as never, env({}))).toEqual(["resend"]);
+    expect(await newsletterRefresh(f.ctx, env({}))).toEqual(["resend"]);
     const transport = buildTransport(env({}), { send: async () => undefined } as never);
     expect(transport.name).toBe("resend");
     await transport.sendBatch([{ to: "a@b.example", from: "news@site.example", subject: "s", html: "<p>h</p>", text: "h" } as never]).catch(() => undefined);
@@ -95,7 +97,7 @@ describe("kon-newsletter", () => {
 
   it("Mailgun's key is sent as HTTP Basic api:<key>", async () => {
     const f = fakeConnections([]);
-    await newsletterRefresh(ctx, f.kon as never, env({}));
+    await newsletterRefresh(f.ctx, env({}));
     const mailgun = f.registered.find((p) => p.id === "mailgun")!;
     expect(mailgun.apiHosts).toEqual(["api.mailgun.net", "api.eu.mailgun.net"]);
     expect(mailgun.apiKeyHeader!.encode!("key-123")).toBe(`Basic ${btoa("api:key-123")}`);

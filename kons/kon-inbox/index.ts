@@ -2,7 +2,7 @@
  * @kitsuden/kon-inbox
  * ============================================================================
  *
- * A person's mailbox and calendar, synced from an account they connected in kon-connections, matched to
+ * A person's mailbox and calendar, synced from an account they connected in Kitsuden (`ctx.connections`), matched to
  * the CRM's contacts by email (kon-crm listens to this kon's events and links each message and meeting to
  * the contacts on it).
  *
@@ -15,7 +15,7 @@
  *   who sees it       the owner. A thread (or the whole mailbox, by default) marked `team` is also READ by
  *                     admins and editors. Row security enforces it (migrations/0001_inbox.sql)
  *   deleting          removing a mailbox deletes everything synced from it and its links; revoking its
- *                     connection in kon-connections does the same, by itself
+ *                     connection in Kitsuden's connections does the same, by itself
  *
  * ── SYNC ───────────────────────────────────────────────────────────────────
  *
@@ -25,12 +25,12 @@
  */
 
 import { AppError, defineKonSdk, operationsRouter, queue, unlinkAll, type AnyOperation, type AuthzUser } from "@kitsuden/engine";
-import { connectedClient, ConnectionError, covers, providerOf, visibleConnection } from "@kitsuden/kon-connections";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, gte, inArray, lt, lte, or, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
+import { KON, connectionErrorOf, connectionsOf } from "./inbox.connections";
 import "./inbox.policy";
 import {
   inboxEvents,
@@ -58,7 +58,7 @@ const SYNC_EVERY_MS = 5 * 60_000;
 const Visibility = z.enum(["private", "team"]);
 const AddMailbox = z
   .object({
-    connectionId: z.string().uuid().describe("Your Google or Microsoft connection (kon-connections)"),
+    connectionId: z.string().uuid().describe("Your Google or Microsoft connection (/api/connections)"),
     syncMail: z.boolean().default(true),
     syncCalendar: z.boolean().default(true),
     defaultVisibility: Visibility.default("private").describe("`team`: admins and editors read what it brings"),
@@ -114,11 +114,13 @@ export async function runSync(ctx: KonContext, mailboxId: string, now = new Date
   if (!source) return null;
   const announced: Array<[string, Record<string, unknown>]> = [];
   try {
-    const client = await connectedClient(ctx, {
+    const connections = connectionsOf(ctx);
+    if (!connections) throw new SourceError("This Kitsuden has no connections battery", 503);
+    const client = await connections.client(KON, {
       provider: mailbox.provider,
       connectionId: mailbox.connectionId,
       ownerId: mailbox.ownerId,
-      purpose: `kon-inbox: sync ${mailbox.address}`,
+      purpose: `sync ${mailbox.address}`,
       actorUserId: mailbox.ownerId,
     });
     const changes = await fetchChanges(mailbox, source, client, now);
@@ -129,7 +131,7 @@ export async function runSync(ctx: KonContext, mailboxId: string, now = new Date
     return result;
   } catch (err) {
     const message =
-      err instanceof ConnectionError || err instanceof SourceError ? err.message : "The sync failed; it will be retried";
+      connectionErrorOf(err) || err instanceof SourceError ? (err as Error).message : "The sync failed; it will be retried";
     await asSystem(() =>
       db
         .update(inboxMailboxes)
@@ -209,15 +211,16 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       const user = who(c);
       if (!user?.id || user.role === "agent") throw AppError.forbidden("Adding a mailbox to sync is a person's decision");
       const body = input.body as z.infer<typeof AddMailbox>;
-      // As the caller: row security in kon-connections shows only their own.
-      const connection = await visibleConnection(db(), body.connectionId);
+      const connections = connectionsOf(ctx);
+      if (!connections) throw new AppError("INTERNAL", "This Kitsuden has no connections battery", { status: 503, expose: true });
+      // As the caller: the core shows only their own.
+      const connection = await connections.visible(KON, body.connectionId);
       if (!connection || connection.scope !== "user" || connection.ownerId !== user.id) throw AppError.notFound("Connection not found");
       if (connection.status !== "active") throw AppError.conflict("That connection is not active: connect it again");
-      const provider = providerOf(connection.provider);
-      if (!provider || !sourceOf(connection.provider)) throw AppError.validation(`${connection.provider} has no mailbox to sync`);
+      if (!sourceOf(connection.provider)) throw AppError.validation(`${connection.provider} has no mailbox to sync`);
       const needed = [...(body.syncMail ? ["mail.read"] : []), ...(body.syncCalendar ? ["calendar.read"] : [])];
       if (needed.length === 0) throw AppError.validation("Sync mail, calendar or both");
-      if (!covers(provider, connection.grantedScopes, needed)) {
+      if (!connections.covers(connection.provider, connection.grantedScopes, needed)) {
         throw AppError.validation(`The connection does not allow ${needed.join(" and ")}: connect it again asking for it`);
       }
       if (!connection.accountEmail) throw AppError.validation("The connection does not say which address it is");
@@ -276,7 +279,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       id: "remove-mailbox",
       summary: "Stop syncing a mailbox and delete what it brought",
       description:
-        "Deletes the mailbox, every thread, message and calendar event synced from it, and the links other kons (the CRM) made to them. The connection itself stays in kon-connections. Cannot be undone. 404 if it is not yours.",
+        "Deletes the mailbox, every thread, message and calendar event synced from it, and the links other kons (the CRM) made to them. The connection itself stays in Kitsuden's connections. Cannot be undone. 404 if it is not yours.",
       access: "session",
       permission: OWN,
       input: { params: ParamId },
@@ -431,12 +434,14 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       }
       const source = sourceOf(m.provider)!;
       try {
-        const client = await connectedClient(ctx, {
+        const connections = connectionsOf(ctx);
+        if (!connections) throw new SourceError("This Kitsuden has no connections battery", 503);
+        const client = await connections.client(KON, {
           provider: m.provider,
           connectionId: m.connectionId,
           ownerId: m.ownerId,
           scopeSets: ["mail.send"],
-          purpose: `kon-inbox: send from ${m.address}`,
+          purpose: `send from ${m.address}`,
           actorUserId: who(c)?.id ?? null,
         });
         const sent = await source.send(client, {
@@ -449,11 +454,11 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
         });
         return c.json({ data: { sent: true, externalId: sent.externalId } }, 201);
       } catch (err) {
-        if (err instanceof ConnectionError && err.code === "NO_CONNECTION") {
+        if (connectionErrorOf(err)?.code === "NO_CONNECTION") {
           throw AppError.validation("This mailbox's connection does not allow sending: connect it again asking for mail.send");
         }
-        if (err instanceof ConnectionError || err instanceof SourceError) {
-          throw new AppError("INTERNAL", `The provider did not send it: ${err.message}`, { status: 502, expose: true });
+        if (connectionErrorOf(err) || err instanceof SourceError) {
+          throw new AppError("INTERNAL", `The provider did not send it: ${(err as Error).message}`, { status: 502, expose: true });
         }
         throw err;
       }

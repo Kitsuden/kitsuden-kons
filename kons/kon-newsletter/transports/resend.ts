@@ -15,7 +15,7 @@ import type { BulkSendResult, BulkTransport } from "../newsletter.types";
 const BATCH_ENDPOINT = "https://api.resend.com/emails/batch";
 
 /**
- * `http`: the organization's resend connection in kon-connections, used when `RESEND_API_KEY` is not set. It adds
+ * `http`: the organization's resend connection in Kitsuden (ctx.connections), used when `RESEND_API_KEY` is not set. It adds
  * the key itself on every request, so the key never reaches this file.
  */
 export function resendTransport(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): BulkTransport {

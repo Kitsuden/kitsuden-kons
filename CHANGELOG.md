@@ -22,12 +22,8 @@ its maturity in the table of the [README](README.md). This file records releases
   with the rule engine (`ctx.automation`) a stage's on-enter and on-exit actions become rules of the kon
   and leave the stage; on one without it, the CRM's own runner keeps them. Moving a deal lives in one
   place (`crm.moves.ts`).
-- New kon-connections 0.1.0: Google, Microsoft and API key accounts per person or for the organization,
-  sealed by the host (`ctx.secrets`, refused without it), refreshed before they expire, revocable, with
-  `connections:connection.created|expired|revoked`. Other kons get a client that sends the credential
-  only to the provider's hosts and never shows it. Row security keeps people apart, admins included.
 - New kon-inbox 0.1.0: a person's Gmail and Google Calendar or Microsoft 365 mailbox, synced
-  incrementally on the queue through kon-connections, metadata only (no bodies). The owner picks the
+  incrementally on the queue through Kitsuden's connections (`ctx.connections`), metadata only (no bodies). The owner picks the
   mailboxes and shares threads with the team; removing a mailbox or revoking its connection deletes what
   it brought. kon-crm puts each message and meeting on the contacts' timeline.
 - kon-crm sells: product lines on a deal with a frozen price, quotes (draft, sent, accepted, rejected)
@@ -40,10 +36,9 @@ its maturity in the table of the [README](README.md). This file records releases
   `crm_entity_configs`: each row moves once at startup and is marked `migratedTo`; a row the core refuses
   stays readable. Migration 0014 drops the foreign key from `crm_deals.entity_config_id`, which now holds
   the old row id or the entity's slug. Without `ctx.entities`, the table is used as before.
-- kon-payments (Stripe, Lemon Squeezy, Paddle) and kon-newsletter (Resend, Mailgun) can take their API key
-  from an organization connection in kon-connections instead of the environment; the key never reaches
-  them, and the environment still wins. kon-connections' API key providers can encode the key
-  (`apiKeyHeader.encode`, Mailgun's HTTP Basic).
+- kon-payments (Stripe, Lemon Squeezy, Paddle) and kon-newsletter (Resend, Mailgun) register their providers
+  in Kitsuden's connections (`ctx.connections`) and can take their API key from an organization connection
+  instead of the environment; the key never reaches them, and the environment still wins.
 - Kons import Zod from `@kitsuden/engine/zod`, as Kitsuden's lint requires (73 files);
   `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so. Patch versions for the kons whose only
   change is that import: kon-academy-lms 1.1.2, kon-agile 1.3.4, kon-analytics 1.0.3, kon-autobattler 1.0.2,

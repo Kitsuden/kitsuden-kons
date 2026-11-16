@@ -1,22 +1,22 @@
 # kon-inbox
 
 A person's mailbox and calendar (Gmail and Google Calendar, or Microsoft 365), synced from an
-account they connected in kon-connections. Each message and meeting is matched to CRM contacts by
+account they connected in Kitsuden's connections (`/api/connections`). Each message and meeting is matched to CRM contacts by
 email: kon-crm listens and puts them on the contact's timeline. The owner decides which mailboxes
 are read and who sees each thread.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 0.1.0 | `/api/inbox` | `kon-connections` (core: `auth`); `kon-crm` optional |
+| beta | business | 0.1.0 | `/api/inbox` | — (core: `auth` and `ctx.connections`); `kon-crm` optional |
 
 ## Install
 
 ```bash
-kitsuden kon add connections inbox --enable
+kitsuden kon add inbox --enable
 ```
 
 Restart the API afterwards. The person connects their Google or Microsoft account in
-kon-connections asking for `mail.read` and `calendar.read` (and `mail.send` to send), then adds it
+Kitsuden (`/api/connections/oauth/start`) asking for `mail.read` and `calendar.read` (and `mail.send` to send), then adds it
 here.
 
 ## What it adds
@@ -69,7 +69,7 @@ synced from them) and `connections:connection.expired` (marks them in error).
 
 ## Configuration
 
-Nothing of its own: the provider credentials and OAuth clients are kon-connections'. The first sync
+Nothing of its own: the provider credentials and OAuth clients are Kitsuden's (docs/connections.md). The first sync
 reads `backfillDays` back (30, at most 365), set per mailbox.
 
 ## Agents and MCP
@@ -82,7 +82,7 @@ Each route is an MCP tool `inbox__<operation id>`. Notes for agents: [AGENTS.md]
 pnpm vitest run tests/unit/kon-inbox.test.ts
 ```
 
-kon-connections, kon-inbox and kon-crm together on PGlite as a non-superuser role, with a provider
+kon-inbox and kon-crm together on PGlite as a non-superuser role, with `ctx.connections` and a provider
 double for Gmail, Google Calendar and Microsoft Graph.
 
 ## License

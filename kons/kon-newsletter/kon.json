@@ -39,8 +39,7 @@
     "kons": [],
     "optionalKons": [
       "kon-blog",
-      "kon-payments",
-      "kon-connections"
+      "kon-payments"
     ],
     "core": [
       "auth"

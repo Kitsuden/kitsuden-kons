@@ -67,7 +67,7 @@ export type { OrderCheckoutResult } from "./payments.orders";
 /** Builds the provider registry; skips those without keys. */
 export function buildProviders(env = process.env): Map<string, PaymentProvider> {
   const all = [
-    // A key in the environment wins; otherwise the organization's connection in kon-connections, if any.
+    // A key in the environment wins; otherwise the organization's connection in Kitsuden (ctx.connections), if any.
     stripeProvider(env, connectedHttp("stripe")),
     lemonSqueezyProvider(env, connectedHttp("lemonsqueezy")),
     paddleProvider(env, connectedHttp("paddle")),
@@ -208,7 +208,7 @@ const definition = defineKonSdk({
 
   hooks: {
     onStartup: async (ctx: KonContext) => {
-      // Keys stored in kon-connections (payments.connections.ts), before the registry is built.
+      // Keys stored in Kitsuden's connections (payments.connections.ts), before the registry is built.
       await refreshConnectedProviders(ctx).catch(() => []);
       followConnections(ctx);
       const providers = buildProviders();

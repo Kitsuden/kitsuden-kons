@@ -198,12 +198,6 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  kons/kon-connections:
-    devDependencies:
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-
   kons/kon-conta:
     dependencies:
       '@hono/zod-validator':
@@ -287,9 +281,6 @@ importers:
 
   kons/kon-inbox:
     devDependencies:
-      '@kitsuden/kon-connections':
-        specifier: workspace:*
-        version: link:../kon-connections
       typescript:
         specifier: ^5.7.0
         version: 5.9.3

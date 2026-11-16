@@ -82,13 +82,12 @@ use a kon has had, not how many features it has:
 | `kon-academy-lms` | beta | 1.1.2 | 1 | `/api/academy` | Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment… |
 | `kon-agile` | beta | 1.3.4 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
 | `kon-booking` | beta | 1.0.2 | 1 | `/api/booking` | Room and resource reservation system with availability tracking, amenities management and conflict detection. |
-| `kon-connections` | beta | 0.1.0 | 1 | `/api/connections` | Accounts at Google, Microsoft and other services, connected once (OAuth or API key), sealed, refreshed, and… |
 | `kon-conta` | beta | 1.0.3 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
 | `kon-crm` | beta | 1.1.0 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |
 | `kon-directory` | beta | 1.0.1 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.0.1 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.2.0 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
-| `kon-inbox` | beta | 0.1.0 | 1 | `/api/inbox` | A person's mailbox and calendar (Gmail, Google Calendar, Microsoft 365), synced through kon-connections… |
+| `kon-inbox` | beta | 0.1.0 | 1 | `/api/inbox` | A person's mailbox and calendar (Gmail, Google Calendar, Microsoft 365), synced through Kitsuden's… |
 | `kon-payments` | experimental | 1.2.0 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
 
 ### Content and community

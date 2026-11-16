@@ -2,7 +2,7 @@
   "$schema": "../../schemas/kon-schema.json",
   "id": "kon-inbox",
   "name": "Inbox",
-  "description": "A person's mailbox and calendar (Gmail, Google Calendar, Microsoft 365), synced through kon-connections, matched to CRM contacts, with the owner deciding who sees each thread",
+  "description": "A person's mailbox and calendar (Gmail, Google Calendar, Microsoft 365), synced through Kitsuden's connections, matched to CRM contacts, with the owner deciding who sees each thread",
   "version": "0.1.0",
   "sdk": 1,
   "type": "kon",
@@ -49,18 +49,13 @@
     ]
   },
   "dependencies": {
-    "kons": [
-      "kon-connections"
-    ],
+    "kons": [],
     "core": [
       "auth"
     ],
     "optionalKons": [
       "kon-crm"
-    ],
-    "versions": {
-      "kon-connections": "^0.1.0"
-    }
+    ]
   },
   "schema": {
     "entry": null,

@@ -1,9 +1,10 @@
 /**
- * kon-inbox: sync a mailbox through kon-connections, keep each person's mail theirs, and feed the CRM
+ * kon-inbox: sync a mailbox through Kitsuden's connections, keep each person's mail theirs, and feed the CRM
  * ============================================================================
  *
- * One PGlite with the core's `kitsuden_links`, kon-connections, kon-inbox and kon-crm, as a NON-superuser
- * role: the three kons installed together, the way the CRM's timeline gets mail. The provider is a `fetch`
+ * One PGlite with the core's `kitsuden_links`, kon-inbox and kon-crm, as a NON-superuser role: the two
+ * kons installed together, the way the CRM's timeline gets mail. Kitsuden's `ctx.connections` is a double
+ * with its contract (`client`, `visible`, `covers`): the core's own suite tests the real one. The provider is a `fetch`
  * double that answers like Gmail, Google Calendar and Microsoft Graph.
  *
  * What these tests hold:
@@ -39,10 +40,8 @@ import { eq } from "drizzle-orm";
 
 import { configureQueue } from "../../.kitsuden/packages/engine/src/queue";
 
-import { fakeSecrets } from "./helpers/fake-secrets";
 import { ACTORS, AGENT_FUNCTIONS, APP_ROLE, dropToAppRole, requestAs, testAuth } from "./helpers/safe-kons-bench";
 
-const secrets = fakeSecrets();
 const A = ACTORS.a.id;
 const B = ACTORS.b.id;
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -111,8 +110,8 @@ function gmail(messages: Record<string, ReturnType<typeof gmailMessage>>, histor
 let pg: PGlite;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a drizzle over PGlite
 let db: any;
-let connA: string;
-let connB: string;
+const connA = "11111111-1111-4111-8111-111111111111";
+const connB = "22222222-2222-4222-8222-222222222222";
 let request: ReturnType<typeof requestAs>;
 const emitted: Array<{ name: string; data: Record<string, unknown> }> = [];
 const busHandlers = new Map<string, Array<(d: unknown) => void>>();
@@ -130,9 +129,37 @@ async function q<T = Record<string, unknown>>(sql: string): Promise<T[]> {
   }
 }
 
-function sealedTokens(): string {
-  return JSON.stringify(secrets.seal("kon-connections", JSON.stringify({ accessToken: "tok", refreshToken: "ref" })));
-}
+/** Kitsuden's `ctx.connections`, as a double: two people's Google accounts, one able to read and send. */
+const GOOGLE_SCOPES: Record<string, string[]> = {
+  "mail.read": ["https://www.googleapis.com/auth/gmail.readonly"],
+  "mail.send": ["https://www.googleapis.com/auth/gmail.send"],
+  "calendar.read": ["https://www.googleapis.com/auth/calendar.readonly"],
+};
+const accounts = [
+  { id: connA, provider: "google", scope: "user" as const, ownerId: A, accountEmail: "me@firm.example", status: "active" as const, grantedScopes: Object.values(GOOGLE_SCOPES).flat() },
+  { id: connB, provider: "google", scope: "user" as const, ownerId: B, accountEmail: "beto@firm.example", status: "active" as const, grantedScopes: ["openid"] },
+];
+const asked: Array<{ konId: string; purpose: string; connectionId?: string; ownerId?: string | null }> = [];
+const covers = (_provider: string, granted: string[], sets: string[]) => sets.every((set) => (GOOGLE_SCOPES[set] ?? [set]).every((x) => granted.includes(x)));
+const connections = {
+  async client(konId: string, req: { provider: string; ownerId?: string | null; connectionId?: string; scopeSets?: string[]; purpose: string }) {
+    asked.push({ konId, purpose: req.purpose, connectionId: req.connectionId, ownerId: req.ownerId });
+    const account = accounts.find((a) => a.id === req.connectionId && a.ownerId === req.ownerId && covers(a.provider, a.grantedScopes, req.scopeSets ?? []));
+    if (!account) throw Object.assign(new Error("No connection covers this"), { name: "ConnectionError", status: 404, code: "NO_CONNECTION" });
+    return {
+      connection: account,
+      fetch: (url: string, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        headers.set("authorization", "Bearer tok");
+        return network(url, { ...init, headers });
+      },
+    };
+  },
+  async visible(_konId: string, id: string) {
+    return accounts.find((a) => a.id === id) ?? null;
+  },
+  covers,
+};
 
 beforeAll(async () => {
   pg = new PG();
@@ -140,7 +167,6 @@ beforeAll(async () => {
   await pg.exec(readFileSync(resolve(__dirname, "../../.kitsuden/apps/api/src/db/migrations/0032_links.sql"), "utf8"));
   const crmDir = resolve(__dirname, "../../kons/kon-crm/migrations");
   for (const f of readdirSync(crmDir).filter((x) => x.endsWith(".sql")).sort()) await pg.exec(readFileSync(resolve(crmDir, f), "utf8"));
-  await pg.exec(readFileSync(resolve(__dirname, "../../kons/kon-connections/migrations/0001_connections.sql"), "utf8"));
   await pg.exec(readFileSync(resolve(__dirname, "../../kons/kon-inbox/migrations/0001_inbox.sql"), "utf8"));
   await pg.exec(`
     CREATE ROLE ${APP_ROLE} NOLOGIN;
@@ -148,23 +174,6 @@ beforeAll(async () => {
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${APP_ROLE};
     INSERT INTO crm_contacts (id, first_name, last_name, email) VALUES ('c-luis', 'Luis', 'Paz', 'luis@client.example');
   `);
-  const scopes = JSON.stringify(["openid", "email", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/gmail.send"]);
-  const [a] = (
-    await pg.query<{ id: string }>(
-      `INSERT INTO conn_connections (provider, scope, owner_id, auth_type, account_email, granted_scopes, credentials, expires_at)
-       VALUES ('google', 'user', $1, 'oauth', 'me@firm.example', $2::jsonb, $3::jsonb, now() + interval '1 day') RETURNING id`,
-      [A, scopes, sealedTokens()]
-    )
-  ).rows;
-  const [b] = (
-    await pg.query<{ id: string }>(
-      `INSERT INTO conn_connections (provider, scope, owner_id, auth_type, account_email, granted_scopes, credentials, expires_at)
-       VALUES ('google', 'user', $1, 'oauth', 'beto@firm.example', '["openid"]'::jsonb, $2::jsonb, now() + interval '1 day') RETURNING id`,
-      [B, sealedTokens()]
-    )
-  ).rows;
-  connA = a!.id;
-  connB = b!.id;
   db = await dropToAppRole(pg);
   registerInboxPolicy();
   // The host's queue writes to its outbox table, which this database does not have; each test that
@@ -179,7 +188,7 @@ beforeAll(async () => {
     off: () => undefined,
   };
   const ctx = createTestKonContext({ db: host.db as never, auth: auth as never, events: events as never });
-  Object.assign(ctx, { secrets });
+  Object.assign(ctx, { connections });
   request = requestAs(host.mount(operationsRouter(KON_ID, inboxOperations(ctx), ctx)));
   listenToConnections(ctx);
   (globalThis as { __inboxCtx?: unknown }).__inboxCtx = ctx;
@@ -311,7 +320,7 @@ describe("Microsoft Graph sync", () => {
   });
 });
 
-describe("through kon-connections, on the queue's path", () => {
+describe("through Kitsuden's connections, on the queue's path", () => {
   it("runSync opens the mailbox's own connection, stores, and announces after the commit", async () => {
     const m = await mailboxOf(A, connA);
     handlers = [gmail({ m1: gmailMessage("m1") })];
@@ -319,7 +328,7 @@ describe("through kon-connections, on the queue's path", () => {
     const r = await runSync(ctx, m.id);
     expect(r).toMatchObject({ messages: 1 });
     expect(new Headers(calls.find((c) => c.url.includes("/profile"))!.init!.headers).get("authorization")).toBe("Bearer tok");
-    expect(secrets.opened.at(-1)).toMatchObject({ kon: "kon-connections", purpose: "kon-inbox: sync me@firm.example" });
+    expect(asked.at(-1)).toEqual({ konId: "kon-inbox", purpose: "sync me@firm.example", connectionId: connA, ownerId: A });
     expect(emitted.map((e) => e.name)).toContain("inbox:message.received");
   });
 

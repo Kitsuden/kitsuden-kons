@@ -120,7 +120,7 @@ interface BlogPostLike {
  * It is the correct default option, not a plan B.
  */
 export function buildTransport(env = process.env, driver?: MailDriver): BulkTransport {
-  // A key in the environment wins; otherwise the organization's connection in kon-connections, if any.
+  // A key in the environment wins; otherwise the organization's connection in Kitsuden (ctx.connections), if any.
   const natives = [resendTransport(env, connectedHttp("resend")), mailgunTransport(env, connectedHttp("mailgun")), postalTransport(env)];
 
   const forced = env.NEWSLETTER_TRANSPORT;
@@ -411,7 +411,7 @@ const definition = defineKonSdk({
 
   hooks: {
     onStartup: async (ctx: KonContext) => {
-      // Sending services stored in kon-connections (newsletter.connections.ts).
+      // Sending services stored in Kitsuden's connections (newsletter.connections.ts).
       await refreshConnectedProviders(ctx).catch(() => []);
       followConnections(ctx);
       // A kon registers its own emails: the host knows nothing about them.

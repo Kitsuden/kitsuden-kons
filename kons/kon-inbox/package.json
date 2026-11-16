@@ -1,12 +1,13 @@
 {
   "name": "@kitsuden/kon-inbox",
   "version": "0.1.0",
-  "description": "A person's mailbox and calendar synced through kon-connections, matched to CRM contacts",
+  "description": "A person's mailbox and calendar synced through Kitsuden's connections, matched to CRM contacts",
   "type": "module",
   "main": "./index.ts",
   "files": [
     "AGENTS.md",
     "README.md",
+    "inbox.connections.ts",
     "inbox.policy.ts",
     "inbox.schema.ts",
     "inbox.sources.ts",
@@ -31,14 +32,12 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.7.0",
-    "@kitsuden/kon-connections": "workspace:*"
+    "typescript": "^5.7.0"
   },
   "peerDependencies": {
     "hono": "^4.7.0",
     "drizzle-orm": "^0.45.0",
-    "zod": "^4.6.7",
-    "@kitsuden/kon-connections": "workspace:*"
+    "zod": "^4.6.7"
   },
   "kitsuden": {
     "type": "kon",

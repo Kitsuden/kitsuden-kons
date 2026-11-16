@@ -38,7 +38,7 @@ const STATUS: Record<string, SubscriptionStatus> = {
 };
 
 /**
- * `http`: the organization's lemonsqueezy connection in kon-connections, used when `LEMONSQUEEZY_API_KEY` is not set. It adds
+ * `http`: the organization's lemonsqueezy connection in Kitsuden (ctx.connections), used when `LEMONSQUEEZY_API_KEY` is not set. It adds
  * the key itself on every request, so the key never reaches this file. Webhook secrets stay in the environment:
  * a signature is checked with the secret in hand.
  */

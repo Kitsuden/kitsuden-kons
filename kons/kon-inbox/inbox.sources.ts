@@ -3,7 +3,7 @@
  * ============================================================================
  *
  * Each provider is a `MailSource`: read the mail and the calendar since a cursor, and send. The requests
- * go through kon-connections' client (it adds the credential and only reaches the provider's hosts); this
+ * go through Kitsuden's connections client (it adds the credential and only reaches the provider's hosts); this
  * file only knows URLs and shapes.
  *
  * ── INCREMENTAL, IN BOUNDED STEPS ──────────────────────────────────────────

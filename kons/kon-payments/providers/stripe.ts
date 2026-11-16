@@ -58,7 +58,7 @@ const STATUS: Record<string, SubscriptionStatus> = {
 };
 
 /**
- * `http`: the organization's stripe connection in kon-connections, used when `STRIPE_SECRET_KEY` is not set. It adds
+ * `http`: the organization's stripe connection in Kitsuden (ctx.connections), used when `STRIPE_SECRET_KEY` is not set. It adds
  * the key itself on every request, so the key never reaches this file. Webhook secrets stay in the environment:
  * a signature is checked with the secret in hand.
  */

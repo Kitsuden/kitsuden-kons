@@ -5,7 +5,7 @@ Repository-wide rules: [../../AGENTS.md](../../AGENTS.md).
 
 ## What it is
 
-A person's mailbox and calendar synced through kon-connections, metadata only (sender,
+A person's mailbox and calendar synced through Kitsuden's connections (`ctx.connections`), metadata only (sender,
 recipients, subject, preview, dates). kon-crm links each message and meeting to the contacts on it.
 
 ## Calling it
@@ -22,7 +22,7 @@ recipients, subject, preview, dates). kon-crm links each message and meeting to 
 
 | File | Responsibility |
 | --- | --- |
-| `index.ts` | Operations, `runSync` (fetch, then store in one transaction), the queue handler and timer, listeners for kon-connections, the kon definition. |
+| `index.ts` | Operations, `runSync` (fetch, then store in one transaction), the queue handler and timer, listeners for connection events, the kon definition. |
 | `inbox.sources.ts` | Gmail, Google Calendar and Microsoft Graph: incremental reads, sending, address parsing, MIME. |
 | `inbox.sync.ts` | `fetchChanges` (network) and `storeChanges` (database, announces new items). |
 | `inbox.schema.ts` | Tables and `publicMailbox`. |
@@ -44,9 +44,9 @@ recipients, subject, preview, dates). kon-crm links each message and meeting to 
 ## Changing it
 
 - A new provider: a `MailSource` in `inbox.sources.ts`, registered in `SOURCES`, and its hosts in
-  kon-connections' catalog.
+  Kitsuden's connections catalog (docs/connections.md).
 - A new route: add it to `authorization-matrix.kons.json` and to the README.
 
 ## Tests
 
-`tests/unit/kon-inbox.test.ts`, with kon-connections and kon-crm installed in the same database.
+`tests/unit/kon-inbox.test.ts`, with kon-crm installed in the same database and a `ctx.connections` double.

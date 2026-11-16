@@ -18,7 +18,7 @@ import type { SentMessage } from "@kitsuden/engine";
 import type { BulkSendResult, BulkTransport } from "../newsletter.types";
 
 /**
- * `http`: the organization's mailgun connection in kon-connections, used when `MAILGUN_API_KEY` is not set. It adds
+ * `http`: the organization's mailgun connection in Kitsuden (ctx.connections), used when `MAILGUN_API_KEY` is not set. It adds
  * the key itself on every request, so the key never reaches this file.
  */
 export function mailgunTransport(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): BulkTransport {
