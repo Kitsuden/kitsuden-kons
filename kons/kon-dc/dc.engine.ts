@@ -88,6 +88,7 @@ import {
   type MessagePayload,
   type SlashCommandPayload,
 } from "./dc.rest";
+import { eventVerdict, premiumFromExtensions, settingsForGuild } from "./dc.extensions";
 import * as schema from "./dc.schema";
 import {
   dcBlueprints,
@@ -435,6 +436,8 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
   const db = () => ctx.db.instance as DcDb;
   const settings = options.settings ?? (() => discordSettings());
   const restFor = options.rest ?? ((s: DiscordSettings) => createDiscordRest(s));
+  /** A server's Discord client: its branded bot's credentials when an extension has them. */
+  const restOf = (guildId: string | null | undefined) => restFor(settingsForGuild(settings(), guildId));
   const kitsudenFor = options.kitsuden ?? ((s: DiscordSettings) => createKitsudenClient(s));
   const directAnswerMs = options.directAnswerMs ?? 2000;
   const panelDebounceMs = options.panelDebounceMs ?? 750;
@@ -514,6 +517,9 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
 
   /** Is the server on the premium plan now? */
   async function isPremium(guildId: string): Promise<boolean> {
+    // A billing system (an extension) answers first; null leaves it to this kon's plan table.
+    const billed = await premiumFromExtensions(guildId);
+    if (billed !== null) return billed;
     const [row] = await db().select({ plan: dcGuildPlans.plan, until: dcGuildPlans.until }).from(dcGuildPlans).where(eq(dcGuildPlans.guildId, guildId)).limit(1);
     return !!row && row.plan === "premium" && (row.until === null || row.until.getTime() > clock().getTime());
   }
@@ -1302,7 +1308,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
     const rt: ModuleRuntime = {
       ...where,
       kv: kvFor(where.guildId, active.module.id),
-      rest: rest ?? restFor(s),
+      rest: rest ?? restOf(where.guildId),
       kitsuden: kitsudenFor(s),
       panels: undefined as unknown as ModulePanels,
       economy: economyFor(where.guildId, active.module.id),
@@ -1335,7 +1341,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
       t: (text, vars) => translate(langOf(where.locale ?? guildLocale.get(where.guildId)), text, vars),
       cards: createCardKit({
         guildId: where.guildId,
-        rest: rest ?? restFor(s),
+        rest: rest ?? restOf(where.guildId),
         render: renderPng,
         fetchImage: options.fetchImage,
         known: where.user ? { id: where.user.id, name: where.user.name, avatar: where.user.avatar ?? null } : null,
@@ -1497,6 +1503,8 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
   async function dispatchEvent(envelope: GatewayEventEnvelope): Promise<void> {
     const event = normalizeEvent(envelope);
     if (!event) return;
+    // Extensions (security) see the event first and may stop it before any module.
+    if ((await eventVerdict(event, { rest: restOf(event.guildId) }, (m) => ctx.logger.warn(`Discord: ${m}`))) === "drop") return;
     // Voice: where the member was comes from the sessions; they are updated after the modules ran.
     let afterVoice: (() => Promise<void>) | null = null;
     if (event.type === "VOICE_STATE_UPDATE" && event.user && event.voice) {
@@ -1537,7 +1545,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
     if (event.type === "GUILD_MEMBER_REMOVE" && event.user && !event.isBot) {
       emit(DC_EVENTS.memberLeft, { guildId: event.guildId, userId: event.user.id });
     }
-    const rest = restFor(settings());
+    const rest = restOf(event.guildId);
     if (event.type === "MESSAGE_CREATE" && event.user && !event.isBot) {
       await countActivity(event.guildId, event.user.id, 1, 0).catch((err) =>
         ctx.logger.warn("Discord: activity not counted", { message: messageOf(err) })
@@ -1716,7 +1724,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
       memberPermissions: i.member?.permissions ?? null,
       locale: i.locale ?? i.guild_locale ?? null,
     };
-    const rest = restFor(settings());
+    const rest = restOf(where.guildId);
 
     if (i.type === I_COMMAND || i.type === I_AUTOCOMPLETE) return command(i, where, rest);
     if (i.type === I_COMPONENT || i.type === I_MODAL) return componentOrModal(i, where, rest);
@@ -1857,7 +1865,7 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
 
   async function syncCommands(guildId: string): Promise<SlashCommandPayload[]> {
     const commands = await commandsFor(guildId);
-    const s = settings();
+    const s = settingsForGuild(settings(), guildId);
     if (!s.botToken || !s.applicationId) {
       throw AppError.conflict("Set DISCORD_APPLICATION_ID and DISCORD_BOT_TOKEN in the API before syncing commands");
     }

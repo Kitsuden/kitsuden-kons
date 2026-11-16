@@ -81,6 +81,7 @@ import { RESOURCE, registerDcPolicy } from "./dc.policy";
 import { discordSettings, verifyInteraction } from "./dc.rest";
 import { BLUEPRINT_STATUSES, ITEM_KINDS, ITEM_RARITIES, dcBlueprints, dcGuildModules, dcGuildPlans, dcGuilds, dcItems, dcPanels } from "./dc.schema";
 import { blueprintGuide, extractJson, stepCatalog } from "./dc.catalog";
+import { extensionTemplates, publicKeysOf, reportStaffAction, runAi, type AiRunner, type StaffAction } from "./dc.extensions";
 import { purchaseItem } from "./dc.items";
 import { manageOperations } from "./dc.manage";
 import {
@@ -474,6 +475,38 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
     return row;
   }
 
+  /** Who made a change: the session's user, or an agent's key. */
+  function actorOf(who: unknown): StaffAction["actor"] {
+    const user = (who ?? null) as { id?: string; kind?: string; agentId?: string } | null;
+    if (!user) return { id: null, kind: "system" };
+    return { id: user.id ?? user.agentId ?? null, kind: user.agentId || user.kind === "agent" ? "agent" : "user" };
+  }
+
+  // Writes made by the team (not Discord's interactions, the worker, the member page or checks that save
+  // nothing) are told to the extensions once they succeed: an Enterprise audit log hangs here.
+  const NOT_STAFF = new Set(["receive-interaction", "ingest-gateway-events", "validate-blueprint", "generate-blueprint"]);
+  const reported = (op: AnyOperation): AnyOperation => {
+    if (op.method === "GET" || NOT_STAFF.has(op.id) || op.id.startsWith("member-")) return op;
+    const handle: AnyOperation["handle"] = async (input, h) => {
+      const out = await op.handle(input, h);
+      const params = (input.params ?? {}) as Record<string, unknown>;
+      await reportStaffAction(
+        {
+          kind: op.id,
+          guildId: typeof params.guildId === "string" ? params.guildId : null,
+          actor: actorOf(h.user),
+          detail: { params, body: input.body ?? null },
+        },
+        (m) => ctx.logger.warn(`Discord: ${m}`)
+      );
+      return out;
+    };
+    return { ...op, handle };
+  };
+
+  return operationList().map(reported);
+
+  function operationList(): AnyOperation[] {
   return [
     // ── Modules and servers ────────────────────────────────────────────────
 
@@ -818,15 +851,19 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       errors: ["KITSUDEN_E_CONFLICT"],
       handle: async ({ body }) => {
         if (!ctx.agents) throw AppError.conflict("This installation has no agents: set one up in the core first");
-        const agents = ctx.agents;
+        const agents = ctx.agents as unknown as AiRunner;
         const guide = blueprintGuide();
         let message = `Write a kon-dc blueprint for this bot:\n\n${body.prompt}`;
         let problems: Array<{ path: string; message: string }> = [];
         let last: Record<string, unknown> | null = null;
         for (let attempt = 1; attempt <= 2; attempt++) {
           // The model runs outside the request's transaction, like every slow call of this kon.
-          const run = await engine.background(() => agents.run({ agentId: body.agentId, message, allowedTools: [], context: guide }));
-          const candidate = extractJson(run.response ?? "");
+          // An extension may answer with a server's key or credits, or refuse (no credits left).
+          const run = await engine.background(() =>
+            runAi({ guildId: null, userId: null, purpose: "builder", agentId: body.agentId }, agents, { message, allowedTools: [], context: guide })
+          );
+          if ("refused" in run) throw AppError.conflict(run.refused);
+          const candidate = extractJson(run.text);
           if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
             problems = [{ path: "(answer)", message: "The model did not answer with a JSON object" }];
           } else {
@@ -1154,7 +1191,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         }),
       },
       handle: async () => ({
-        docs: TEMPLATES.map((t) => ({
+        docs: [...TEMPLATES, ...extensionTemplates()].map((t) => ({
           id: t.id,
           name: t.name,
           description: t.description,
@@ -1180,7 +1217,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       output: { status: 201, schema: Blueprint },
       errors: ["KITSUDEN_E_NOT_FOUND"],
       handle: async ({ params, body }, { user }) => {
-        const template = TEMPLATES.find((t) => t.id === params.templateId);
+        const template = [...TEMPLATES, ...extensionTemplates()].find((t) => t.id === params.templateId);
         if (!template) throw AppError.notFound("Template not found");
         const opts = template.options.safeParse(body.options ?? {});
         if (!opts.success) throw AppError.validation("Invalid template settings", z.flattenError(opts.error));
@@ -1277,18 +1314,21 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       mcp: { exclude: "Called by Discord with a signed raw body, never by an agent" },
       handle: async (_input, { c }) => {
         const settings = options.settings?.() ?? discordSettings();
-        if (!settings.publicKey) return c.json({ error: "DISCORD_PUBLIC_KEY is not set" }, 503);
+        const keys = publicKeysOf(settings.publicKey);
+        if (!keys.length) return c.json({ error: "DISCORD_PUBLIC_KEY is not set" }, 503);
         if (Number(c.req.header("content-length") ?? "0") > MAX_INTERACTION_BYTES) {
           return c.json({ error: "Payload too large" }, 413);
         }
         const raw = await c.req.text();
         if (raw.length > MAX_INTERACTION_BYTES) return c.json({ error: "Payload too large" }, 413);
-        const valid = await verifyInteraction(
-          settings.publicKey,
-          c.req.header("x-signature-ed25519"),
-          c.req.header("x-signature-timestamp"),
-          raw
-        );
+        // The installation's bot, or a branded bot an extension knows: any of their keys may sign.
+        let valid = false;
+        for (const key of keys) {
+          if (await verifyInteraction(key, c.req.header("x-signature-ed25519"), c.req.header("x-signature-timestamp"), raw)) {
+            valid = true;
+            break;
+          }
+        }
         if (!valid) return c.json({ error: "Invalid request signature" }, 401);
         let body: unknown;
         try {
@@ -1330,6 +1370,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       handle: async ({ body }) => asSystem(() => engine.ingest(body)),
     }),
   ];
+  }
 }
 
 /** The REST router, generated from the operations. */

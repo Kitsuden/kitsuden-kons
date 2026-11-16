@@ -34,10 +34,23 @@ import type { KonContext, KonDefinition } from "@kitsuden/shared";
 
 import manifest from "./kon.json" with { type: "json" };
 import { discordSettings } from "./dc.rest";
+import { registerDcExtension as addExtension, type DcExtension } from "./dc.extensions";
+import { registerDcModule } from "./dc.modules";
 import { createDcRouter, dcOperations } from "./dc.routes";
 
 // Shared with other kons and apps: the tables, the zod contract, the module SDK and the templates.
 export * from "./dc.schema";
+export {
+  dcExtensions,
+  registryId as dcExtensionRegistryId,
+  type AiPurpose,
+  type AiRequest,
+  type AiRunner,
+  type AiUsage,
+  type BotCredentials,
+  type DcExtension,
+  type StaffAction,
+} from "./dc.extensions";
 export * from "./dc.contract";
 export {
   baseVars,
@@ -123,3 +136,11 @@ export const kon: KonDefinition = defineKonSdk({
 });
 
 export default kon;
+
+/**
+ * Adds an extension to kon-dc (its Enterprise edition, or your own): its modules join every server's
+ * list, and its hooks run where dc.extensions.ts says. Returns a function that removes the hooks.
+ */
+export function registerDcExtension(extension: DcExtension): () => void {
+  return addExtension(extension, registerDcModule);
+}

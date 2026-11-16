@@ -25,6 +25,7 @@
  * modals, panels and triggers run the declarative steps below. No generated code runs anywhere.
  */
 
+import { runAi, type AiPurpose, type AiRunner } from "./dc.extensions";
 import { randomInt } from "node:crypto";
 
 import type { KonContext } from "@kitsuden/shared";
@@ -455,7 +456,11 @@ export function defineDcModule<C extends z.ZodType>(module: DcModule<C>): DcModu
 }
 
 const MODULE_ID = /^[a-z][a-z0-9-]{1,40}$/;
-const registry = new Map<string, DcModule>();
+// On globalThis, like the extension registry: an extension that loads its own copy of kon-dc must
+// still register its modules into the copy that runs.
+const MODULES_KEY = Symbol.for("kitsuden.kon-dc.modules.v1");
+const modulesHolder = globalThis as unknown as Record<symbol, Map<string, DcModule> | undefined>;
+const registry: Map<string, DcModule> = (modulesHolder[MODULES_KEY] ??= new Map<string, DcModule>());
 
 /** Adds a module for every server of this installation. Throws on a bad or repeated id. */
 export function registerDcModule(module: DcModule): void {
@@ -1531,7 +1536,7 @@ export async function runSteps(steps: BlueprintStep[] | AnyStep[], rt: ModuleRun
       case "ai_reply": {
         const who = rt.user?.id ?? "guild";
         scope["ai.reply"] = (await cooledDown(rt.kv, `ai-last:${who}`, step.cooldownSeconds ?? 10, rt.now().getTime()))
-          ? await askAgent(rt, step.agentId, await text(step.prompt))
+          ? await askAgent(rt, step.agentId, await text(step.prompt), "step")
           : rt.t("Wait {n} s between questions.", { n: step.cooldownSeconds ?? 10 });
         break;
       }
@@ -1910,16 +1915,22 @@ export function blueprintModule(row: { id: string; name: string; description: st
  * like a public kon-chat bot, it answers from its prompt and model only. The model and the key are the
  * agent's: an Anthropic, OpenAI or Gemini key of the owner, or a local Ollama.
  */
-export async function askAgent(rt: Pick<ModuleRuntime, "agents" | "logger">, agentId: string, message: string): Promise<string> {
-  if (!rt.agents) return "AI answers are not available on this server.";
+export async function askAgent(
+  rt: Pick<ModuleRuntime, "agents" | "logger"> & Partial<Pick<ModuleRuntime, "guildId" | "user">>,
+  agentId: string,
+  message: string,
+  purpose: AiPurpose = "ask",
+  moduleId?: string
+): Promise<string> {
   try {
-    const result = await rt.agents.run({
-      agentId,
-      message,
-      allowedTools: [],
-      context: "You are answering inside a Discord server. Answer in under 1800 characters, in plain text.",
-    });
-    return clip(result.response || "…", 1900);
+    // An extension may answer with a server's own key or credits, or refuse; else the core's agents.
+    const answer = await runAi(
+      { guildId: rt.guildId ?? null, userId: rt.user?.id ?? null, purpose, moduleId, agentId },
+      rt.agents as AiRunner | null | undefined,
+      { message, allowedTools: [], context: "You are answering inside a Discord server. Answer in under 1800 characters, in plain text." }
+    );
+    if ("refused" in answer) return answer.refused;
+    return clip(answer.text || "…", 1900);
   } catch (err) {
     rt.logger.warn("Discord AI answer failed", { agentId, message: messageOf(err) });
     return "I could not answer that right now.";
@@ -2011,7 +2022,7 @@ export const aiModule = defineDcModule({
     }
     const question = String(invocation.options.question ?? "").slice(0, 1500);
     if (!question.trim()) return { content: "Ask something.", ephemeral: true };
-    return { content: await askAgent(rt, config.agentId, question), ephemeral: config.ephemeral };
+    return { content: await askAgent(rt, config.agentId, question, "ask", "ai"), ephemeral: config.ephemeral };
   },
 });
 

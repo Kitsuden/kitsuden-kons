@@ -336,6 +336,31 @@ Module settings live per server in `dc_guild_modules` and are validated by each 
 from private addresses (checked again on each redirect), 8 s and 1 MB at most. Calls to Discord wait
 for each route's rate-limit bucket and obey a `retry_after` instead of failing.
 
+## Extending kon-dc
+
+Another package can add to kon-dc without kon-dc importing it (`dc.extensions.ts`): kon-dc's
+Enterprise edition plugs in this way, and so can your own code.
+
+```ts
+import { registerDcExtension } from "@kitsuden/kon-dc";
+
+registerDcExtension({
+  name: "my-extension",
+  modules: [/* more modules, offered to every server */],
+  ai: (req) => null, // a runner (a server's own key, credits), a refusal sentence, or null = core agents
+  afterAi: (usage) => {}, // metering: purpose, server, member, characters in and out, ms
+  botFor: (guildId) => null, // a branded bot's token and application for that server
+  publicKeys: () => [], // more keys interactions may be signed with
+  onEvent: (event) => undefined, // "drop" stops a gateway event before the modules
+  onStaffAction: (action) => {}, // every write the team makes through the API
+  templates: () => [], // more ready-made blueprints
+  isPremium: (guildId) => null, // a billing system's answer; null = the dc_guild_plans table
+});
+```
+
+Every hook is optional. With none registered kon-dc behaves exactly as it does alone; a hook that
+throws in `onEvent` or `onStaffAction` is logged and does not stop the bot.
+
 ## Agents and MCP
 
 Every configuration operation is an MCP tool (`dc__list-modules`, `dc__set-guild-module`,

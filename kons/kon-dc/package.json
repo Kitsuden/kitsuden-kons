@@ -13,6 +13,7 @@
     "dc.catalog.ts",
     "dc.contract.ts",
     "dc.engine.ts",
+    "dc.extensions.ts",
     "dc.extras.ts",
     "dc.feeds.ts",
     "dc.http.ts",

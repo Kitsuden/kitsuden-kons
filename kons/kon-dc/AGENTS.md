@@ -47,6 +47,10 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
   `rt.t("English {var}", { var })`, the English is the key, the dictionary has Spanish and Portuguese.
 - `dc.member.ts`, `member/` — the member page (HTML + script served by this kon), its Discord login
   (OAuth2 `identify`, signed state and session cookies) and its data.
+- `dc.extensions.ts` — the public extension API (AI per server and metering, branded bots, event
+  verdicts, staff actions, templates, plans). kon-dc never imports an extension; the registry lives
+  on `globalThis` so an extension that loads its own copy of kon-dc still reaches the running one.
+- `dc.manage.ts` — the admin's overview, economy, member file, activity and schedules routes.
 - `dc.http.ts` — the checked fetch feeds use (https, no private addresses, redirects re-checked)
   and the RSS/Atom reader.
 - Built-in modules by family: `dc.rewards.ts` (economy, leveling, giveaways, role menus, reminders,
@@ -91,6 +95,10 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
 - Message text is stored only by the Logs module when a server sets `keepMessagesHours`, and the
   engine deletes it when it expires. Activity stores counts, never text.
 - Anti-nuke never acts on the server's owner, the bot itself, or trusted members and roles.
+- Every AI call goes through `runAi` (dc.extensions.ts), never `ctx.agents.run` directly: that is
+  where an extension answers with a server's key or credits, refuses, or meters.
+- Discord calls for a server use `restOf(guildId)` in the engine, never `restFor(settings())`: a
+  branded bot answers with its own token.
 - Built-in modules never write a sentence for a member without `rt.t(...)`, and a new key goes in
   `dc.i18n.texts.ts` with the same `{placeholders}` (a test checks them).
 - The member page shows a server only while its `member-page` module is on, and only what that
