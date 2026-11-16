@@ -1,0 +1,86 @@
+{
+  "name": "@kitsuden/kon-koe",
+  "version": "0.1.0",
+  "description": "Omnichannel inbox for WhatsApp Cloud API, Messenger, Instagram and web chat, built for automation and AI agents",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "admin",
+    "channels",
+    "index.ts",
+    "koe.automation.ts",
+    "koe.bot.ts",
+    "koe.campaigns.ts",
+    "koe.channels.ts",
+    "koe.common.ts",
+    "koe.conversations.ts",
+    "koe.events.ts",
+    "koe.flows.ts",
+    "koe.hours.ts",
+    "koe.inbound.ts",
+    "koe.media.ts",
+    "koe.notify.ts",
+    "koe.ops.inbox.ts",
+    "koe.ops.setup.ts",
+    "koe.ops.web.ts",
+    "koe.policy.ts",
+    "koe.quickreplies.ts",
+    "koe.realtime.ts",
+    "koe.reports.ts",
+    "koe.sales.ts",
+    "koe.schema.ts",
+    "koe.send.ts",
+    "koe.sequences.ts",
+    "koe.states.ts",
+    "koe.sweep.ts",
+    "koe.templates.ts",
+    "koe.window.ts",
+    "kon.json",
+    "media-sidecar",
+    "migrations",
+    "operations.ts",
+    "public"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "whatsapp",
+    "instagram",
+    "messenger",
+    "omnichannel",
+    "inbox",
+    "chatbot"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-koe",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-koe"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}
