@@ -113,7 +113,7 @@ Built-in modules, each switched on per server with its own settings:
 | `ai` | `/ask` answered by a core agent (never with tools) | — |
 | `announcements` | "when `<kon>:<event>` happens, post this in that channel" | — |
 | `economy` | coins: `/daily` with streaks, `/work`, `/pay`, `/shop` with a select, `/buy`, `/inventory`, `/leaderboard`, `/economy` for the staff | — |
-| `leveling` | XP for messages and voice minutes, level-up messages, role rewards, coins per level, multipliers, global XP, `/rank` and `/levels` as image cards | Guild Messages, Voice States |
+| `leveling` | XP for messages and voice minutes, level-up messages, role rewards, coins per level, multipliers, global XP, `/rank` and `/levels` as image cards, `/levels-import` from MEE6, XP reset when a member leaves (optional) | Guild Messages, Voice States; Server Members for the reset |
 | `profile` | `/profile` card across servers, `/rep`, `/credits` (global daily, balance, top) | — |
 | `items` | the catalog's store, `/items buy use equip gift sell trade` (trades with Accept/Decline) | — |
 | `giveaways` | `/giveaway start end reroll`: an Enter button with a live count, fair winners, coins | — |
@@ -131,7 +131,11 @@ Built-in modules, each switched on per server with its own settings:
 | `automod` | Discord's own AutoMod rules from settings (words, invites, links, mention spam, spam) | — |
 | `security` | anti-nuke from the live audit log, a join gate, raid mode, image captcha, `/lockdown` | Guild Moderation, Server Members |
 | `logs` | joins, leaves, bans, edits (before and after) and deletions (what it said, when text is kept) | Guild Messages; Message Content only if text is kept |
-| `tickets` | a panel that opens a private thread per member, closed with a button | — |
+| `tickets` | a panel that opens a private thread per member, closed with a button; on close a `.txt` transcript in a log channel and, optionally, by DM to the member | Message Content switched on in the Developer Portal, for the transcript's text |
+| `invites` | which invite each new member used: `/invites count [member]` (joined, left, fake), `/invites leaderboard`, a join message with `{{inviter.mention}}` and `{{inviter.count}}`, coins or a role at N invites | Server Members, Guild Invites; the bot needs Manage Server |
+| `sticky-roles` | a member's roles saved when they leave and given back when they rejoin; roles left out, or "keep only these" | Server Members |
+| `temp-roles` | `/temprole add <member> <role> <duration>`, `remove`, `list`: the role goes away by itself, even after a restart | — |
+| `voice-roles` | a role while a member is in a voice channel: one per channel, one for any, channels left out | Voice States |
 | `characters` | speak as a character with its own name and avatar (`k:text`), like Tupperbox | Message Content (privileged) |
 | `sticky` | a message kept at the bottom of a channel | Guild Messages |
 | `auto-purge` | channels cleared on a schedule, pins kept | — |
@@ -154,6 +158,11 @@ does not need it (Discord sends who a message pings without it). `starboard` rea
 message through the REST API: without the intent switched on for the application, Discord gives an
 empty text for other members' messages and the post shows the author, the image and the link only.
 These modules keep their state in `dc_kv` and `dc_list_members`: no new table.
+
+The invite tracker keeps each member's net invites (joined − left; fake accounts never count) in
+the shared economy as the currency `invites`, so a blueprint (`wallet_get` with `currency:
+invites`), the member page and `GET /guilds/:guildId/economy?currency=invites` read the same
+figure. Its copy of the server's invites and its counters live in `dc_kv`; nothing new is stored.
 
 The bot answers in each member's Discord language (English, Spanish and Portuguese for now), and
 in the server's for what it says by itself; slash commands carry Discord's localized descriptions.
@@ -309,6 +318,7 @@ import*. Rebuild with `pnpm build:admin kon-dc`; check with `pnpm check:admin`.
 | `GET /api/dc/overview` | admin, editor, or an agent with this kon's scope |
 | `GET /api/dc/guilds/:guildId/economy` | admin, editor, or an agent with this kon's scope |
 | `PUT /api/dc/guilds/:guildId/economy/:userId` | admin, editor, or an agent with this kon's scope |
+| `POST /api/dc/guilds/:guildId/import/levels` | admin, editor, or an agent with this kon's scope |
 | `GET /api/dc/guilds/:guildId/members/:userId` | admin, editor, or an agent with this kon's scope |
 | `GET /api/dc/guilds/:guildId/activity` | admin, editor, or an agent with this kon's scope |
 | `GET /api/dc/guilds/:guildId/schedules` | admin, editor, or an agent with this kon's scope |
@@ -326,6 +336,33 @@ import*. Rebuild with `pnpm build:admin kon-dc`; check with `pnpm check:admin`.
 | `POST /api/dc/interactions` | Discord only: the Ed25519 signature is checked |
 | `GET /api/dc/gateway/config` | the gateway worker's key, or an admin |
 | `POST /api/dc/gateway/events` | the gateway worker's key, or an admin |
+
+## Moving from another bot
+
+Everything above is free, with no premium tier for the modules other bots charge for. To bring a
+server's levels with it:
+
+| From | How |
+| --- | --- |
+| MEE6 | `/levels-import source:MEE6` in Discord (the server's owner or Manage Server). It reads MEE6's leaderboard, page by page, up to 10,000 members. The leaderboard must be public (MEE6's dashboard → Leaderboard). |
+| Arcane, Amari, Lurkr, Tatsu, any other | Take the leaderboard as a file (the bot's own export where it has one, or a CSV made from its leaderboard page) and send it as rows to `POST /api/dc/guilds/:guildId/import/levels`. These bots publish no API kon-dc could read for you. |
+
+`POST /api/dc/guilds/:guildId/import/levels` takes `{ "rows": [{ "userId": "…", "xp": 1200 }],
+"keep": "xp", "overwrite": false, "source": "arcane" }`: up to 50,000 rows, each with `xp` or
+`level`. `keep: "xp"` keeps the XP (the level then follows this bot's curve, 100 × level², which
+differs from MEE6's and Arcane's); `keep: "level"` keeps each member's level instead. By default a
+member keeps the higher of their XP here and the imported one; `overwrite: true` replaces it.
+Level reward roles are given the next time a member earns XP.
+
+**MEE6's endpoint is not an official API.** It is what MEE6's own leaderboard page reads
+(`https://mee6.xyz/api/plugins/levels/leaderboard/<guildId>`), it answers only for public
+leaderboards, and MEE6 may change or block it at any time; the route above is the stable way. It is
+fetched through `dc.http.ts` like feeds (https, no private addresses, 8 s and 1 MB a page).
+
+Other parts move by settings, not by import: role menus, reaction roles, welcome messages,
+auto roles, temporary roles, sticky roles and the invite tracker are set up per server in the
+panel. Invite counts start when `invites` is switched on: Discord keeps no history of who used
+which invite.
 
 ## Who can do what
 

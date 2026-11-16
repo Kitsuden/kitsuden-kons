@@ -12,6 +12,7 @@
     "dc.achievements.ts",
     "dc.cards.ts",
     "dc.catalog.ts",
+    "dc.community.ts",
     "dc.contract.ts",
     "dc.counting.ts",
     "dc.engine.ts",

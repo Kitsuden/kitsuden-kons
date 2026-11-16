@@ -240,7 +240,7 @@ const str = (v: unknown) => (typeof v === "string" ? v : null);
 /** The gateway payload reduced to what modules use. Unknown shapes give `null`, never a throw. */
 export function normalizeEvent(e: GatewayEventEnvelope): DcEvent | null {
   const d = e.d;
-  const guildId = str(d.guild_id);
+  const guildId = str(d.guild_id) ?? (e.t === "GUILD_CREATE" ? str(d.id) : null);
   if (!guildId) return null;
   const parsedUser = (v: unknown) => {
     const r = UserShape.safeParse(v);
@@ -276,6 +276,7 @@ export function normalizeEvent(e: GatewayEventEnvelope): DcEvent | null {
       };
     }
     case "GUILD_MEMBER_REMOVE":
+    case "GUILD_MEMBER_UPDATE":
     case "GUILD_BAN_ADD": {
       const u = parsedUser(d.user);
       return { type: e.t, guildId, channelId: null, user: userRef(u), isBot: !!u?.bot, content: null, emoji: null, memberRoles: rolesOf(d) };
@@ -357,6 +358,26 @@ export function normalizeEvent(e: GatewayEventEnvelope): DcEvent | null {
         memberRoles: rolesOf(member),
       };
     }
+    case "INVITE_CREATE":
+    case "INVITE_DELETE": {
+      const code = str(d.code);
+      if (!code || code.length > 64) return null;
+      const u = parsedUser(d.inviter);
+      return {
+        type: e.t,
+        guildId,
+        channelId: str(d.channel_id),
+        user: userRef(u),
+        isBot: !!u?.bot,
+        content: null,
+        emoji: null,
+        invite: { code, uses: Number(d.uses ?? 0) || 0, maxUses: Number(d.max_uses ?? 0) || 0, inviterId: u?.id ?? null },
+      };
+    }
+    case "GUILD_CREATE":
+      // Modules that keep a copy of something Discord holds (the invite tracker) refresh it here:
+      // the gateway sends GUILD_CREATE for every server each time it connects.
+      return { type: e.t, guildId, channelId: null, user: null, isBot: false, content: null, emoji: null };
     default:
       return null;
   }
@@ -1608,6 +1629,8 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
         guildLocale.set(id, locale);
         cache.delete(id);
         accepted++;
+        // The modules that listen to it (the invite tracker seeds its copy on each connection).
+        if (e.t === "GUILD_CREATE") schedule(() => dispatchEvent({ ...e, d: { id } }));
       } else if (e.t === "GUILD_DELETE") {
         const id = str(e.d.id);
         // `unavailable: true` is an outage, not a removal.

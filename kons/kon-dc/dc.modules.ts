@@ -354,6 +354,8 @@ export interface DcEvent {
   account?: { createdAt: number; hasAvatar: boolean; bot: boolean; verifiedBot: boolean; username: string };
   /** VOICE_STATE_UPDATE: the channel left (null: was not in voice), the one joined (null: left voice). */
   voice?: { from: string | null; to: string | null; muted: boolean; minutes: number };
+  /** INVITE_CREATE / INVITE_DELETE: the invite (the user is who made it, when Discord says). */
+  invite?: { code: string; uses: number; maxUses: number; inviterId: string | null };
 }
 
 export type ActivityMetric = "messages" | "voice";

@@ -5,7 +5,8 @@
  *   economy             coins: /balance /daily (streaks) /work /pay /shop (a select to buy) /buy
  *                       /inventory /leaderboard, and /economy give|take for the staff
  *   leveling            XP for chatting, level-up messages, role rewards per level, coins per level,
- *                       XP multipliers by role, channels and roles that give none; /rank /levels
+ *                       XP multipliers by role, channels and roles that give none; /rank /levels;
+ *                       /levels-import from MEE6, and an XP reset when a member leaves
  *   giveaways           /giveaway start|end|reroll: an Enter button with a live count, a timer, fair
  *                       random winners, an optional role requirement and coins for the winners
  *   role-menus          panels of buttons or a select that give and take roles (toggle or one-of)
@@ -41,6 +42,7 @@ import {
   type ModuleRuntime,
   type Reply,
 } from "./dc.modules";
+import { fetchJson, type TextFetcher } from "./dc.http";
 import type { MessagePayload } from "./dc.rest";
 
 // ── Shared helpers ──────────────────────────────────────────────────────────────────────────────
@@ -364,12 +366,79 @@ const LevelingConfig = z
     voiceXpPerMinute: z.number().int().min(0).max(100).default(0).meta({ title: "XP per minute in voice", description: "0 = none; unmuted, and not alone (see below)" }),
     voiceAlone: z.boolean().default(false).meta({ title: "Voice XP when alone in the channel" }),
     globalXp: z.boolean().default(true).meta({ title: "Also give global XP", description: "The profile's global level, the same in every server" }),
+    resetOnLeave: z.boolean().default(false).meta({ title: "Reset a member's XP when they leave", description: "Needs the Server Members intent" }),
     ...cardSettings,
   })
   .strict();
 type LevelingConfig = z.output<typeof LevelingConfig>;
 
 const XP = "xp";
+
+// ── Levels from other bots ──────────────────────────────────────────────────────────────────────
+
+/** One member's XP (or level) from another bot's export. */
+export interface ImportedLevel {
+  userId: string;
+  xp: number;
+  /** The other bot's level, when it gave one (the "keep the level" mode uses it). */
+  level?: number;
+}
+
+/** Members read from MEE6 at most: 10 pages of 1000. */
+export const MEE6_MAX_PAGES = 10;
+const MEE6_PAGE = 1000;
+
+/**
+ * MEE6's leaderboard as JSON. NOT an official API: the endpoint MEE6's own leaderboard page reads,
+ * which answers only when the server made its leaderboard public, and may change without notice.
+ */
+export const mee6LeaderboardUrl = (guildId: string, page: number) =>
+  `https://mee6.xyz/api/plugins/levels/leaderboard/${guildId}?page=${page}&limit=${MEE6_PAGE}`;
+
+export class ImportRefused extends Error {}
+
+/** Reads every page of a server's MEE6 leaderboard through the checked fetcher (dc.http.ts). */
+export async function readMee6(fetchText: TextFetcher, guildId: string, maxPages = MEE6_MAX_PAGES): Promise<ImportedLevel[]> {
+  const rows: ImportedLevel[] = [];
+  for (let page = 0; page < maxPages; page++) {
+    const { status, data } = await fetchJson(fetchText, mee6LeaderboardUrl(guildId, page));
+    if (status === 401 || status === 403 || status === 404) {
+      throw new ImportRefused("MEE6's leaderboard for this server is not public: make it public in MEE6's dashboard, then try again.");
+    }
+    if (status !== 200 || !data || typeof data !== "object") throw new ImportRefused("MEE6 did not answer; try again later.");
+    const players = (data as { players?: unknown }).players;
+    if (!Array.isArray(players)) throw new ImportRefused("MEE6's answer was not a leaderboard.");
+    for (const p of players as Array<{ id?: unknown; xp?: unknown; level?: unknown }>) {
+      const userId = typeof p.id === "string" && /^\d{15,20}$/.test(p.id) ? p.id : null;
+      const xp = Math.trunc(Number(p.xp));
+      if (!userId || !Number.isFinite(xp) || xp < 0) continue;
+      const level = Math.trunc(Number(p.level));
+      rows.push({ userId, xp: Math.min(xp, 1e12), ...(Number.isFinite(level) && level >= 0 ? { level: Math.min(level, 10_000) } : {}) });
+    }
+    if (players.length < MEE6_PAGE) break;
+  }
+  return rows;
+}
+
+/** The XP a row stands for: its own XP, or (`keep: "level"`) what reaches its level here. */
+export const importedXp = (row: ImportedLevel, keep: "xp" | "level") => (keep === "level" && row.level !== undefined ? xpFor(row.level) : row.xp);
+
+/**
+ * Sets members' XP from another bot's figures: the higher of the two, or the imported one with
+ * `overwrite`. Gives how many members changed. Level roles follow at their next XP.
+ */
+export async function applyLevels(rt: Pick<ModuleRuntime, "economy">, rows: ImportedLevel[], opts: { overwrite: boolean; keep: "xp" | "level" }): Promise<number> {
+  let changed = 0;
+  for (const row of rows) {
+    const target = importedXp(row, opts.keep);
+    const { balance } = await rt.economy.get(row.userId, XP);
+    const next = opts.overwrite ? target : Math.max(balance, target);
+    if (next === balance) continue;
+    await rt.economy.add(row.userId, XP, next - balance);
+    changed++;
+  }
+  return changed;
+}
 
 async function grantLevelRewards(level: number, previous: number, config: LevelingConfig, userId: string, rt: ModuleRuntime): Promise<string[]> {
   const earned = config.rewards.filter((r) => r.level > previous && r.level <= level);
@@ -420,7 +489,8 @@ export const levelingModule = defineDcModule({
   description: "XP for chatting, level-up messages, role rewards per level, coins per level and multipliers; /rank and /levels. Never reads message text.",
   config: LevelingConfig,
   intents: INTENTS.GUILD_MESSAGES | INTENTS.GUILD_VOICE_STATES,
-  events: ["MESSAGE_CREATE", "VOICE_STATE_UPDATE"],
+  intentsFor: (config) => INTENTS.GUILD_MESSAGES | INTENTS.GUILD_VOICE_STATES | (config.resetOnLeave ? INTENTS.GUILD_MEMBERS : 0),
+  events: ["MESSAGE_CREATE", "VOICE_STATE_UPDATE", "GUILD_MEMBER_REMOVE"],
   // Voice XP also arrives while members stay in voice, not only when they leave.
   schedules: (config) => (config.voiceXpPerMinute > 0 ? [{ key: "voice", schedule: { everyMinutes: 10, timezone: "UTC" } }] : []),
   async onSchedule(key, _payload, config, rt) {
@@ -448,9 +518,26 @@ export const levelingModule = defineDcModule({
         { name: "amount", description: "How much (negative takes)", type: 4, required: true },
       ],
     },
+    {
+      name: "levels-import",
+      description: "Staff: bring members' XP from another bot",
+      type: 1,
+      default_member_permissions: MANAGE_GUILD,
+      options: [
+        { name: "source", description: "Which bot", type: 3, required: true, choices: [{ name: "MEE6", value: "mee6" }] },
+        { name: "overwrite", description: "Replace XP members already have here (default: keep the higher)", type: 5 },
+        { name: "keep", description: "Keep their XP (default) or their level", type: 3, choices: [{ name: "XP", value: "xp" }, { name: "Level", value: "level" }] },
+      ],
+    },
   ],
   plan: (target) => ({ reply: true, ephemeral: !(target.kind === "command" && target.name === "levels") }),
   async onEvent(event, config, rt) {
+    if (event.type === "GUILD_MEMBER_REMOVE") {
+      if (!config.resetOnLeave || !rt.user || event.isBot) return;
+      const { balance } = await rt.economy.get(rt.user.id, XP);
+      if (balance > 0) await rt.economy.add(rt.user.id, XP, -balance);
+      return;
+    }
     if (event.type === "VOICE_STATE_UPDATE") {
       // Leaving, moving, muting: the minutes so far are settled under the state they were spent in.
       const v = event.voice;
@@ -506,6 +593,24 @@ export const levelingModule = defineDcModule({
       if (card) return { files: [card] };
       const lines = rows.map((r, n) => `**${n + 1}.** <@${r.userId}> — ${rt.t("level {level} ({xp} XP)", { level: levelOf(r.balance), xp: number(r.balance) })}`);
       return { embeds: [{ title: `🏆 ${rt.t("Levels")}`, description: lines.join("\n") || rt.t("Nobody yet."), color: BLURPLE }] };
+    }
+    if (invocation.name === "levels-import") {
+      const owner = await rt.rest.getGuildOwner(rt.guildId).catch(() => null);
+      if (owner !== rt.user.id && !hasPermissions(rt.memberPermissions, ["manage_guild"])) return ME(rt.t("Only the staff (Manage Server) can do that."));
+      if (invocation.options.source !== "mee6") return ME(rt.t("I can import from MEE6 here; for other bots, the panel takes a file."));
+      if (!(await cooled(rt, "import", 300))) return ME(rt.t("An import ran a moment ago: wait five minutes."));
+      let rows: ImportedLevel[];
+      try {
+        rows = await readMee6(rt.fetchText, rt.guildId);
+      } catch (err) {
+        if (err instanceof ImportRefused) return ME(rt.t(err.message));
+        rt.logger.warn("Levels: MEE6 could not be read", { message: messageOf(err) });
+        return ME(rt.t("MEE6 did not answer; try again later."));
+      }
+      const keep = invocation.options.keep === "level" ? "level" : "xp";
+      const changed = await applyLevels(rt, rows, { overwrite: invocation.options.overwrite === true, keep });
+      rt.emit("dc:levels:imported", { guildId: rt.guildId, source: "mee6", members: rows.length, changed });
+      return ME(rt.t("Imported from MEE6: {members} members read, {changed} changed.", { members: rows.length, changed }));
     }
     if (invocation.name === "xp") {
       if (!hasPermissions(rt.memberPermissions, ["manage_guild"])) return ME(rt.t("Only the staff (Manage Server) can do that."));

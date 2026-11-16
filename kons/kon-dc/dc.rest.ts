@@ -168,6 +168,27 @@ export interface MemberInfo {
   avatar?: string | null;
 }
 
+/** A message as a transcript writes it. */
+export interface TranscriptMessage {
+  id: string;
+  authorId: string | null;
+  authorName: string;
+  bot: boolean;
+  timestamp: string;
+  content: string;
+  /** Attachment URLs (Discord's CDN). */
+  attachments: string[];
+  embeds: number;
+}
+
+/** An invite and how often it was used. */
+export interface InviteInfo {
+  code: string;
+  uses: number;
+  maxUses: number;
+  inviterId: string | null;
+}
+
 /** A channel to create or change. */
 export interface ChannelSpec {
   name: string;
@@ -251,6 +272,14 @@ export interface DiscordRest {
   setThreadState(threadId: string, state: { archived: boolean; locked?: boolean }): Promise<void>;
   /** The latest messages of a channel (ids and author ids), newest first. */
   recentMessages(channelId: string, limit: number): Promise<Array<{ id: string; authorId: string | null; timestamp: string; pinned?: boolean }>>;
+  /**
+   * One page of a channel's messages WITH their text (ticket transcripts), newest first, older than
+   * `before` when given. The text is empty unless the app has the Message Content intent switched on
+   * in the Developer Portal (or the message mentions the bot).
+   */
+  messagePage(channelId: string, limit: number, before?: string): Promise<TranscriptMessage[]>;
+  /** The server's invites with their use counts (needs Manage Server). */
+  listInvites(guildId: string): Promise<InviteInfo[]>;
   /** Deletes 2–100 messages younger than 14 days at once (one alone is a plain delete). */
   bulkDelete(channelId: string, messageIds: string[]): Promise<void>;
   /** A channel in a server (type 2 voice, 0 text, 4 category); gives its id. */
@@ -551,6 +580,31 @@ export function createDiscordRest(
         author?: { id: string };
       }>;
       return list.map((m) => ({ id: m.id, authorId: m.author?.id ?? null, timestamp: m.timestamp, pinned: !!m.pinned }));
+    },
+    async messagePage(channelId, limit, before) {
+      const q = `limit=${Math.min(100, Math.max(1, limit))}${before && /^\d{15,20}$/.test(before) ? `&before=${before}` : ""}`;
+      const list = (await call("GET", `/channels/${channelId}/messages?${q}`)) as Array<{
+        id: string;
+        timestamp: string;
+        content?: string;
+        author?: { id: string; username?: string; global_name?: string | null; bot?: boolean };
+        attachments?: Array<{ url?: string }>;
+        embeds?: unknown[];
+      }>;
+      return list.map((m) => ({
+        id: m.id,
+        authorId: m.author?.id ?? null,
+        authorName: m.author?.global_name || m.author?.username || m.author?.id || "unknown",
+        bot: !!m.author?.bot,
+        timestamp: m.timestamp,
+        content: m.content ?? "",
+        attachments: (m.attachments ?? []).map((a) => a.url ?? "").filter(Boolean),
+        embeds: m.embeds?.length ?? 0,
+      }));
+    },
+    async listInvites(guildId) {
+      const list = (await call("GET", `/guilds/${guildId}/invites`)) as Array<{ code: string; uses?: number; max_uses?: number; inviter?: { id?: string } }>;
+      return list.map((i) => ({ code: i.code, uses: Number(i.uses ?? 0), maxUses: Number(i.max_uses ?? 0), inviterId: i.inviter?.id ?? null }));
     },
     async bulkDelete(channelId, messageIds) {
       if (messageIds.length === 1) await call("DELETE", `/channels/${channelId}/messages/${messageIds[0]}`);
