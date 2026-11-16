@@ -104,7 +104,7 @@ use a kon has had, not how many features it has:
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `kon-autobattler` | beta | 1.0.1 | 1 | `/api/autobattler` | Autobattler compositions: units, traits with thresholds, items and board. TFT set included. |
-| `kon-broadcast` | beta | 1.0.4 | 1 | `/api/broadcast` | Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games… |
+| `kon-broadcast` | beta | 1.1.0 | 1 | `/api/broadcast` | Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games… |
 | `kon-cardsim` | beta | 2.3.1 | 1 | `/api/cardsim` | Card simulator builder: data-defined games, validated decks, rooms with a clock and deterministic sessions… |
 | `kon-character-builder` | beta | 1.1.2 | 1 | `/api/builder` | Character builder engine: per-game definitions, validation, final stats and shareable build codes |
 | `kon-collection` | beta | 1.0.1 | 1 | `/api/collection` | What each reader already has: marks the records of an index that they have obtained and keeps count |

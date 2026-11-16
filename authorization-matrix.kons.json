@@ -944,5 +944,8 @@
   "GET /api/shop/admin/promotions": "staff",
   "POST /api/shop/admin/promotions": "staff",
   "ALL /api/shop/orders/:id/checkout": "middleware",
-  "ALL /api/shop/my-orders/link": "middleware"
+  "ALL /api/shop/my-orders/link": "middleware",
+  "POST /api/broadcast/matches/:id/reset": "user",
+  "POST /api/broadcast/startgg/sets": "staff",
+  "POST /api/broadcast/matches/:id/startgg": "user"
 }
