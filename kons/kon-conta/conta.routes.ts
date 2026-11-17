@@ -1501,9 +1501,10 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "create-disbursement",
       summary: "Record a disbursement",
       description:
-        "Records an expense paid for a project: posts a journal (credit `paidFromAccountId`, debit account 1250 Disbursements Receivable, from the seed) and leaves the disbursement `pending`. 400 if an account or the project does not exist. Returns `{ disbursement, journal, lines }`. Write access to the ledger.",
+        "Records an expense paid for a project: posts a journal (credit `paidFromAccountId`, debit account 1250 Disbursements Receivable, from the seed) and leaves the disbursement `pending`. 400 if an account does not exist, 404 if the project does not. Returns `{ disbursement, journal, lines }`. Write access to the ledger.",
       input: { body: disbursementSchema },
       output: { status: 201, schema: WithData },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     }),
     async (c, input) => {
       const body = input.body as z.infer<typeof disbursementSchema>;

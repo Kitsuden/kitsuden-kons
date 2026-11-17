@@ -345,7 +345,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         summary: "The member page's script",
         description: "The script of the member page (no data).",
         access: "public",
-        output: { schema: z.unknown() },
+        output: { type: "text/javascript" },
         mcp: NO_MCP,
         handle: async (_input, { c }) => {
           c.header("content-type", "text/javascript; charset=utf-8");
@@ -359,15 +359,17 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         method: "GET",
         route: "/member/login",
         summary: "Log in with Discord",
-        description: "Sends the browser to Discord's login (scope identify) and back to /member/callback.",
+        description: "Sends the browser to Discord's login (scope identify) and back to /member/callback. 404 when this installation has no Discord login set up.",
         access: "public",
         input: { query: z.object({ guildId: Snowflake }) },
-        output: { schema: z.unknown() },
+        output: { status: 302 },
+        // Not set up is not an outage (a 503 would tell the browser to retry): there is no login here.
+        errors: ["KITSUDEN_E_NOT_FOUND"],
         mcp: NO_MCP,
         handle: async ({ query }, { c }) => {
           const s = settingsNow();
           const secret = memberSecretOf(s);
-          if (!secret || !s.clientSecret || !s.oauthRedirectUrl || !s.applicationId) return c.text("The Discord login is not configured here.", 503);
+          if (!secret || !s.clientSecret || !s.oauthRedirectUrl || !s.applicationId) return c.text("The Discord login is not configured here.", 404);
           const { state, nonce } = newState(secret, query.guildId);
           c.header("set-cookie", cookie(sessionCookie.state, nonce, 600, s.oauthRedirectUrl), { append: true });
           return c.redirect(authorizeUrl(s, state), 302);
@@ -379,15 +381,16 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         method: "GET",
         route: "/member/callback",
         summary: "Back from Discord's login",
-        description: "Checks the state, asks Discord who logged in, and sets the member's session cookie.",
+        description: "Checks the state, asks Discord who logged in, and sets the member's session cookie. 404 when this installation has no Discord login set up; 502 when Discord does not complete the login.",
         access: "public",
         input: { query: z.object({ code: z.string().max(200).optional(), state: z.string().max(500).optional(), error: z.string().max(100).optional() }) },
-        output: { schema: z.unknown() },
+        output: { status: 302 },
+        errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_BAD_GATEWAY"],
         mcp: NO_MCP,
         handle: async ({ query }, { c }) => {
           const s = settingsNow();
           const secret = memberSecretOf(s);
-          if (!secret || !s.oauthRedirectUrl) return c.text("The Discord login is not configured here.", 503);
+          if (!secret || !s.oauthRedirectUrl) return c.text("The Discord login is not configured here.", 404);
           const guildId = readState(secret, query.state, cookies(c.req.header("cookie"))[sessionCookie.state]);
           if (!guildId) return c.text("This login link expired or came from another browser. Try again.", 400);
           const back = `/api/dc/member/page/${guildId}`;
@@ -452,6 +455,8 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         access: "public",
         input: { params: GuildParam, body: z.object({ item: z.string().regex(/^[a-z0-9_-]{1,64}$/) }) },
         output: { schema: z.object({ ok: z.boolean(), message: z.string() }) },
+        // 401 without a member session (the Discord login, not a Kitsuden one); 403 when buying is off or the member left the server.
+        errors: ["KITSUDEN_E_UNAUTHENTICATED", "KITSUDEN_E_FORBIDDEN", "KITSUDEN_E_UNSUPPORTED_MEDIA_TYPE"],
         mcp: NO_MCP,
         handle: async ({ params, body }, { c }) => {
           // A form from another site cannot send JSON without a preflight this API refuses.
@@ -865,10 +870,23 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
           attempts: z.number().int(),
         }),
       },
-      errors: ["KITSUDEN_E_CONFLICT"],
+      errors: ["KITSUDEN_E_CONFLICT", "KITSUDEN_E_NOT_FOUND"],
       handle: async ({ body }) => {
         if (!ctx.agents) throw AppError.conflict("This installation has no agents: set one up in the core first");
-        const agents = ctx.agents as unknown as AiRunner;
+        const core = ctx.agents as unknown as AiRunner;
+        // The core throws a plain Error for an unknown or switched-off agent: that is the caller's mistake, not a 500.
+        const agents: AiRunner = {
+          run: async (request) => {
+            try {
+              return await core.run(request);
+            } catch (err) {
+              const message = err instanceof Error ? err.message : "";
+              if (message.startsWith("Agent not found")) throw AppError.notFound(`No agent "${body.agentId}"`);
+              if (message.startsWith("Agent is inactive")) throw AppError.conflict(`The agent "${body.agentId}" is switched off`);
+              throw err;
+            }
+          },
+        };
         const guide = blueprintGuide();
         let message = `Write a kon-dc blueprint for this bot:\n\n${body.prompt}`;
         let problems: Array<{ path: string; message: string }> = [];
@@ -1327,12 +1345,13 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       access: "public",
       // WITHOUT `body`: the signature covers the exact bytes Discord sent.
       output: { schema: z.record(z.string(), z.unknown()) },
-      errors: ["KITSUDEN_E_UNAUTHENTICATED", "KITSUDEN_E_PAYLOAD_TOO_LARGE"],
+      // 404 when no bot is set up here (no public key): there is no endpoint for Discord to call.
+      errors: ["KITSUDEN_E_UNAUTHENTICATED", "KITSUDEN_E_PAYLOAD_TOO_LARGE", "KITSUDEN_E_BAD_REQUEST", "KITSUDEN_E_NOT_FOUND"],
       mcp: { exclude: "Called by Discord with a signed raw body, never by an agent" },
       handle: async (_input, { c }) => {
         const settings = options.settings?.() ?? discordSettings();
         const keys = publicKeysOf(settings.publicKey);
-        if (!keys.length) return c.json({ error: "DISCORD_PUBLIC_KEY is not set" }, 503);
+        if (!keys.length) return c.json({ error: "DISCORD_PUBLIC_KEY is not set" }, 404);
         if (Number(c.req.header("content-length") ?? "0") > MAX_INTERACTION_BYTES) {
           return c.json({ error: "Payload too large" }, 413);
         }
