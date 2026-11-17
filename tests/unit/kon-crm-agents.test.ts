@@ -99,8 +99,16 @@ describe("what the CRM announces", () => {
     const contact = (await json(await request("staff", "POST", "/contacts", { firstName: "Eva", lastName: "Sol", email: "eva@x.example", notes: "private" }))).data;
     const deal = (await json(await request("staff", "POST", "/deals", { title: "Secret deal", value: 900, pipelineId: "pe", stageId: "se", contactId: contact.id }))).data;
     await request("staff", "PATCH", `/deals/${deal.id}`, { status: "won" });
-    expect(announced.map((e) => e.name)).toEqual(["crm:contact:created", "crm:deal:created", "crm:deal:status-changed"]);
-    expect(announced[2]!.data).toEqual({ dealId: deal.id, status: "won" });
+    // Each of the older names is followed by its new one (crm.events.ts, THE NEW NAMES).
+    expect(announced.map((e) => e.name)).toEqual([
+      "crm:contact:created",
+      "crm:contact.created",
+      "crm:deal:created",
+      "crm:deal:status-changed",
+      "crm:deal.won",
+    ]);
+    expect(announced[3]!.data).toEqual({ dealId: deal.id, status: "won", lostReason: null });
+    expect(announced[4]!.data).toEqual({ dealId: deal.id });
     expect(JSON.stringify(announced)).not.toMatch(/private|Secret|900/);
   });
 });

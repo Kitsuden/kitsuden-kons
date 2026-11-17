@@ -5,3 +5,9 @@
 # id = "GHSA-xxxx-xxxx-xxxx"
 # ignoreUntil = 2027-01-31
 # reason = "Dev-only dependency; the vulnerable path is never reached because ..."
+
+# Accepted by the owner on 2026-11-17.
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+ignoreUntil = 2027-01-15
+reason = "picomatch ReDoS (CVE-2026-112366). No fixed release exists (4.0.7, the latest, is the last affected). Reached only through vitest and vite (dev only, see pnpm why picomatch); no kon ships it, and the globs it matches are the repository's own, never user input. Remove once picomatch publishes a fix."

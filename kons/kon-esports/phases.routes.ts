@@ -11,7 +11,7 @@
 import type { AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, eq, inArray } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { createBracket, seedParticipants } from "./bracket";
 import { loadBracket, persistBracket } from "./bracket.persistence";

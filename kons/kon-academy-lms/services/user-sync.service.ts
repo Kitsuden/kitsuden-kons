@@ -6,7 +6,7 @@
  */
 
 import { withSavepoint } from "@kitsuden/engine";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 // ============================================
 // TYPES AND ENUMS

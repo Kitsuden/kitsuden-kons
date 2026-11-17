@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-games",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Game library with IGDB integration, collections, platforms, tags, screenshots, and trailers",
   "type": "module",
   "main": "./index.ts",

@@ -5,7 +5,7 @@
  * Handles upload, processing and management of multimedia files.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 // ============================================
 // TYPES AND ENUMS

@@ -14,7 +14,7 @@
  */
 
 import type { GameProfile } from "../broadcast.profiles";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 /** Fields common to every side of a duel. */
 const versusSideBase = {

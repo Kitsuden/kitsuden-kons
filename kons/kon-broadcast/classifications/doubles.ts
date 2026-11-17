@@ -15,7 +15,7 @@
  */
 
 import type { GameProfile } from "../broadcast.profiles";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 /** A member of the pair. */
 const partner = z.object({

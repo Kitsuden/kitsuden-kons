@@ -3,7 +3,7 @@
   "id": "kon-newsletter",
   "name": "Newsletter",
   "description": "Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "sdk": 1,
   "type": "kon",
   "tier": "common",

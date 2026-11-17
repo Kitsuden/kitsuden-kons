@@ -6,7 +6,7 @@ next to Kitsuden; it is of no use without that stack.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | documents | 1.1.1 | `/api/ocr-training` | — (core `auth`; a reachable vekocr engine and vekdocs gateway) |
+| experimental | documents | 1.1.2 | `/api/ocr-training` | — (core `auth`; a reachable vekocr engine and vekdocs gateway) |
 
 ## Install
 

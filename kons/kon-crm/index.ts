@@ -7,6 +7,7 @@
  * - Pipelines & Stages
  * - Deals with Kanban view
  * - Activities (calls, emails, meetings, tasks)
+ * - An inbox: each person's mailbox and calendar, synced from their Google or Microsoft account
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * ARCHITECTURE:
@@ -37,6 +38,13 @@ import { defineKonSdk } from "@kitsuden/engine";
 import type { KonDefinition, KonContext } from "@kitsuden/shared";
 
 import { CRM_TOOLSETS } from "./crm.agents";
+import { listenToOtherKons } from "./crm.connected";
+import type { CrmDb } from "./crm.db";
+import { migrateEntityTypes, useEntityTypes } from "./crm.entitystore";
+import { CRM_ACTION_HANDLERS, syncStageRules } from "./crm.handlers";
+import { startInbox, stopInbox } from "./crm.inbox";
+import { CRM_REPORTS } from "./crm.reports";
+import { CRM_EVENTS, useCrmEvents } from "./crm.events";
 import { createCRMRouter, crmOperations } from "./crm.routes";
 import { KON_ID } from "./operations";
 import manifest from "./kon.json" with { type: "json" };
@@ -103,6 +111,24 @@ const hooks = {
         return;
       }
       ctx.logger.info("[CRM] ✓ All tables verified");
+      // Orders, subscriptions, payments and mail from the other kons become contacts and links
+      // (crm.connected.ts). With none of those kons installed nothing is ever emitted.
+      useCrmEvents(ctx.events);
+      listenToOtherKons(ctx);
+      // With Kitsuden's runtime entities, the CRM's entity types move there once (crm.entitystore.ts).
+      useEntityTypes(ctx as never);
+      const asSystemFirst = ctx.db.asSystem ?? (<T>(f: () => Promise<T>) => f());
+      const types = await asSystemFirst(() => migrateEntityTypes(ctx.db.instance as CrmDb));
+      if (types.moved.length) ctx.logger.info("[CRM] Entity types moved into Kitsuden's entities", { types: types.moved });
+      if (types.failed.length) ctx.logger.warn("[CRM] Some entity types stay in crm_entity_configs", { failed: types.failed });
+      // With Kitsuden's rule engine, stage actions move into it once (crm.handlers.ts).
+      const asSystem = ctx.db.asSystem ?? (<T>(f: () => Promise<T>) => f());
+      const synced = await asSystem(() => syncStageRules(ctx, ctx.db.instance as CrmDb));
+      if (synced.stages.length > 0) {
+        ctx.logger.info("[CRM] Stage actions moved into automation rules", { rules: synced.rules });
+      }
+      // People's mailboxes and calendars, synced through Kitsuden's connections (crm.inbox.ts).
+      await startInbox(ctx);
     } catch (err) {
       ctx.logger.error("[CRM] Failed to verify tables", {
         error: err instanceof Error ? err.message : String(err),
@@ -128,6 +154,7 @@ const hooks = {
    * onDisable: Cleanup when disabled
    */
   onDisable: async (ctx: KonContext) => {
+    stopInbox();
     ctx.logger.info("[CRM] Disabled - routes will be removed");
   },
 };
@@ -192,8 +219,21 @@ const definition = defineKonSdk({
   hooks,
 });
 
+/**
+ * What the CRM emits and listens to (crm.events.ts), in the shape `defineKon({ events })` takes. Set after
+ * `defineKonSdk`: a Kitsuden whose `KonDefinition` does not have the field yet ignores it.
+ */
+const events = CRM_EVENTS;
+
+/** Steps for Kitsuden's automation rules (crm.handlers.ts), exposed as `kon-crm:<id>`. */
+const actionHandlers = CRM_ACTION_HANDLERS;
+
+/** Reports for Kitsuden's report engine (crm.reports.ts), served as `kon:kon-crm/<id>`. */
+const reports = CRM_REPORTS;
+
 export const kon: KonDefinition = {
   ...definition,
+  ...({ events, actionHandlers, reports } as object),
   createRouter: (ctx: KonContext) => createCRMRouter(ctx),
 };
 

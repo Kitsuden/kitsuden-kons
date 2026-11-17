@@ -6,7 +6,7 @@ signed-in users save comps that staff rank into a tier list.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.1 | `/api/autobattler` | — (core: `auth`) |
+| beta | gaming | 1.0.2 | `/api/autobattler` | — (core: `auth`) |
 
 ## Install
 

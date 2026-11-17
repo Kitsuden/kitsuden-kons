@@ -12,7 +12,7 @@
  * The rules themselves live in the services: a route validates the shape and calls one method.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { BillingService, INVOICE_SORTS } from "./conta.billing";
 import { ContaReports } from "./conta.reports";

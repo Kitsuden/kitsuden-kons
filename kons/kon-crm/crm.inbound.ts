@@ -32,7 +32,7 @@ import { createHmac, randomUUID, timingSafeEqual as nodeTimingSafeEqual } from "
 import { AppError, asSystem } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe } from "./crm.context";
 import { emitCrm } from "./crm.events";

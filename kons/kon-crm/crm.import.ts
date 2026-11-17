@@ -5,18 +5,20 @@
  * A wrong import is the usual way a CRM fills with duplicates, and undoing one is manual. So the same
  * operation has two steps: `apply: false` says what each row would do, `apply: true` does it.
  *
- * Duplicates are by email, in the file and against the base. An existing contact gains only what it lacked,
- * and addresses on the exclusion list are never brought in.
+ * Duplicates are looked for by email, in the file and against the base, and then through the duplicate
+ * detector (crm.dedupe.ts: phone, name, company), the same one a form uses: a row with another email but the
+ * same phone and name is `duplicate`, shown with the contact it matches and why. An existing or duplicate
+ * contact gains only what it lacked, and addresses on the exclusion list are never brought in.
  */
 
 import { AppError } from "@kitsuden/engine";
 import { sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
-import { normalizeEmail } from "./crm.dedupe";
-import { isSuppressed } from "./crm.intake";
+import { findDuplicates, normalizeEmail } from "./crm.dedupe";
+import { candidatesFor, isSuppressed } from "./crm.intake";
 import { crmContacts } from "./crm.schema";
 import { EDIT, type registry } from "./operations";
 
@@ -115,7 +117,8 @@ const Input = z.object({
   apply: z.boolean().optional().describe("`false` or absent: only say what would happen"),
 });
 
-type Status = "new" | "existing" | "repeated" | "suppressed" | "invalid";
+type Status = "new" | "existing" | "duplicate" | "repeated" | "suppressed" | "invalid";
+type Match = { id: string; rating: number; reasons: string[] };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function existingEmails(db: CrmDb, emails: string[]): Promise<Map<string, typeof crmContacts.$inferSelect>> {
@@ -138,7 +141,7 @@ export function importOperations(routes: ReturnType<typeof registry>): void {
       id: "import-contacts",
       summary: "Import contacts from a CSV",
       description:
-        "Without `apply` it writes nothing and returns, for each row, `new`, `existing` (only its gaps would be filled), `repeated` in the file, `suppressed` or `invalid`, plus the columns it ignored. With `apply: true` it does that. At most 5000 rows. Requires CRM edit access.",
+        "Without `apply` it writes nothing and returns, for each row, `new`, `existing` (same email: only its gaps would be filled), `duplicate` (another email but the duplicate detector matches a contact by phone, name or company: `match` says which and why; only its gaps would be filled), `repeated` in the file, `suppressed` or `invalid`, plus the columns it ignored. With `apply: true` it does that. At most 5000 rows. Requires CRM edit access.",
       access: "session",
       permission: EDIT,
       input: { body: Input },
@@ -167,7 +170,7 @@ export function importOperations(routes: ReturnType<typeof registry>): void {
 
       const known = await existingEmails(db, [...new Set(parsed.map((p) => p.email).filter(Boolean))]);
       const seen = new Set<string>();
-      const plan: { row: number; email: string; status: Status; contact: Record<string, unknown>; custom: Record<string, string> }[] = [];
+      const plan: { row: number; email: string; status: Status; match?: Match; contact: Record<string, unknown>; custom: Record<string, string> }[] = [];
       for (const p of parsed) {
         let status: Status;
         if (!EMAIL.test(p.email)) status = "invalid";
@@ -175,9 +178,25 @@ export function importOperations(routes: ReturnType<typeof registry>): void {
         else if (await isSuppressed(db, p.email)) status = "suppressed";
         else status = known.has(p.email) ? "existing" : "new";
         seen.add(p.email);
-        plan.push({ ...p, status });
+        let match: Match | undefined;
+        if (status === "new") {
+          // Another email, but maybe the same person: the duplicate detector decides, as for a form.
+          const probe = {
+            id: "",
+            email: p.email,
+            firstName: (p.contact.firstName as string | undefined) ?? null,
+            lastName: (p.contact.lastName as string | undefined) ?? null,
+            phone: (p.contact.phone as string | undefined) ?? null,
+          };
+          const [best] = findDuplicates(probe, (await candidatesFor(db, probe)) as never);
+          if (best) {
+            status = "duplicate";
+            match = { id: best.id, rating: best.rating, reasons: best.reasons };
+          }
+        }
+        plan.push({ ...p, status, ...(match ? { match } : {}) });
       }
-      const summary = { new: 0, existing: 0, repeated: 0, suppressed: 0, invalid: 0 };
+      const summary = { new: 0, existing: 0, duplicate: 0, repeated: 0, suppressed: 0, invalid: 0 };
       for (const p of plan) summary[p.status]++;
 
       if (input.body.apply) {
@@ -194,8 +213,11 @@ export function importOperations(routes: ReturnType<typeof registry>): void {
               origin: "import",
               createdBy,
             } as typeof crmContacts.$inferInsert);
-          } else if (p.status === "existing") {
-            const current = known.get(p.email)! as unknown as Record<string, unknown>;
+          } else if (p.status === "existing" || p.status === "duplicate") {
+            const current = (p.status === "existing"
+              ? known.get(p.email)
+              : (await db.select().from(crmContacts).where(sql`${crmContacts.id} = ${p.match!.id}`))[0]) as unknown as Record<string, unknown>;
+            if (!current) continue;
             const gaps: Record<string, unknown> = {};
             for (const [k, v] of Object.entries(p.contact)) {
               if (k !== "email" && (current[k] === null || current[k] === undefined || current[k] === "")) gaps[k] = v;
@@ -213,7 +235,7 @@ export function importOperations(routes: ReturnType<typeof registry>): void {
         applied: !!input.body.apply,
         summary,
         ignoredColumns: ignored,
-        rows: plan.map(({ row, email, status }) => ({ row, email, status })),
+        rows: plan.map(({ row, email, status, match }) => ({ row, email, status, ...(match ? { match } : {}) })),
       });
     }
   );

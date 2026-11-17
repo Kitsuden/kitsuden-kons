@@ -22,7 +22,7 @@ import type { AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { EsportsDb } from "./esports.db";
 import {

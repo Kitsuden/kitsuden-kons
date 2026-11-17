@@ -31,7 +31,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import { repo, can, type AuthzUser, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, eq, ilike } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { validateDeck, type CardCatalog } from "./cardsim.deck.js";
 import { createRng, shuffle } from "./cardsim.engine.js";

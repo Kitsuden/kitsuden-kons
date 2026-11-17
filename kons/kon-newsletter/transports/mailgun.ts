@@ -17,15 +17,20 @@ import type { SentMessage } from "@kitsuden/engine";
 
 import type { BulkSendResult, BulkTransport } from "../newsletter.types";
 
-export function mailgunTransport(env = process.env): BulkTransport {
-  const apiKey = env.MAILGUN_API_KEY;
+/**
+ * `http`: the organization's mailgun connection in Kitsuden (ctx.connections), used when `MAILGUN_API_KEY` is not set. It adds
+ * the key itself on every request, so the key never reaches this file.
+ */
+export function mailgunTransport(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): BulkTransport {
+  const send = (url: string, init?: RequestInit) => (http && !env.MAILGUN_API_KEY ? http.fetch(url, init) : fetch(url, init));
+  const apiKey = env.MAILGUN_API_KEY ?? (http ? "" : undefined);
   const domain = env.MAILGUN_DOMAIN;
   const base =
     env.MAILGUN_REGION === "eu" ? "https://api.eu.mailgun.net" : "https://api.mailgun.net";
 
   return {
     name: "mailgun",
-    isConfigured: () => Boolean(apiKey && domain),
+    isConfigured: () => Boolean((apiKey || http) && domain),
     batchSize: 1000,
     ratePerSecond: Number(env.MAILGUN_RATE_PER_SECOND ?? 10),
 
@@ -38,7 +43,7 @@ export function mailgunTransport(env = process.env): BulkTransport {
       // receive the content of others. If it happens, it degrades to one by one
       // instead of risking a leak.
       if (!sameContent(messages)) {
-        return sendIndividually(messages, emails, base, domain!, apiKey!);
+        return sendIndividually(messages, emails, base, domain!, apiKey!, send);
       }
 
       const form = new FormData();
@@ -65,7 +70,7 @@ export function mailgunTransport(env = process.env): BulkTransport {
       if (first.tag) form.append("o:tag", first.tag);
 
       try {
-        const res = await fetch(`${base}/v3/${domain}/messages`, {
+        const res = await send(`${base}/v3/${domain}/messages`, {
           method: "POST",
           headers: { Authorization: `Basic ${btoa(`api:${apiKey}`)}` },
           body: form,
@@ -110,7 +115,8 @@ async function sendIndividually(
   emails: string[],
   base: string,
   domain: string,
-  apiKey: string
+  apiKey: string,
+  send: (url: string, init?: RequestInit) => Promise<Response>
 ): Promise<BulkSendResult[]> {
   return Promise.all(
     messages.map(async (m, i): Promise<BulkSendResult> => {
@@ -124,7 +130,7 @@ async function sendIndividually(
       for (const [key, value] of Object.entries(m.headers)) form.append(`h:${key}`, value);
 
       try {
-        const res = await fetch(`${base}/v3/${domain}/messages`, {
+        const res = await send(`${base}/v3/${domain}/messages`, {
           method: "POST",
           headers: { Authorization: `Basic ${btoa(`api:${apiKey}`)}` },
           body: form,

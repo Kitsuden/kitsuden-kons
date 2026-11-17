@@ -6,7 +6,7 @@ teams whose members book shared spaces and a desk that manages them.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.1 | `/api/booking` | kon-media; core `auth` |
+| beta | business | 1.0.2 | `/api/booking` | kon-media; core `auth` |
 
 ## Install
 
