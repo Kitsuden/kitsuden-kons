@@ -86,11 +86,13 @@ import type { ContaDb } from "./types";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const id = z.string().min(1).max(64);
+// `[0-9]`, not `\d`: the same in JavaScript, but Schemathesis generates Unicode digits for `\d`
+// and then discards them as not matching, until its health check fails (POST /conta/journals/validate).
 /** Amount as text, as the database stores it (numeric 19,4). */
-const amount = z.string().regex(/^\d{1,15}(\.\d{1,4})?$/, "Invalid amount");
-const signedAmount = z.string().regex(/^-?\d{1,15}(\.\d{1,4})?$/, "Invalid amount");
-const rate = z.string().regex(/^\d{1,9}(\.\d{1,10})?$/, "Invalid exchange rate");
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const amount = z.string().regex(/^[0-9]{1,15}(\.[0-9]{1,4})?$/, "Invalid amount");
+const signedAmount = z.string().regex(/^-?[0-9]{1,15}(\.[0-9]{1,4})?$/, "Invalid amount");
+const rate = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,10})?$/, "Invalid exchange rate");
+const date = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
 const metadata = z.record(z.string(), z.unknown());
 const text = (max: number) => z.string().max(max);
 
