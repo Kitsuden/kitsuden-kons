@@ -18,7 +18,7 @@
 
 import type { KonContext, ReportDefinition } from "@kitsuden/shared";
 import { sql, type SQL } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { pricingOf, priceFor, rowsOf } from "./koe.campaigns";
 import { dbOf, type Db } from "./koe.common";

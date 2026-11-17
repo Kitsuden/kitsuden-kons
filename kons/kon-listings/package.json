@@ -1,0 +1,48 @@
+{
+  "name": "@kitsuden/kon-listings",
+  "version": "0.1.0",
+  "description": "Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from visitors, and the XML feeds portals such as Trovit and Mitula read.",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "index.ts",
+    "kon.json",
+    "listings.feeds.ts",
+    "listings.policy.ts",
+    "listings.routes.ts",
+    "listings.schema.ts",
+    "listings.verticals.ts",
+    "migrations",
+    "portals",
+    "verticals"
+  ],
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "listings",
+    "real-estate",
+    "vehicles",
+    "jobs",
+    "trovit",
+    "mitula",
+    "feeds"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.7.0"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-listings",
+    "core": false,
+    "defaultEnabled": false
+  }
+}

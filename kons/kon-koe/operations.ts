@@ -10,7 +10,7 @@
 import { defineOperation, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext, KonOperation, OperationContext, ValidatedInput } from "@kitsuden/shared";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 export type Declaration = Omit<KonOperation, "method" | "route" | "handle">;
 

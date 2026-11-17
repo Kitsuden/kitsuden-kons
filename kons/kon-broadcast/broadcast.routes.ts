@@ -6,7 +6,7 @@ import {
   type AnyOperation,
 } from "@kitsuden/engine";
 import { type KonContext, konSetting } from "@kitsuden/shared";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { checkReportable, fetchPairing, reportToBracket } from "./broadcast.bracket.js";
 import "./broadcast.policy.js"; // registers the "broadcast" policy

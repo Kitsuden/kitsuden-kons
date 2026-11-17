@@ -14,7 +14,7 @@
  * column. What a client needs to continue is pinned down: the id, the list, the
  * `data` envelope.
  */
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 const uuid = (that: string) => z.string().describe(`${that} (uuid; anything else is a 404)`);
 

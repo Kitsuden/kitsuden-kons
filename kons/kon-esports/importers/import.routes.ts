@@ -22,7 +22,7 @@
 import type { AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { desc, eq } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { EsportsDb } from "../esports.db.js";
 import { prizePoolSnapshots, tournaments } from "../esports.schema.js";

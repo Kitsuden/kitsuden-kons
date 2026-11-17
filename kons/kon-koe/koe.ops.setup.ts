@@ -7,7 +7,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 
 import { AppError, asSystem } from "@kitsuden/engine";
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { graph } from "./channels/graph";
 import { verifySignature } from "./channels/graph";

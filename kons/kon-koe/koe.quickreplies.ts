@@ -22,7 +22,7 @@ import { createHash } from "node:crypto";
 
 import { AppError } from "@kitsuden/engine";
 import { and, asc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbOf, newId, type Db } from "./koe.common";
 import { requireMember, USE, type Member } from "./koe.policy";

@@ -6,13 +6,8 @@
 # ignoreUntil = 2027-01-31
 # reason = "Dev-only dependency; the vulnerable path is never reached because ..."
 
-# Approved by the owner on 2026-11-17 (PR Kitsuden/kitsuden-kons#5).
+# Accepted by the owner on 2026-11-17.
 [[IgnoredVulns]]
 id = "GHSA-fc5q-39xc-vjpf"
-ignoreUntil = 2026-12-31
-reason = "picomatch <= 4.0.7 ReDoS with repeated extglobs; no patched release exists yet (2026-11-17). Dev-only here: vitest -> vite/tinyglobby, never in a published kon, and the patterns come from this repository's config, not from users. Remove as soon as a fixed picomatch ships."
-
-[[IgnoredVulns]]
-id = "CVE-2026-112366"
-ignoreUntil = 2026-12-31
-reason = "Alias of GHSA-fc5q-39xc-vjpf (see above). Approved by the owner on 2026-11-17."
+ignoreUntil = 2027-01-15
+reason = "picomatch ReDoS (CVE-2026-112366). No fixed release exists (4.0.7, the latest, is the last affected). Reached only through vitest and vite (dev only, see pnpm why picomatch); no kon ships it, and the globs it matches are the repository's own, never user input. Remove once picomatch publishes a fix."

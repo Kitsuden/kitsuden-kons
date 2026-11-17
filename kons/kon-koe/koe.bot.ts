@@ -41,7 +41,7 @@
 import { AppError, asSystem, attemptSql, PermanentError, queue, withSavepoint, type QueueJob } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, gt, inArray, lte, ne, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { channelById } from "./koe.channels";
 import { CHAT_CHANNEL_QUEUE, dbOf, newId, QUEUES, type Db } from "./koe.common";

@@ -28,6 +28,8 @@ export interface ApplyResult {
    * Emitted with `payment:<type>` so other kons (kon-members) follow it without reading `pay_*`.
    */
   subscription?: SubscriptionState;
+  /** The `pay_events` row written for this event: what another kon links a payment to. */
+  eventId?: string;
 }
 
 /** A subscription's state after an event, as other kons see it. */
@@ -123,6 +125,7 @@ export async function applyPaymentEvent(
   //     the transaction stays alive to respond 200;
   //   · an accounting failure goes in its own savepoint inside: it does not lose the payment.
   let journalId: string | undefined;
+  let eventId: string | undefined;
   try {
     journalId = await withSavepoint(async () => {
       // An accounting failure must not lose the payment: the event is recorded anyway and
@@ -131,7 +134,7 @@ export async function applyPaymentEvent(
         ? await attemptSql(() => onLedger(event, userId), undefined)
         : undefined;
 
-      await db.insert(payEvents).values({
+      const written: Array<{ id: string }> = await db.insert(payEvents).values({
         provider: event.provider,
         externalId: event.externalId,
         type: event.type,
@@ -141,7 +144,8 @@ export async function applyPaymentEvent(
         currency: event.money?.currency,
         journalId: entry,
         payload: event.raw as Record<string, unknown>,
-      });
+      }).returning({ id: payEvents.id });
+      eventId = written[0]?.id;
       return entry;
     });
   } catch (err) {
@@ -227,7 +231,7 @@ export async function applyPaymentEvent(
     };
   }
 
-  return { applied: true, subscriptionId: event.subscriptionId, journalId, userId, subscription };
+  return { applied: true, subscriptionId: event.subscriptionId, journalId, userId, subscription, eventId };
 }
 
 /**

@@ -12,7 +12,7 @@
  * grow column by column. What a client needs to continue is fixed: the
  * id, the list, the total.
  */
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 const id = (that: string) => z.string().describe(that);
 

@@ -40,7 +40,7 @@ import { asSystem, AppError, ErrorCode, PermanentError, queue, type QueueJob } f
 import type { KonContext } from "@kitsuden/shared";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq, gte, ne, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { contextOf, search } from "./chat.knowledge";
 import { chatBots, chatChannelTurns } from "./chat.schema";

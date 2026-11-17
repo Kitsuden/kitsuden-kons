@@ -19,7 +19,7 @@ import { FormulaError } from "@kitsuden/kon-formulas";
 import { readDatasetCatalog, type KonContext } from "@kitsuden/shared";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { isBuilderTeam } from "./character-builder.policy.js";
 import {

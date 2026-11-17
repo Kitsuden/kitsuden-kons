@@ -16,6 +16,7 @@ import { KON_ID } from "./operations";
 import { registerShopMails } from "./shop.mails";
 import { notifyStatus } from "./shop.notify";
 import { onPaymentRefunded, onPaymentSucceeded, type PaymentEventLike } from "./shop.payments";
+import { orderFromQuote, type QuoteOrderOutcome } from "./shop.quotes";
 import { shopOperations } from "./shop.routes";
 
 export {
@@ -166,6 +167,36 @@ function listenToPayments(ctx: KonContext): void {
 }
 
 /**
+ * kon-crm's accepted quotes with `then: "order"` (shop.quotes.ts). As the system, in its own transaction,
+ * after the CRM's request committed. Once per event bus, like the payment listener.
+ */
+const listeningToQuotes = new WeakSet<object>();
+
+function listenToQuotes(ctx: KonContext): void {
+  if (listeningToQuotes.has(ctx.events)) return;
+  listeningToQuotes.add(ctx.events);
+  ctx.events.on("crm:quote.accepted", (data: unknown) => {
+    const run = async () => {
+      const db = ctx.db.instance;
+      const asSystem = ctx.db.asSystem ?? (<T>(f: () => Promise<T>) => f());
+      try {
+        const r: QuoteOrderOutcome = await asSystem(() => (db.transaction ? db.transaction((tx: unknown) => orderFromQuote(tx, data)) : orderFromQuote(db, data)));
+        if (r.outcome === "created" && !r.repeated) {
+          ctx.logger.info("[shop] order made from a CRM quote", { number: r.number });
+          ctx.events.emit("shop:order.created", { orderId: r.orderId, number: r.number, from: "crm-quote" });
+        } else if (r.outcome === "refused") {
+          const q = (data ?? {}) as { quoteId?: string; dealId?: string };
+          ctx.events.emit("shop:order.quote-refused", { quoteId: q.quoteId ?? null, dealId: q.dealId ?? null, reason: r.reason });
+        }
+      } catch (err) {
+        ctx.logger.error("[shop] could not make an order from a quote", { error: err instanceof Error ? err.message : String(err) });
+      }
+    };
+    void (ctx.db.background ? ctx.db.background(run) : run());
+  });
+}
+
+/**
  * Kon definition.
  *
  * Without this the loader finds nothing to mount: it looks for `mod.kon` or
@@ -221,6 +252,7 @@ export const kon: KonDefinition = defineKonSdk({
     onStartup: async (ctx: KonContext) => {
       registerShopMails();
       listenToPayments(ctx);
+      listenToQuotes(ctx);
     },
   },
 

@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-analytics",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "View counter per subject and day, with no cookies or personal data",
   "type": "module",
   "main": "./index.ts",

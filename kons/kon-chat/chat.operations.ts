@@ -16,7 +16,7 @@ import type { KonContext } from "@kitsuden/shared";
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, gte, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { CHANNEL_TOOLSET, channelUsageByDay } from "./chat.channel";
 import { addDocument, textOfFile } from "./chat.knowledge";

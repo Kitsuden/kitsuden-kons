@@ -1,0 +1,82 @@
+{
+  "$comment": "How a listing becomes a Trovit ad. UNVERIFIED: Trovit does not publish its feed specification; it sends it when a publisher account is opened. These element names follow the format integrators describe (one <ad> per listing inside <trovit>). Check them against the specification Trovit gives you and edit this file: the feed is built from it, with no code change.",
+  "id": "trovit",
+  "name": "Trovit",
+  "verified": false,
+  "root": "trovit",
+  "item": "ad",
+  "verticals": {
+    "real-estate": [
+      { "element": "id", "from": "id", "required": true },
+      { "element": "url", "from": "url", "required": true },
+      { "element": "title", "from": "title", "required": true },
+      { "element": "type", "from": "attributes.operation", "map": { "sale": "For Sale", "rent": "For Rent" }, "required": true },
+      { "element": "content", "from": "description", "required": true },
+      {
+        "element": "price",
+        "from": "price",
+        "format": "number",
+        "required": true,
+        "attributes": {
+          "currency": { "from": "currency" },
+          "period": { "from": "attributes.operation", "map": { "rent": "monthly" } }
+        }
+      },
+      { "element": "property_type", "from": "attributes.propertyType" },
+      { "element": "address", "from": "address" },
+      { "element": "city", "from": "city", "required": true },
+      { "element": "city_area", "from": "district" },
+      { "element": "region", "from": "region" },
+      { "element": "postcode", "from": "postcode" },
+      { "element": "latitude", "from": "latitude", "format": "number" },
+      { "element": "longitude", "from": "longitude", "format": "number" },
+      { "element": "floor_area", "from": "attributes.areaM2", "format": "number", "attributes": { "unit": { "value": "meters" } } },
+      { "element": "rooms", "from": "attributes.bedrooms", "format": "number" },
+      { "element": "bathrooms", "from": "attributes.bathrooms", "format": "number" },
+      { "element": "parking", "from": "attributes.parking", "format": "number" },
+      { "element": "is_furnished", "from": "attributes.furnished", "format": "boolean-1-0" },
+      { "element": "is_new", "from": "attributes.newBuild", "format": "boolean-1-0" },
+      { "element": "pictures", "pictures": { "item": "picture", "url": "picture_url", "title": "picture_title", "max": 30 }, "required": true },
+      { "element": "date", "from": "publishedAt", "format": "date-dd/mm/yyyy" },
+      { "element": "agency", "from": "feed.agencyName" },
+      { "element": "mobile", "from": "feed.contactPhone" }
+    ],
+    "vehicles": [
+      { "element": "id", "from": "id", "required": true },
+      { "element": "url", "from": "url", "required": true },
+      { "element": "title", "from": "title", "required": true },
+      { "element": "content", "from": "description", "required": true },
+      { "element": "price", "from": "price", "format": "number", "required": true, "attributes": { "currency": { "from": "currency" } } },
+      { "element": "make", "from": "attributes.make", "required": true },
+      { "element": "model", "from": "attributes.model", "required": true },
+      { "element": "year", "from": "attributes.year", "format": "number", "required": true },
+      { "element": "mileage", "from": "attributes.mileageKm", "format": "number", "attributes": { "unit": { "value": "kilometers" } } },
+      { "element": "fuel", "from": "attributes.fuel" },
+      { "element": "transmission", "from": "attributes.transmission" },
+      { "element": "car_type", "from": "attributes.bodyType" },
+      { "element": "color", "from": "attributes.color" },
+      { "element": "doors", "from": "attributes.doors", "format": "number" },
+      { "element": "is_new", "from": "attributes.condition", "map": { "new": "1", "used": "0", "certified": "0" } },
+      { "element": "city", "from": "city", "required": true },
+      { "element": "region", "from": "region" },
+      { "element": "pictures", "pictures": { "item": "picture", "url": "picture_url", "title": "picture_title", "max": 30 }, "required": true },
+      { "element": "date", "from": "publishedAt", "format": "date-dd/mm/yyyy" },
+      { "element": "agency", "from": "feed.agencyName" },
+      { "element": "mobile", "from": "feed.contactPhone" }
+    ],
+    "jobs": [
+      { "element": "id", "from": "id", "required": true },
+      { "element": "url", "from": "url", "required": true },
+      { "element": "title", "from": "title", "required": true },
+      { "element": "content", "from": "description", "required": true },
+      { "element": "company", "from": "attributes.company", "required": true },
+      { "element": "contract", "from": "attributes.contract" },
+      { "element": "working_hours", "from": "attributes.contract", "map": { "full-time": "full-time", "part-time": "part-time" } },
+      { "element": "category", "from": "attributes.category" },
+      { "element": "salary", "from": "attributes.salaryMin", "format": "number", "attributes": { "currency": { "from": "currency" }, "period": { "from": "attributes.salaryPeriod" } } },
+      { "element": "city", "from": "city", "required": true },
+      { "element": "region", "from": "region" },
+      { "element": "date", "from": "publishedAt", "format": "date-dd/mm/yyyy" }
+    ]
+  }
+}

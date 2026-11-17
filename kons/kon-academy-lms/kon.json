@@ -2,7 +2,7 @@
   "id": "kon-academy-lms",
   "name": "Academy LMS",
   "description": "Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment groups, Learning Paths, satisfaction surveys, PDF certificates and Excel export.",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

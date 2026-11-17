@@ -20,7 +20,7 @@
 
 import { AppError, asSystem, can } from "@kitsuden/engine";
 import { eq, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";

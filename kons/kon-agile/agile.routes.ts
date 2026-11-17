@@ -42,7 +42,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { eq, and, or, sql, asc, desc, inArray, type SQL } from "drizzle-orm";
 import { Hono, type Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { agileAccess, isAgent, type AgileAccess, type User } from "./agile.access";
 import type { AgileDb } from "./agile.db";

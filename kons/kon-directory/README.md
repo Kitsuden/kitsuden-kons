@@ -6,7 +6,7 @@ keeping HR data (birth date, salary band, emergency contact, documents) visible 
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.0 | `/api/directory` | kon-media (core `auth`) |
+| beta | business | 1.0.1 | `/api/directory` | kon-media (core `auth`) |
 
 ## Install
 

@@ -43,7 +43,7 @@
 import { AppError, asSystem, queue } from "@kitsuden/engine";
 import { evaluateCondition, RULE_OPERATORS, type KonContext, type RuleOperator } from "@kitsuden/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { adapterOf } from "./channels";
 import type { Interactive } from "./channels/types";

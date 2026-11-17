@@ -18,7 +18,7 @@
 import { AppError, attemptSql } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { rowsOf } from "./koe.campaigns";
 import { dbOf, emit, newId, QUEUES, type Db } from "./koe.common";

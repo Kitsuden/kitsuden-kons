@@ -35,7 +35,7 @@ import { AppError, asSystem, PermanentError, type QueueJob } from "@kitsuden/eng
 import type { KonContext } from "@kitsuden/shared";
 import { and, desc, eq } from "drizzle-orm";
 import { bodyLimit } from "hono/body-limit";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { adapterOf } from "./channels";
 import { GraphError, MAX_DOWNLOAD_BYTES } from "./channels/graph";

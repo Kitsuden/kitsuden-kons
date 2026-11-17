@@ -11,7 +11,7 @@
 import { AppError } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, ilike, inArray, isNull, lt, ne, or, sql, type SQL } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { adapterOf } from "./channels";
 import { authOf, publicChannel } from "./koe.channels";

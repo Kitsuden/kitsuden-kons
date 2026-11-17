@@ -24,7 +24,7 @@
 import { AppError, asSystem, queue, withSavepoint } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { koeCode } from "./koe.campaigns";
 import { dbOf, emit, newId, QUEUES, type Db } from "./koe.common";

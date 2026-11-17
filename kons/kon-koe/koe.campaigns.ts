@@ -33,7 +33,7 @@
 import { AppError, asSystem, queue, withSavepoint } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, count, desc, eq, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbOf, emit, newId, QUEUES, type Db } from "./koe.common";
 import { recordEvent } from "./koe.conversations";
