@@ -167,6 +167,7 @@ export function timelineOperations(routes: ReturnType<typeof registry>): void {
       permission: VIEW,
       input: { query: Query },
       output: { schema: z.object({}).passthrough() },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input) => {
       const q = input.query as z.infer<typeof Query>;
