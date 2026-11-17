@@ -296,9 +296,13 @@ export function extOf(mime: string): string {
   return EXT[baseMime(mime)] ?? "bin";
 }
 
-/** The storage key carries nothing from the client: `koe/media/<conversation or library>/<id>.<ext>`. */
+/**
+ * The storage key carries nothing from the client: `private/koe/media/<conversation or library>/<id>.<ext>`.
+ * Under `private/`, the host serves it only through a short-lived signed address (Kitsuden/kitsuden#36), so a
+ * customer's voice note is never readable by whoever finds the link.
+ */
 export function storageKeyOf(conversationId: string | null, mediaId: string, mime: string, suffix = ""): string {
-  return `koe/media/${conversationId ?? "library"}/${mediaId}${suffix}.${extOf(mime)}`;
+  return `private/koe/media/${conversationId ?? "library"}/${mediaId}${suffix}.${extOf(mime)}`;
 }
 
 /** A client's file name, only for display: no path, no control characters, at most 200 characters. */

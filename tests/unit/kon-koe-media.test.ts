@@ -257,7 +257,7 @@ describe("koe media end to end", () => {
 
     const img = await inboundMedia("wamid.img1");
     expect(img).toMatchObject({ status: "ready", mime: "image/jpeg", size_bytes: JPEG.length, sha256: hex(JPEG) });
-    expect(img.storage_key).toBe(`koe/media/${conv}/${img.id}.jpg`);
+    expect(img.storage_key).toBe(`private/koe/media/${conv}/${img.id}.jpg`);
     expect(k.files.get(img.storage_key)?.equals(JPEG)).toBe(true);
 
     const voice = await inboundMedia("wamid.voice1");
