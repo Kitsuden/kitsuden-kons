@@ -1,14 +1,15 @@
--- 0001 — A person's mailbox and calendar, synced from a connected account (kon-connections)
+-- 0015 — The CRM's inbox: a person's mailbox and calendar, synced from an account they connected in
+-- Kitsuden (`ctx.connections`). It was the separate kon-inbox while in review; it never shipped on its own.
 -- Idempotent.
 --
 -- Only what a CRM timeline needs: who wrote to whom, the subject, a short preview, when. Never a full
 -- body or an attachment. A mailbox is read only after its owner adds it, and everything synced from it
 -- is deleted with it (and when its connection is revoked).
 
-CREATE TABLE IF NOT EXISTS inbox_mailboxes (
+CREATE TABLE IF NOT EXISTS crm_inbox_mailboxes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id TEXT NOT NULL,
-  -- The kon-connections connection it reads through. No foreign key: that table is another kon's.
+  -- The Kitsuden connection it reads through. No foreign key: that table is the core's.
   connection_id TEXT NOT NULL,
   provider TEXT NOT NULL,
   address TEXT NOT NULL,
@@ -29,9 +30,9 @@ CREATE TABLE IF NOT EXISTS inbox_mailboxes (
   UNIQUE (owner_id, connection_id)
 );
 
-CREATE TABLE IF NOT EXISTS inbox_threads (
+CREATE TABLE IF NOT EXISTS crm_inbox_threads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mailbox_id UUID NOT NULL REFERENCES inbox_mailboxes(id) ON DELETE CASCADE,
+  mailbox_id UUID NOT NULL REFERENCES crm_inbox_mailboxes(id) ON DELETE CASCADE,
   owner_id TEXT NOT NULL,
   external_id TEXT NOT NULL,
   subject TEXT NOT NULL DEFAULT '',
@@ -42,10 +43,10 @@ CREATE TABLE IF NOT EXISTS inbox_threads (
   UNIQUE (mailbox_id, external_id)
 );
 
-CREATE TABLE IF NOT EXISTS inbox_messages (
+CREATE TABLE IF NOT EXISTS crm_inbox_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mailbox_id UUID NOT NULL REFERENCES inbox_mailboxes(id) ON DELETE CASCADE,
-  thread_id UUID REFERENCES inbox_threads(id) ON DELETE CASCADE,
+  mailbox_id UUID NOT NULL REFERENCES crm_inbox_mailboxes(id) ON DELETE CASCADE,
+  thread_id UUID REFERENCES crm_inbox_threads(id) ON DELETE CASCADE,
   owner_id TEXT NOT NULL,
   external_id TEXT NOT NULL,
   direction TEXT NOT NULL CHECK (direction IN ('in', 'out')),
@@ -61,12 +62,12 @@ CREATE TABLE IF NOT EXISTS inbox_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (mailbox_id, external_id)
 );
-CREATE INDEX IF NOT EXISTS inbox_messages_thread_idx ON inbox_messages (thread_id, sent_at);
-CREATE INDEX IF NOT EXISTS inbox_messages_from_idx ON inbox_messages (from_address);
+CREATE INDEX IF NOT EXISTS crm_inbox_messages_thread_idx ON crm_inbox_messages (thread_id, sent_at);
+CREATE INDEX IF NOT EXISTS crm_inbox_messages_from_idx ON crm_inbox_messages (from_address);
 
-CREATE TABLE IF NOT EXISTS inbox_events (
+CREATE TABLE IF NOT EXISTS crm_inbox_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mailbox_id UUID NOT NULL REFERENCES inbox_mailboxes(id) ON DELETE CASCADE,
+  mailbox_id UUID NOT NULL REFERENCES crm_inbox_mailboxes(id) ON DELETE CASCADE,
   owner_id TEXT NOT NULL,
   external_id TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '',
@@ -80,7 +81,7 @@ CREATE TABLE IF NOT EXISTS inbox_events (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (mailbox_id, external_id)
 );
-CREATE INDEX IF NOT EXISTS inbox_events_starts_idx ON inbox_events (owner_id, starts_at);
+CREATE INDEX IF NOT EXISTS crm_inbox_events_starts_idx ON crm_inbox_events (owner_id, starts_at);
 
 -- ── Row security ─────────────────────────────────────────────────────────────
 --
@@ -100,16 +101,25 @@ DECLARE
     || 'AND owner_id = current_setting(''app.current_user_id'', true))';
   team CONSTANT text := '(visibility = ''team'' AND current_setting(''app.current_user_role'', true) IN (''admin'', ''editor''))';
 BEGIN
-  FOREACH t IN ARRAY ARRAY['inbox_mailboxes', 'inbox_threads', 'inbox_messages', 'inbox_events'] LOOP
+  FOREACH t IN ARRAY ARRAY['crm_inbox_mailboxes', 'crm_inbox_threads', 'crm_inbox_messages', 'crm_inbox_events'] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_system', t);
     EXECUTE format('CREATE POLICY %I ON %I FOR ALL TO PUBLIC USING (%s) WITH CHECK (%s)', t || '_system', t, sys, sys);
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_owner', t);
     EXECUTE format('CREATE POLICY %I ON %I FOR ALL TO PUBLIC USING (%s) WITH CHECK (%s)', t || '_owner', t, own, own);
-    IF t <> 'inbox_mailboxes' THEN
+    IF t <> 'crm_inbox_mailboxes' THEN
       EXECUTE format('DROP POLICY IF EXISTS %I ON %I', t || '_team_read', t);
       EXECUTE format('CREATE POLICY %I ON %I FOR SELECT TO PUBLIC USING (%s)', t || '_team_read', t, team);
     END IF;
   END LOOP;
 END $$;
+
+-- ── Evidence ─────────────────────────────────────────────────────────────────
+--
+-- What a synced message says about its sender (crm.inbox.evidence.ts): the display name they write under and
+-- their company's domain. Anyone types any display name, so it weighs far under the 70 a value needs to be
+-- written by itself: it is a suggestion for a person. An admin can change it, or switch it off, like any kind.
+INSERT INTO crm_evidence_kinds (key, label, description, weight) VALUES
+  ('mail-header', 'An email header', 'The name and domain someone writes from, in a message synced into the CRM''s inbox. Anyone can type any display name.', 10)
+ON CONFLICT (key) DO NOTHING;

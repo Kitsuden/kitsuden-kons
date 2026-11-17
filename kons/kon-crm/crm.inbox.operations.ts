@@ -1,14 +1,16 @@
 /**
- * kon-inbox routes as kon SDK operations: `app.get(path, declaration, handler)`, where the declaration
- * (id, schemas, access, permission, errors) gives the validation, the OpenAPI, the MCP tool and the fine
- * scope `kon:inbox:<id>`.
+ * The inbox's operations, under the CRM's mount (`/api/crm/inbox/…`) and fine scopes (`kon:crm:<id>`)
+ * ============================================================================
+ *
+ * A registry of their own and not the CRM's (operations.ts): the CRM's wraps every answer in the access dials
+ * (amounts, notes, sensitive fields), which are about the CRM's records. Mail has its own rule, row security on
+ * the owner (migrations/0015_inbox.sql), and a person needs no CRM access to sync their own mailbox.
  */
 
 import { defineOperation, type AnyOperation } from "@kitsuden/engine";
 import type { OperationContext, ValidatedInput, KonOperation } from "@kitsuden/shared";
 import type { Context } from "hono";
 
-export const KON_ID = "kon-inbox";
 
 /** What is declared for an operation: everything except method, path and handler. */
 export type Declaration = Omit<KonOperation, "method" | "route" | "handle">;
@@ -55,7 +57,7 @@ export function registry() {
 }
 
 /** A person (or an agent acting as one) on their own mailboxes; row security keeps them apart. */
-export const OWN = { policy: { resource: "inbox", action: "actAsUser" } } as const;
+export const OWN = { policy: { resource: "crm-inbox", action: "actAsUser" } } as const;
 
 /** Sending as the person: their own mailbox, and for an agent a proposal (`sensitive`). */
-export const SEND = { policy: { resource: "inbox", action: "send" } } as const;
+export const SEND = { policy: { resource: "crm-inbox", action: "send" } } as const;

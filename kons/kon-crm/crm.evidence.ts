@@ -201,6 +201,87 @@ async function readable(db: CrmDb, rows: Observation[]): Promise<Observation[]> 
   return hidden.size === 0 ? rows : rows.filter((r) => !(r.field.startsWith("custom.") && hidden.has(r.field.slice(7))));
 }
 
+export interface ObservationInput {
+  entityType: EntityType;
+  entityId: string;
+  field: string;
+  value: unknown;
+  source: string;
+  evidence: string;
+  note?: string | null;
+  externalRef?: string | null;
+}
+
+export interface ObservationOutcome {
+  data: Observation;
+  outcome: Observation["status"];
+  weight?: number;
+  applyAt?: number;
+  created: boolean;
+}
+
+/**
+ * Records one observation and decides what it does to the record (the rules in the header). The route and the
+ * inbox (crm.inbox.evidence.ts) both come through here, so mail is weighed exactly like anything else.
+ */
+export async function observe(db: CrmDb, body: ObservationInput, observedBy: string | null): Promise<ObservationOutcome> {
+  if (body.externalRef) {
+    const [existing] = await db.select().from(crmObservations).where(eq(crmObservations.externalRef, body.externalRef));
+    if (existing) return { data: existing, outcome: existing.status, created: false };
+  }
+  const type = body.entityType;
+  const row = await rowOf(db, type, body.entityId);
+  await checkField(db, type, body.field, body.value);
+  const [kind] = await db.select().from(crmEvidenceKinds).where(and(eq(crmEvidenceKinds.key, body.evidence), eq(crmEvidenceKinds.active, true)));
+  if (!kind) throw AppError.validation(`Unknown kind of evidence: ${body.evidence}. See get-evidence-policy`);
+
+  const value = typeof body.value === "string" ? body.value.trim() : body.value;
+  const current = currentValue(row, body.field);
+  const applyAt = await policyOf(db);
+  const weight = await combinedWeight(db, type, body.entityId, body.field, value, { source: body.source, weight: kind.weight });
+  let status: Observation["status"];
+  let reason: string | null = null;
+  if (same(current, value)) {
+    status = "confirmed";
+  } else if (await wasRejected(db, type, body.entityId, body.field, value)) {
+    status = "suggested";
+    reason = "A person rejected this value before";
+  } else if (weight < applyAt) {
+    status = "suggested";
+    reason = `The evidence weighs ${weight}, under ${applyAt}`;
+  } else if (!empty(current) && !(await setByObservation(db, type, body.entityId, body.field, current))) {
+    status = "suggested";
+    reason = "The record has a different value that a person set";
+  } else {
+    status = "applied";
+  }
+  if (status === "applied") await writeValue(db, type, body.entityId, body.field, value, row);
+  const [saved] = await db
+    .insert(crmObservations)
+    .values({
+      id: createId(),
+      entityType: type,
+      entityId: body.entityId,
+      field: body.field,
+      value,
+      source: body.source,
+      evidence: kind.key,
+      weight: kind.weight,
+      note: body.note ?? null,
+      status,
+      reason,
+      previousValue: status === "applied" ? (current ?? null) : null,
+      externalRef: body.externalRef ?? null,
+      observedBy,
+      ...(status === "applied" ? { decidedAt: new Date() } : {}),
+    })
+    .returning();
+  if (status === "suggested" || status === "applied") {
+    emitCrm(`observation:${status}`, { observationId: saved!.id, entityType: type, entityId: body.entityId, field: body.field });
+  }
+  return { data: saved!, outcome: status, weight, applyAt, created: true };
+}
+
 export function evidenceOperations(routes: ReturnType<typeof registry>): void {
   routes.get(
     "/evidence-policy",
@@ -261,65 +342,7 @@ export function evidenceOperations(routes: ReturnType<typeof registry>): void {
       output: { schema: Output, status: 201 },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c, input) => {
-      const db = dbDe(c);
-      const body = input.body;
-      if (body.externalRef) {
-        const [existing] = await db.select().from(crmObservations).where(eq(crmObservations.externalRef, body.externalRef));
-        if (existing) return c.json({ data: existing, outcome: existing.status, created: false }, 201);
-      }
-      const type = body.entityType;
-      const row = await rowOf(db, type, body.entityId);
-      await checkField(db, type, body.field, body.value);
-      const [kind] = await db.select().from(crmEvidenceKinds).where(and(eq(crmEvidenceKinds.key, body.evidence), eq(crmEvidenceKinds.active, true)));
-      if (!kind) throw AppError.validation(`Unknown kind of evidence: ${body.evidence}. See get-evidence-policy`);
-
-      const value = typeof body.value === "string" ? body.value.trim() : body.value;
-      const current = currentValue(row, body.field);
-      const applyAt = await policyOf(db);
-      const weight = await combinedWeight(db, type, body.entityId, body.field, value, { source: body.source, weight: kind.weight });
-      let status: Observation["status"];
-      let reason: string | null = null;
-      if (same(current, value)) {
-        status = "confirmed";
-      } else if (await wasRejected(db, type, body.entityId, body.field, value)) {
-        status = "suggested";
-        reason = "A person rejected this value before";
-      } else if (weight < applyAt) {
-        status = "suggested";
-        reason = `The evidence weighs ${weight}, under ${applyAt}`;
-      } else if (!empty(current) && !(await setByObservation(db, type, body.entityId, body.field, current))) {
-        status = "suggested";
-        reason = "The record has a different value that a person set";
-      } else {
-        status = "applied";
-      }
-      if (status === "applied") await writeValue(db, type, body.entityId, body.field, value, row);
-      const [saved] = await db
-        .insert(crmObservations)
-        .values({
-          id: createId(),
-          entityType: type,
-          entityId: body.entityId,
-          field: body.field,
-          value,
-          source: body.source,
-          evidence: kind.key,
-          weight: kind.weight,
-          note: body.note ?? null,
-          status,
-          reason,
-          previousValue: status === "applied" ? (current ?? null) : null,
-          externalRef: body.externalRef ?? null,
-          observedBy: userOf(c)?.id ?? null,
-          ...(status === "applied" ? { decidedAt: new Date() } : {}),
-        })
-        .returning();
-      if (status === "suggested" || status === "applied") {
-        emitCrm(`observation:${status}`, { observationId: saved!.id, entityType: type, entityId: body.entityId, field: body.field });
-      }
-      return c.json({ data: saved, outcome: status, weight, applyAt, created: true }, 201);
-    }
+    async (c, input) => c.json(await observe(dbDe(c), input.body as ObservationInput, userOf(c)?.id ?? null), 201)
   );
 
   routes.get(

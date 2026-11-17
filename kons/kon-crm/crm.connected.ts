@@ -10,8 +10,9 @@
  *   newsletter:member.subscribed   → find or create the reader, link  member   —same_person—  contact
  *   payment:payment.succeeded      → find or create the payer, link   payment  —paid_by→     contact
  *   payment:payment.refunded       → the same, the refund is its own payment row
- *   inbox:message.received         → match the sender, link           message  —about→       contact
- *   inbox:event.synced             → match each attendee, link        meeting  —about→       contact
+ *   crm:message.received           → match the sender, link           message  —about→       contact
+ *                                    and record what it says about them (crm.inbox.evidence.ts)
+ *   crm:meeting.synced             → match each attendee, link        meeting  —about→       contact
  *
  * The relation names are Kitsuden's shared vocabulary (`LINK_RELATIONS`): two kons that mean the same thing
  * write the same word, or one of them is invisible to the other.
@@ -44,6 +45,7 @@ import type { CrmDb } from "./crm.db";
 import { findDuplicates, normalizeEmail } from "./crm.dedupe";
 import { emitCrm } from "./crm.events";
 import { listenToNewsletterExclusions } from "./crm.exclusions";
+import { mailEvidence } from "./crm.inbox.evidence";
 import { candidatesFor, isSuppressed } from "./crm.intake";
 import { markQuotePaid } from "./crm.sales";
 import { crmContacts } from "./crm.schema";
@@ -55,8 +57,8 @@ export const LINK_TYPE = {
   order: "shop_orders",
   member: "nl_members",
   payment: "pay_events",
-  message: "inbox_messages",
-  meeting: "inbox_events",
+  message: "crm_inbox_messages",
+  meeting: "crm_inbox_events",
 } as const;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -218,7 +220,7 @@ export async function onPayment(
   });
 }
 
-/** `inbox:message.received` → each address on the message that is a contact gets the message, `about` them. */
+/** `crm:message.received` → each address on the message that is a contact gets the message, `about` them. */
 export async function onInboxMessage(db: CrmDb, payload: unknown): Promise<ConnectionResult[]> {
   const p = (payload ?? {}) as Record<string, unknown>;
   const messageId = str(p.messageId);
@@ -231,10 +233,10 @@ export async function onInboxMessage(db: CrmDb, payload: unknown): Promise<Conne
     // Never create from mail: a newsletter, a vendor or a notification would each become a "contact".
     const found = await findOrCreateContact(db, { email, source: "inbox" }, { create: false });
     results.push(
+      // `kitsuden_links` is read by more than the timeline: a private message leaves only that it happened.
       await linkTo(db, { type: LINK_TYPE.message, id: messageId }, found, "about", {
         kind: "email",
-        subject: str(p.subject),
-        direction: str(p.direction),
+        ...(p.visibility === "team" ? { subject: str(p.subject), direction: str(p.direction) } : { private: true }),
         at: str(p.at),
       })
     );
@@ -242,7 +244,7 @@ export async function onInboxMessage(db: CrmDb, payload: unknown): Promise<Conne
   return results;
 }
 
-/** `inbox:event.synced` → a meeting is `about` each attendee that is a contact. */
+/** `crm:meeting.synced` → a meeting is `about` each attendee that is a contact. */
 export async function onInboxEvent(db: CrmDb, payload: unknown): Promise<ConnectionResult[]> {
   const p = (payload ?? {}) as Record<string, unknown>;
   const eventId = str(p.eventId);
@@ -257,7 +259,7 @@ export async function onInboxEvent(db: CrmDb, payload: unknown): Promise<Connect
     results.push(
       await linkTo(db, { type: LINK_TYPE.meeting, id: eventId }, found, "about", {
         kind: "meeting",
-        title: str(p.title),
+        ...(p.visibility === "team" ? { title: str(p.title) } : { private: true }),
         startsAt: str(p.startsAt),
         endsAt: str(p.endsAt),
       })
@@ -308,8 +310,15 @@ export function listenToOtherKons(ctx: KonContext): void {
   ctx.events.on("payment:payment.refunded", (data: unknown) =>
     run("a refund", (db) => onPayment(db, "refunded", data, (id) => contactOfOrder(db, id)))()
   );
-  ctx.events.on("inbox:message.received", (data: unknown) => run("an email", (db) => onInboxMessage(db, data))());
-  ctx.events.on("inbox:event.synced", (data: unknown) => run("a meeting", (db) => onInboxEvent(db, data))());
+  ctx.events.on("crm:message.received", (data: unknown) =>
+    run("an email", async (db) => {
+      const linked = await onInboxMessage(db, data);
+      // What the message says about who the sender is, as evidence a person accepts (crm.inbox.evidence.ts).
+      await mailEvidence(db, data);
+      return linked;
+    })()
+  );
+  ctx.events.on("crm:meeting.synced", (data: unknown) => run("a meeting", (db) => onInboxEvent(db, data))());
   // One "do not contact" with the newsletter (crm.exclusions.ts).
   listenToNewsletterExclusions(ctx);
 }

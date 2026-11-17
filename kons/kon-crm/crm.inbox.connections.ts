@@ -40,7 +40,7 @@ export interface Connections {
   covers(provider: string, grantedScopes: string[], scopeSets: string[]): boolean;
 }
 
-export const KON = "kon-inbox";
+export const KON = "kon-crm";
 
 export function connectionsOf(ctx: KonContext): Connections | null {
   const c = (ctx as unknown as { connections?: Partial<Connections> }).connections;

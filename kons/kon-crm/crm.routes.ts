@@ -49,6 +49,7 @@ import { salesOperations } from "./crm.sales";
 import { timelineOperations } from "./crm.timeline";
 import { intakeOperations } from "./crm.intake";
 import { registerCrmPolicy } from "./crm.policy";
+import { inboxOperations } from "./crm.inbox";
 import { presetOperations } from "./crm.presets";
 import { publicOperations } from "./crm.public";
 import { scoringOperations } from "./crm.scoring";
@@ -3194,7 +3195,8 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
   publicOperations(crmRoutes, () => ctx.db.instance as CrmDb);
   inboundOperations(crmRoutes, () => ctx.db.instance as CrmDb);
 
-  return crmRoutes.ops;
+  // The CRM's inbox (crm.inbox.ts): a registry of its own, see crm.inbox.operations.ts.
+  return [...crmRoutes.ops, ...inboxOperations(ctx)];
 }
 
 /**

@@ -5,13 +5,13 @@ import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, 
  * ============================================================================
  *
  * Only what a timeline needs: who, to whom, the subject, a short preview (the provider's snippet), when.
- * Never a full body, never an attachment. Row security (migrations/0001_inbox.sql): the owner sees
+ * Never a full body, never an attachment. Row security (migrations/0015_inbox.sql): the owner sees
  * everything of theirs, admins and editors read what is marked `team`, the sync worker (the system) all.
  */
 
 export type Visibility = "private" | "team";
 
-export const inboxMailboxes = pgTable("inbox_mailboxes", {
+export const inboxMailboxes = pgTable("crm_inbox_mailboxes", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerId: text("owner_id").notNull(),
   connectionId: text("connection_id").notNull(),
@@ -31,7 +31,7 @@ export const inboxMailboxes = pgTable("inbox_mailboxes", {
 });
 
 export const inboxThreads = pgTable(
-  "inbox_threads",
+  "crm_inbox_threads",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     mailboxId: uuid("mailbox_id").notNull(),
@@ -43,11 +43,11 @@ export const inboxThreads = pgTable(
     messageCount: integer("message_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("inbox_threads_mailbox_id_external_id_key").on(t.mailboxId, t.externalId)]
+  (t) => [uniqueIndex("crm_inbox_threads_mailbox_id_external_id_key").on(t.mailboxId, t.externalId)]
 );
 
 export const inboxMessages = pgTable(
-  "inbox_messages",
+  "crm_inbox_messages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     mailboxId: uuid("mailbox_id").notNull(),
@@ -66,13 +66,13 @@ export const inboxMessages = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("inbox_messages_mailbox_id_external_id_key").on(t.mailboxId, t.externalId),
-    index("inbox_messages_thread_idx").on(t.threadId, t.sentAt),
+    uniqueIndex("crm_inbox_messages_mailbox_id_external_id_key").on(t.mailboxId, t.externalId),
+    index("crm_inbox_messages_thread_idx").on(t.threadId, t.sentAt),
   ]
 );
 
 export const inboxEvents = pgTable(
-  "inbox_events",
+  "crm_inbox_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     mailboxId: uuid("mailbox_id").notNull(),
@@ -88,7 +88,7 @@ export const inboxEvents = pgTable(
     visibility: text("visibility").$type<Visibility>().notNull().default("private"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("inbox_events_mailbox_id_external_id_key").on(t.mailboxId, t.externalId)]
+  (t) => [uniqueIndex("crm_inbox_events_mailbox_id_external_id_key").on(t.mailboxId, t.externalId)]
 );
 
 export type Mailbox = typeof inboxMailboxes.$inferSelect;

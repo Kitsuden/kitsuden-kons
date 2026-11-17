@@ -22,10 +22,13 @@ its maturity in the table of the [README](README.md). This file records releases
   with the rule engine (`ctx.automation`) a stage's on-enter and on-exit actions become rules of the kon
   and leave the stage; on one without it, the CRM's own runner keeps them. Moving a deal lives in one
   place (`crm.moves.ts`).
-- New kon-inbox 0.1.0: a person's Gmail and Google Calendar or Microsoft 365 mailbox, synced
-  incrementally on the queue through Kitsuden's connections (`ctx.connections`), metadata only (no bodies). The owner picks the
-  mailboxes and shares threads with the team; removing a mailbox or revoking its connection deletes what
-  it brought. kon-crm puts each message and meeting on the contacts' timeline.
+- kon-crm has an inbox (`/api/crm/inbox`, migration 0015): a person's Gmail and Google Calendar or Microsoft 365
+  mailbox, synced incrementally on the queue through Kitsuden's connections (`ctx.connections`), metadata only
+  (no bodies). The owner picks the mailboxes and shares threads with the team; removing a mailbox or revoking its
+  connection deletes what it brought. Each message and meeting goes on the contacts' timeline, which shows a
+  private one only as "an email" to everyone but its owner. A message from a contact suggests the name they write
+  under and their company's domain, as `mail-header` evidence a person accepts. Events `crm:message.received`
+  and `crm:meeting.synced`.
 - kon-crm sells: product lines on a deal with a frozen price, quotes (draft, sent, accepted, rejected)
   whose acceptance can open a kon-payments payment or a kon-ecommerce order, forecast and targets per
   person and period, and a CSV import that marks the rows its duplicate detector matches. Its reports

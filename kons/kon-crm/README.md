@@ -1,8 +1,8 @@
 # kon-crm
 
 A CRM backend for Kitsuden: companies, contacts, pipelines and deals, activities and tasks, lead
-capture, a client portal, contact scoring, evidence-weighted data from agents, and billing through
-kon-conta. For a team that wants its client portfolio behind an API that people and agents share
+capture, a client portal, contact scoring, evidence-weighted data from agents, each person's mailbox and
+calendar synced into the contacts' timeline, and billing through kon-conta. For a team that wants its client portfolio behind an API that people and agents share
 under the same rules. The screens people work in belong to the app built on top; the kon's two
 admin views are configuration only.
 
@@ -48,6 +48,9 @@ Environment variables are needed only to receive email into the CRM (see
 | `crm_counters` | Deal numbering per entity |
 | `crm_evidence_kinds`, `crm_evidence_policy`, `crm_observations` | Evidence kinds and their weights; observed values about contacts and companies |
 | `crm_inbound_emails` | Every email posted to the CRM and what happened to it |
+| `crm_inbox_mailboxes` | A mailbox its owner added: the connection it reads through, what it syncs, default visibility, cursors, last sync |
+| `crm_inbox_threads`, `crm_inbox_messages` | Synced threads and messages: direction, sender and display name, recipients, subject, the provider's short preview, date, visibility (`private` or `team`). Never a body or an attachment |
+| `crm_inbox_events` | Synced calendar events: title, place, start and end, attendees, organizer, cancelled, visibility |
 
 What the code does with them:
 
@@ -260,6 +263,21 @@ admin. "Person" = refused to agents whatever their scopes.
 | `GET /api/crm/inbound-emails` | configure | Emails posted to the CRM and why any was turned away |
 | `GET /api/crm/agent-guide` | view | `AGENT_GUIDE.md` plus this installation's entities, fields, kinds, the caller's access and the tool groups |
 
+### Inbox (each person's own; no CRM access needed)
+
+| Route | Needs | What it does |
+| --- | --- | --- |
+| `GET /api/crm/inbox/mailboxes` | the owner | Your mailboxes |
+| `POST /api/crm/inbox/mailboxes` | a person | Start syncing one of your connections (mail, calendar or both) |
+| `PATCH /api/crm/inbox/mailboxes/:id` | the owner | What it syncs, default visibility, pause or resume |
+| `DELETE /api/crm/inbox/mailboxes/:id` | the owner | Stop and delete everything it brought, and its links to contacts |
+| `POST /api/crm/inbox/mailboxes/:id/sync` | the owner | Sync now |
+| `POST /api/crm/inbox/mailboxes/:id/send` | the owner, sensitive | Send a plain-text email from the mailbox (the connection needs `mail.send`) |
+| `GET /api/crm/inbox/threads` | the owner; admins and editors for `team` threads | Threads, newest first |
+| `GET /api/crm/inbox/threads/:id` | the same | A thread and its messages |
+| `PATCH /api/crm/inbox/threads/:id` | the owner | `visibility`: `private` or `team` |
+| `GET /api/crm/inbox/events` | the owner; admins and editors for `team` events | Calendar events in a date range |
+
 ### Public (no account; rate limited)
 
 | Route | Needs | What it does |
@@ -267,6 +285,37 @@ admin. "Person" = refused to agents whatever their scopes.
 | `POST /api/crm/public/forms/:id` | public, 20/min | Submit a capture form; always 202 `{ ok: true }` once the form exists |
 | `POST /api/crm/public/portal` | public, 20/min | Read a client portal with its token; unknown, expired or revoked are all 404 |
 | `POST /api/crm/public/inbound/:provider` | provider signature, 300/min | Receive an email from `mailgun`, `postmark` or `generic` |
+
+## The inbox
+
+Each person connects their Google or Microsoft account in Kitsuden (`/api/connections/oauth/start`,
+asking for `mail.read` and `calendar.read`, and `mail.send` to send) and adds it with
+`POST /api/crm/inbox/mailboxes`. Nothing is read before that. The credential stays in Kitsuden's
+connections; the CRM never sees it.
+
+- **Sync** runs on Kitsuden's queue (`kon-crm:inbox` / `sync`), one mailbox per job and a bounded
+  step per job; a mailbox not synced for five minutes is queued again. Gmail reads `history`, Google
+  Calendar a `syncToken`, Microsoft Graph delta links; an expired cursor starts over.
+- **What is kept**: sender, recipients, subject, the provider's short preview and dates. Never a body
+  or an attachment.
+- **Who sees it**: its owner. A thread (or the whole mailbox, by default) marked `team` is also read
+  by admins and editors. Row security enforces it (`migrations/0015_inbox.sql`).
+- **On the contacts**: each message and meeting is linked (`about`) to the contacts on it; mail never
+  creates a contact. The timeline reads each one again as the reader: a message they may not read
+  shows only that there was an email and when, with `private: true`, never its subject. The link
+  itself only holds the subject of a `team` thread.
+- **As evidence**: a message from a contact suggests the name they write under (`"Ruiz, Ana"` is Ana
+  Ruiz) and, for a company address, the company's domain, as observations of kind `mail-header`
+  (weight 10, source `mail`). That is far under `applyAt`, so it waits for a person; display names
+  that are not a person ("Billing", "ACME Support", all capitals) and free mail domains say nothing.
+  No subject, preview, recipient or mailbox goes into an observation.
+- **Deleting**: removing a mailbox, or revoking its connection in Kitsuden, deletes everything it
+  brought and its links. An expired connection marks the mailbox in error.
+
+Events, after the sync's transaction commits: `crm:message.received` (`messageId`, `mailboxId`,
+`ownerId`, `from`, `fromName`, `visibility`, `to`, `cc`, `subject`, `direction`, `at`,
+`mailboxAddresses`) and `crm:meeting.synced` (`eventId`, `visibility`, `mailboxId`, `ownerId`,
+`title`, `startsAt`, `endsAt`, `attendees`, `organizer`, `cancelled`, `mailboxAddresses`).
 
 ## Who can do what
 
@@ -349,6 +398,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-crm-records.test.ts` | Preset entities, companies, activities and inbox, documents, client portal |
 | `tests/unit/kon-crm-evidence.test.ts` | Observations and evidence weights |
 | `tests/unit/kon-crm-inbound.test.ts` | Inbound email locks and recording |
+| `tests/unit/kon-crm-inbox.test.ts` | The inbox: Gmail, Calendar and Graph sync through a `ctx.connections` double, people kept apart, private mail on the timeline, mail as evidence, sending |
 | `tests/unit/kon-crm-practice.test.ts` | Notes, amounts, agent merges, stage automation, public forms, portal, score model, import |
 | `tests/unit/kon-crm-conta-bridge.test.ts` | Billing through kon-conta |
 | `tests/unit/crm-filters.test.ts` | Custom field filters |

@@ -68,7 +68,12 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `crm.import.ts` | CSV import with preview |
 | `crm.public.ts` | Capture forms, public form submission, portal links and the client portal |
 | `crm.inbound.ts` | Inbound email: provider signatures, sender list, SPF/DKIM, recording, the receipts list |
-| `crm.evidence.ts` | Evidence policy and observations |
+| `crm.evidence.ts` | Evidence policy and observations; `observe`, the one way an observation is recorded |
+| `crm.inbox.ts` | The inbox: its operations (`/inbox/…`, own registry in `crm.inbox.operations.ts`), the sync worker (`startInbox`), mailbox removal |
+| `crm.inbox.sync.ts`, `crm.inbox.sources.ts` | One sync step; Gmail, Google Calendar and Microsoft Graph readers and the MIME builder |
+| `crm.inbox.schema.ts`, `crm.inbox.policy.ts`, `crm.inbox.connections.ts` | Inbox tables, the `crm-inbox` policy, Kitsuden's connections (structural types) |
+| `crm.inbox.evidence.ts` | What a synced message says about its sender, as `mail-header` observations |
+| `crm.timeline.ts` | `view-timeline`; inbox links read again as the reader |
 | `crm.scoring.ts` | Score model, versions and scoring |
 | `crm.records.ts` | Activity reopen, activity kinds, documents across deals |
 | `crm.work.ts` | Task inbox, agenda, deal contacts, saved views, document templates |
@@ -84,10 +89,17 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `CRM_PRESETS_DIR` (env) | The installation's own presets folder, read by `readPresets` next to `presets/` |
 | `admin-src/` | Svelte source of the two admin views (`CrmSettings.svelte`, `CrmSetup.svelte`, copied `tallao/`) |
 | `admin/settings.js`, `admin/setup.js` | Built admin views (generated; do not edit) |
-| `migrations/` | SQL 0000-0012 and `history.json` |
+| `migrations/` | SQL 0000-0015 (0015 is the inbox) and `history.json` |
 | `tests/` | Route registration and schema tests (vitest), a Playwright spec, `tests/README.md` |
 
 ## Rules that must hold
+
+- **Mail is its owner's.** Inbox operations do not go through the CRM's `registry()` (the access dials are
+  about CRM records); row security on `crm_inbox_*` keeps people apart. Nothing that leaves a message for the
+  team (a link, the timeline, an observation) carries the subject of a `private` thread. Guards:
+  `tests/unit/kon-crm-inbox.test.ts` ("people are kept apart", "a private email on the CRM's timeline").
+- **Mail never writes a contact.** It links to existing contacts and records `mail-header` observations that wait
+  for a person. Guard: `kon-crm-inbox.test.ts` ("mail as evidence").
 
 - **Every response goes through `applyAccess`, every write through `checkWrite`** (`registry()` in
   `operations.ts`). A new list must not filter or sort by amount without checking `money`. Guards:
