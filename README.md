@@ -87,7 +87,7 @@ use a kon has had, not how many features it has:
 | `kon-directory` | beta | 1.0.1 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.0.1 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.2.0 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
-| `kon-inbox` | beta | 0.1.0 | 1 | `/api/inbox` | A person's mailbox and calendar (Gmail, Google Calendar, Microsoft 365), synced through Kitsuden's… |
+| `kon-listings` | experimental | 0.1.0 | 1 | `/api/listings` | Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from… |
 | `kon-payments` | experimental | 1.2.0 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
 
 ### Content and community

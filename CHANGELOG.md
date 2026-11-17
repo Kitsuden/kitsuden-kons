@@ -22,10 +22,13 @@ its maturity in the table of the [README](README.md). This file records releases
   with the rule engine (`ctx.automation`) a stage's on-enter and on-exit actions become rules of the kon
   and leave the stage; on one without it, the CRM's own runner keeps them. Moving a deal lives in one
   place (`crm.moves.ts`).
-- New kon-inbox 0.1.0: a person's Gmail and Google Calendar or Microsoft 365 mailbox, synced
-  incrementally on the queue through Kitsuden's connections (`ctx.connections`), metadata only (no bodies). The owner picks the
-  mailboxes and shares threads with the team; removing a mailbox or revoking its connection deletes what
-  it brought. kon-crm puts each message and meeting on the contacts' timeline.
+- kon-crm has an inbox (`/api/crm/inbox`, migration 0015): a person's Gmail and Google Calendar or Microsoft 365
+  mailbox, synced incrementally on the queue through Kitsuden's connections (`ctx.connections`), metadata only
+  (no bodies). The owner picks the mailboxes and shares threads with the team; removing a mailbox or revoking its
+  connection deletes what it brought. Each message and meeting goes on the contacts' timeline, which shows a
+  private one only as "an email" to everyone but its owner. A message from a contact suggests the name they write
+  under and their company's domain, as `mail-header` evidence a person accepts. Events `crm:message.received`
+  and `crm:meeting.synced`.
 - kon-crm sells: product lines on a deal with a frozen price, quotes (draft, sent, accepted, rejected)
   whose acceptance can open a kon-payments payment or a kon-ecommerce order, forecast and targets per
   person and period, and a CSV import that marks the rows its duplicate detector matches. Its reports
@@ -54,7 +57,21 @@ its maturity in the table of the [README](README.md). This file records releases
   kon-chat 1.0.4, kon-collection 1.0.2, kon-comments 1.0.3, kon-conta 1.0.3, kon-directory 1.0.1,
   kon-dms 2.0.1, kon-esports 1.0.5, kon-formulas 1.0.2, kon-games 2.1.3, kon-maps 1.0.2, kon-members 1.0.2,
   kon-ocr-training 1.1.2, kon-streamers 1.0.3, kon-tierlist 1.0.3, kon-vekstudio 1.0.2, kon-wiki 1.1.4.
-
+- New kon-listings 0.1.0 (experimental): listings of any kind (real estate, vehicles, jobs) with a
+  public search for the agency's own site, inquiries from visitors (announced as
+  `listings:inquiry.received`), and the XML feeds portals read, built from one mapping per portal.
+  Trovit and Mitula ship as unverified mappings: neither publishes its specification, so check
+  them against the one the portal sends and edit `portals/<portal>.json`. A new kind of listing or
+  a new portal is a JSON file, not code.
+- kon-crm 1.1.0: a `real-estate` preset for agencies: numbered sales and rentals tied to a listing,
+  buyer and tenant requirements on the contact, visits, valuations and signings, buyer, seller,
+  tenant and landlord roles, a visit confirmation and a reservation letter, and broker, agent and
+  assistant profiles. Presets are also read from the installation's own folder (`CRM_PRESETS_DIR`);
+  one with a shipped id replaces it, and a broken file is skipped and listed in `problems` by
+  `GET /api/crm/presets` instead of breaking the list and every apply. A preset's stages bring
+  their automation (`onEnterActions`, `onExitActions`, `entryRequirements`, `estimatedDays`), so
+  a CRM set up from a preset creates its tasks and meetings from the first move; both shipped
+  presets do. Applying again fills a stage the team never configured and leaves the rest.
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles
   are in sentence case ("New journal entry", "Reimbursable expenses", "New template").

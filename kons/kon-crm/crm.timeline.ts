@@ -7,10 +7,15 @@
  *   activity   calls, emails, meetings, notes and tasks on the contact or on its deals
  *   stage      every move of its deals between stages, with who moved them and why
  *   link       whatever another kon tied to it through `kitsuden_links`: an order (shop), a payment, a
- *              newsletter membership, an email or meeting synced from a mailbox (kon-inbox)
+ *              newsletter membership, an email or meeting synced from a mailbox (the CRM's inbox, crm.inbox.ts)
  *
  * Newest first. A link shows the summary written when it was made (crm.connected.ts); the CRM never reads
  * another kon's tables, so it never shows more of them than the event said.
+ *
+ * Mail and meetings from the CRM's own inbox are the exception: they are read again, as the reader, from the
+ * inbox's tables, whose row security lets a person see their own and the team see only what its owner marked
+ * `team`. One the reader may not read shows only that there was an email or a meeting and when, with
+ * `private: true`: never its subject or title, which the CRM's team would otherwise read off the contact.
  *
  * ── WHAT IT DOES NOT SHOW ──────────────────────────────────────────────────
  *
@@ -25,6 +30,7 @@ import { desc, eq, inArray, or } from "drizzle-orm";
 import { z } from "@kitsuden/engine/zod";
 
 import { LINK_TYPE } from "./crm.connected";
+import { inboxEvents, inboxMessages } from "./crm.inbox.schema";
 import { dbDe } from "./crm.context";
 import type { CrmDb } from "./crm.db";
 import { crmActivities, crmContacts, crmDeals, crmPipelineStages, crmStageTransitions } from "./crm.schema";
@@ -45,7 +51,7 @@ export type TimelineItem =
   | {
       kind: "link";
       at: string;
-      /** The other end: `shop_orders`, `pay_events`, `nl_members`, `inbox_messages`, `inbox_events`… */
+      /** The other end: `shop_orders`, `pay_events`, `nl_members`, `crm_inbox_messages`, `crm_inbox_events`… */
       type: string;
       id: string;
       relation: string;
@@ -152,7 +158,47 @@ export async function timelineOf(
     }
   }
 
+  await mailAsTheReaderSeesIt(db, items);
   return items.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, limit);
+}
+
+/** Replaces the summary of each inbox link with what the reader may read now (see the header). */
+async function mailAsTheReaderSeesIt(db: CrmDb, items: TimelineItem[]): Promise<void> {
+  const links = items.filter((i): i is Extract<TimelineItem, { kind: "link" }> => i.kind === "link");
+  // The inbox's ids are uuids; a link with anything else (another writer's mistake) is shown as unreadable,
+  // not sent to Postgres, where it would fail the whole timeline.
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const messageIds = links.filter((l) => l.type === LINK_TYPE.message && UUID.test(l.id)).map((l) => l.id);
+  const eventIds = links.filter((l) => l.type === LINK_TYPE.meeting && UUID.test(l.id)).map((l) => l.id);
+  if (!links.some((l) => l.type === LINK_TYPE.message || l.type === LINK_TYPE.meeting)) return;
+  // Under the reader's row security: a row missing here is one they may not read.
+  const messages = messageIds.length
+    ? await db
+        .select({ id: inboxMessages.id, subject: inboxMessages.subject, direction: inboxMessages.direction, sentAt: inboxMessages.sentAt })
+        .from(inboxMessages)
+        .where(inArray(inboxMessages.id, messageIds))
+    : [];
+  const events = eventIds.length
+    ? await db
+        .select({ id: inboxEvents.id, title: inboxEvents.title, startsAt: inboxEvents.startsAt, endsAt: inboxEvents.endsAt })
+        .from(inboxEvents)
+        .where(inArray(inboxEvents.id, eventIds))
+    : [];
+  const message = new Map(messages.map((m: { id: string }) => [m.id, m]));
+  const event = new Map(events.map((e: { id: string }) => [e.id, e]));
+  for (const link of links) {
+    if (link.type === LINK_TYPE.message) {
+      const m = message.get(link.id) as { subject: string; direction: string; sentAt: Date } | undefined;
+      link.summary = m
+        ? { kind: "email", subject: m.subject, direction: m.direction, at: iso(m.sentAt) }
+        : { kind: "email", at: iso(link.summary.at ?? link.at), private: true };
+    } else if (link.type === LINK_TYPE.meeting) {
+      const e = event.get(link.id) as { title: string; startsAt: Date | null; endsAt: Date | null } | undefined;
+      link.summary = e
+        ? { kind: "meeting", title: e.title, startsAt: e.startsAt ? iso(e.startsAt) : null, endsAt: e.endsAt ? iso(e.endsAt) : null }
+        : { kind: "meeting", at: iso(link.summary.startsAt ?? link.at), private: true };
+    }
+  }
 }
 
 export function timelineOperations(routes: ReturnType<typeof registry>): void {

@@ -1,9 +1,9 @@
 /**
- * kon-inbox: sync a mailbox through Kitsuden's connections, keep each person's mail theirs, and feed the CRM
+ * The CRM's inbox: sync a mailbox through Kitsuden's connections, keep each person's mail theirs, feed the CRM
  * ============================================================================
  *
- * One PGlite with the core's `kitsuden_links`, kon-inbox and kon-crm, as a NON-superuser role: the two
- * kons installed together, the way the CRM's timeline gets mail. Kitsuden's `ctx.connections` is a double
+ * One PGlite with the core's `kitsuden_links` and kon-crm (whose migration 0015 is the inbox), as a NON-superuser
+ * role. Kitsuden's `ctx.connections` is a double
  * with its contract (`client`, `visible`, `covers`): the core's own suite tests the real one. The provider is a `fetch`
  * double that answers like Gmail, Google Calendar and Microsoft Graph.
  *
@@ -14,7 +14,9 @@
  *   - a person adds only their own connection, and only when it covers what they ask for;
  *   - each person reads only their mail; admins and editors read only what was marked `team`;
  *   - removing a mailbox, or revoking its connection, deletes what it brought and the CRM's links to it;
- *   - what this kon announces is exactly what kon-crm reads: a message lands on the contact's timeline;
+ *   - what the inbox announces is exactly what the CRM reads: a message lands on the contact's timeline;
+ *   - a private message shows on that timeline only as "an email", and only its owner reads its subject;
+ *   - a message from a contact suggests the name they write under and their company's domain, as evidence;
  *   - sending builds a message no header can be injected into.
  */
 
@@ -30,13 +32,14 @@ import { createTestKonContext } from "../../.kitsuden/apps/api/src/lib/test-kon-
 import { rlsHost } from "../../.kitsuden/tests/unit/helpers/rls-host";
 import { onInboxMessage } from "../../kons/kon-crm/crm.connected";
 import { timelineOf } from "../../kons/kon-crm/crm.timeline";
-import { buildMime, parseAddressList, sourceOf } from "../../kons/kon-inbox/inbox.sources";
-import { syncMailbox } from "../../kons/kon-inbox/inbox.sync";
-import { inboxOperations, listenToConnections, runSync } from "../../kons/kon-inbox/index";
-import { KON_ID } from "../../kons/kon-inbox/operations";
-import { registerInboxPolicy } from "../../kons/kon-inbox/inbox.policy";
-import { inboxMailboxes, type Mailbox } from "../../kons/kon-inbox/inbox.schema";
-import { eq } from "drizzle-orm";
+import { companyDomainOf, mailEvidence, nameFromDisplayName } from "../../kons/kon-crm/crm.inbox.evidence";
+import { buildMime, parseAddressList, sourceOf } from "../../kons/kon-crm/crm.inbox.sources";
+import { syncMailbox } from "../../kons/kon-crm/crm.inbox.sync";
+import { inboxOperations, listenToConnections, runSync } from "../../kons/kon-crm/crm.inbox";
+import { KON_ID } from "../../kons/kon-crm/operations";
+import { registerInboxPolicy } from "../../kons/kon-crm/crm.inbox.policy";
+import { inboxMailboxes, type Mailbox } from "../../kons/kon-crm/crm.inbox.schema";
+import { eq, sql } from "drizzle-orm";
 
 import { configureQueue } from "../../.kitsuden/packages/engine/src/queue";
 
@@ -167,7 +170,6 @@ beforeAll(async () => {
   await pg.exec(readFileSync(resolve(__dirname, "../../.kitsuden/apps/api/src/db/migrations/0032_links.sql"), "utf8"));
   const crmDir = resolve(__dirname, "../../kons/kon-crm/migrations");
   for (const f of readdirSync(crmDir).filter((x) => x.endsWith(".sql")).sort()) await pg.exec(readFileSync(resolve(crmDir, f), "utf8"));
-  await pg.exec(readFileSync(resolve(__dirname, "../../kons/kon-inbox/migrations/0001_inbox.sql"), "utf8"));
   await pg.exec(`
     CREATE ROLE ${APP_ROLE} NOLOGIN;
     GRANT USAGE ON SCHEMA public TO ${APP_ROLE};
@@ -204,7 +206,7 @@ beforeEach(async () => {
   handlers = [];
   saved.fetch = undefined;
   vi.stubGlobal("fetch", network);
-  await ex("DELETE FROM inbox_mailboxes; DELETE FROM kitsuden_links");
+  await ex("DELETE FROM crm_inbox_mailboxes; DELETE FROM kitsuden_links");
 });
 
 afterEach(() => {
@@ -213,7 +215,7 @@ afterEach(() => {
 
 async function mailboxOf(owner: string, connection: string, visibility: "private" | "team" = "private"): Promise<Mailbox> {
   const [row] = await q<{ id: string }>(
-    `INSERT INTO inbox_mailboxes (owner_id, connection_id, provider, address, default_visibility) VALUES ('${owner}', '${connection}', 'google', 'me@firm.example', '${visibility}') RETURNING id`
+    `INSERT INTO crm_inbox_mailboxes (owner_id, connection_id, provider, address, default_visibility) VALUES ('${owner}', '${connection}', 'google', 'me@firm.example', '${visibility}') RETURNING id`
   );
   const [m] = await db.select().from(inboxMailboxes).where(eq(inboxMailboxes.id, row!.id));
   return m as Mailbox;
@@ -248,10 +250,10 @@ describe("Gmail sync", () => {
     const first = collect();
     const r1 = await syncMailbox(db, m, sourceOf("google")!, client, first.emit);
     expect(r1).toMatchObject({ messages: 2, events: 2, more: false });
-    expect(first.out.filter((e) => e.name === "inbox:message.received").map((e) => e.data.direction).sort()).toEqual(["in", "out"]);
+    expect(first.out.filter((e) => e.name === "crm:message.received").map((e) => e.data.direction).sort()).toEqual(["in", "out"]);
     expect(first.out[0]!.data).toMatchObject({ mailboxAddresses: ["me@firm.example"] });
 
-    const [row] = await q<{ mail_cursor: Record<string, unknown>; calendar_cursor: Record<string, unknown> }>(`SELECT mail_cursor, calendar_cursor FROM inbox_mailboxes`);
+    const [row] = await q<{ mail_cursor: Record<string, unknown>; calendar_cursor: Record<string, unknown> }>(`SELECT mail_cursor, calendar_cursor FROM crm_inbox_mailboxes`);
     expect(row).toEqual({ mail_cursor: { historyId: "100" }, calendar_cursor: { syncToken: "sync-1" } });
 
     // Next run: history adds m3 and repeats m1.
@@ -262,7 +264,7 @@ describe("Gmail sync", () => {
     expect(r2.messages).toBe(1);
     expect(second.out.map((e) => e.data.subject)).toEqual(["Subject m3"]);
     expect(calls.some((c) => c.url.includes("startHistoryId=100"))).toBe(true);
-    const [thread] = await q<{ message_count: number }>(`SELECT message_count FROM inbox_threads WHERE external_id = 't-m1'`);
+    const [thread] = await q<{ message_count: number }>(`SELECT message_count FROM crm_inbox_threads WHERE external_id = 't-m1'`);
     expect(thread!.message_count).toBe(2);
   });
 
@@ -270,19 +272,19 @@ describe("Gmail sync", () => {
     const m = await mailboxOf(A, connA);
     handlers = [gmail({ m1: gmailMessage("m1") })];
     await syncMailbox(db, { ...m, syncCalendar: false }, sourceOf("google")!, client, () => undefined);
-    const cols = await q<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name = 'inbox_messages'`);
+    const cols = await q<{ column_name: string }>(`SELECT column_name FROM information_schema.columns WHERE table_name = 'crm_inbox_messages'`);
     expect(cols.map((c) => c.column_name)).not.toContain("body");
     expect(calls.every((c) => !c.url.includes("format=full") && !c.url.includes("format=raw"))).toBe(true);
   });
 
   it("an expired history id starts over instead of failing forever", async () => {
     const m = await mailboxOf(A, connA);
-    await ex(`UPDATE inbox_mailboxes SET mail_cursor = '{"historyId":"5"}' WHERE id = '${m.id}'`);
+    await ex(`UPDATE crm_inbox_mailboxes SET mail_cursor = '{"historyId":"5"}' WHERE id = '${m.id}'`);
     const [stale] = await db.select().from(inboxMailboxes).where(eq(inboxMailboxes.id, m.id));
     handlers = [gmail({}, [], 404)];
     const r = await syncMailbox(db, { ...stale, syncCalendar: false }, sourceOf("google")!, client, () => undefined);
     expect(r.more).toBe(true);
-    expect(await q(`SELECT mail_cursor FROM inbox_mailboxes`)).toEqual([{ mail_cursor: null }]);
+    expect(await q(`SELECT mail_cursor FROM crm_inbox_mailboxes`)).toEqual([{ mail_cursor: null }]);
   });
 });
 
@@ -312,11 +314,11 @@ describe("Microsoft Graph sync", () => {
     const out = collect();
     const r = await syncMailbox(db, m, sourceOf("microsoft")!, client, out.emit);
     expect(r).toMatchObject({ messages: 1, events: 1, more: false });
-    const [row] = await q<{ mail_cursor: Record<string, string>; calendar_cursor: Record<string, string> }>(`SELECT mail_cursor, calendar_cursor FROM inbox_mailboxes`);
+    const [row] = await q<{ mail_cursor: Record<string, string>; calendar_cursor: Record<string, string> }>(`SELECT mail_cursor, calendar_cursor FROM crm_inbox_mailboxes`);
     expect(row!.mail_cursor.inbox).toContain("deltatoken=in1");
     expect(row!.mail_cursor.sentitems).toContain("deltatoken=s1");
     expect(row!.calendar_cursor.link).toContain("deltatoken=cal1");
-    expect(out.out.find((e) => e.name === "inbox:event.synced")!.data.startsAt).toBe("2026-11-21T10:00:00.000Z");
+    expect(out.out.find((e) => e.name === "crm:meeting.synced")!.data.startsAt).toBe("2026-11-21T10:00:00.000Z");
   });
 });
 
@@ -328,8 +330,8 @@ describe("through Kitsuden's connections, on the queue's path", () => {
     const r = await runSync(ctx, m.id);
     expect(r).toMatchObject({ messages: 1 });
     expect(new Headers(calls.find((c) => c.url.includes("/profile"))!.init!.headers).get("authorization")).toBe("Bearer tok");
-    expect(asked.at(-1)).toEqual({ konId: "kon-inbox", purpose: "sync me@firm.example", connectionId: connA, ownerId: A });
-    expect(emitted.map((e) => e.name)).toContain("inbox:message.received");
+    expect(asked.at(-1)).toEqual({ konId: "kon-crm", purpose: "sync me@firm.example", connectionId: connA, ownerId: A });
+    expect(emitted.map((e) => e.name)).toContain("crm:message.received");
   });
 
   it("a provider error leaves the mailbox in error with a reason, and nothing half-written", async () => {
@@ -337,8 +339,8 @@ describe("through Kitsuden's connections, on the queue's path", () => {
     handlers = [(u) => (u.pathname.endsWith("/profile") ? json({ error: "boom" }, 500) : undefined)];
     const ctx = (globalThis as { __inboxCtx?: never }).__inboxCtx!;
     expect(await runSync(ctx, m.id)).toBeNull();
-    expect(await q(`SELECT status, last_error FROM inbox_mailboxes`)).toEqual([{ status: "error", last_error: "gmail.googleapis.com answered 500" }]);
-    expect(await q(`SELECT 1 FROM inbox_messages`)).toEqual([]);
+    expect(await q(`SELECT status, last_error FROM crm_inbox_mailboxes`)).toEqual([{ status: "error", last_error: "gmail.googleapis.com answered 500" }]);
+    expect(await q(`SELECT 1 FROM crm_inbox_messages`)).toEqual([]);
   });
 });
 
@@ -346,17 +348,17 @@ describe("people are kept apart", () => {
   it("a person adds only their own connection, covering what they ask for", async () => {
     const queued: Array<{ queue: string; name: string; payload: unknown }> = [];
     configureQueue({ dispatch: async (queue, name, payload) => (queued.push({ queue, name, payload }), { id: "job-1" }) });
-    expect((await request("a", "POST", "/mailboxes", { connectionId: connB })).status).toBe(404);
-    expect((await request("b", "POST", "/mailboxes", { connectionId: connB })).status).toBe(422);
-    expect((await request({ agent: ["inbox:*"] }, "POST", "/mailboxes", { connectionId: connA })).status).toBe(403);
-    const ok = await request("a", "POST", "/mailboxes", { connectionId: connA, defaultVisibility: "private" });
+    expect((await request("a", "POST", "/inbox/mailboxes", { connectionId: connB })).status).toBe(404);
+    expect((await request("b", "POST", "/inbox/mailboxes", { connectionId: connB })).status).toBe(422);
+    expect((await request({ agent: ["crm:*"] }, "POST", "/inbox/mailboxes", { connectionId: connA })).status).toBe(403);
+    const ok = await request("a", "POST", "/inbox/mailboxes", { connectionId: connA, defaultVisibility: "private" });
     expect(ok.status).toBe(201);
     const body = (await ok.json()) as { data: Record<string, unknown> };
     expect(body.data).toMatchObject({ address: "me@firm.example", syncMail: true });
     expect(body.data).not.toHaveProperty("mailCursor");
-    expect((await request("a", "POST", "/mailboxes", { connectionId: connA })).status).toBe(409);
+    expect((await request("a", "POST", "/inbox/mailboxes", { connectionId: connA })).status).toBe(409);
     // The first sync goes to the queue, one job per mailbox.
-    expect(queued).toEqual([{ queue: "kon-inbox", name: "sync", payload: { mailboxId: body.data.id } }]);
+    expect(queued).toEqual([{ queue: "kon-crm:inbox", name: "sync", payload: { mailboxId: body.data.id } }]);
     configureQueue(null);
   });
 
@@ -364,31 +366,31 @@ describe("people are kept apart", () => {
     const mine = await mailboxOf(A, connA, "private");
     handlers = [gmail({ p1: gmailMessage("p1", { subject: "Private matter" }), s1: gmailMessage("s1", { subject: "Shared deal", thread: "shared" }) })];
     await syncMailbox(db, { ...mine, syncCalendar: false }, sourceOf("google")!, client, () => undefined);
-    const [shared] = await q<{ id: string }>(`SELECT id FROM inbox_threads WHERE external_id = 'shared'`);
+    const [shared] = await q<{ id: string }>(`SELECT id FROM crm_inbox_threads WHERE external_id = 'shared'`);
 
     const subjects = async (actor: "a" | "b" | "staff") =>
-      ((await (await request(actor, "GET", "/threads")).json()) as { data: Array<{ subject: string }> }).data.map((t) => t.subject).sort();
+      ((await (await request(actor, "GET", "/inbox/threads")).json()) as { data: Array<{ subject: string }> }).data.map((t) => t.subject).sort();
     expect(await subjects("a")).toEqual(["Private matter", "Shared deal"]);
     expect(await subjects("b")).toEqual([]);
     expect(await subjects("staff")).toEqual([]);
 
     // Only the owner shares it.
-    expect((await request("staff", "PATCH", `/threads/${shared!.id}`, { visibility: "team" })).status).toBe(404);
-    expect((await request("a", "PATCH", `/threads/${shared!.id}`, { visibility: "team" })).status).toBe(200);
+    expect((await request("staff", "PATCH", `/inbox/threads/${shared!.id}`, { visibility: "team" })).status).toBe(404);
+    expect((await request("a", "PATCH", `/inbox/threads/${shared!.id}`, { visibility: "team" })).status).toBe(200);
     expect(await subjects("staff")).toEqual(["Shared deal"]);
     expect(await subjects("b")).toEqual([]);
-    const thread = (await (await request("staff", "GET", `/threads/${shared!.id}`)).json()) as { data: { messages: unknown[] } };
+    const thread = (await (await request("staff", "GET", `/inbox/threads/${shared!.id}`)).json()) as { data: { messages: unknown[] } };
     expect(thread.data.messages).toHaveLength(1);
     // A team reader still cannot see the mailbox's settings.
-    expect(((await (await request("staff", "GET", "/mailboxes")).json()) as { data: unknown[] }).data).toEqual([]);
+    expect(((await (await request("staff", "GET", "/inbox/mailboxes")).json()) as { data: unknown[] }).data).toEqual([]);
   });
 
   it("someone else's mailbox is a 404 for syncing, changing, sending and removing", async () => {
     const mine = await mailboxOf(A, connA);
-    expect((await request("b", "POST", `/mailboxes/${mine.id}/sync`)).status).toBe(404);
-    expect((await request("b", "PATCH", `/mailboxes/${mine.id}`, { status: "paused" })).status).toBe(404);
-    expect((await request("b", "POST", `/mailboxes/${mine.id}/send`, { to: ["x@y.example"], subject: "s", text: "t" })).status).toBe(404);
-    expect((await request("admin", "DELETE", `/mailboxes/${mine.id}`)).status).toBe(404);
+    expect((await request("b", "POST", `/inbox/mailboxes/${mine.id}/sync`)).status).toBe(404);
+    expect((await request("b", "PATCH", `/inbox/mailboxes/${mine.id}`, { status: "paused" })).status).toBe(404);
+    expect((await request("b", "POST", `/inbox/mailboxes/${mine.id}/send`, { to: ["x@y.example"], subject: "s", text: "t" })).status).toBe(404);
+    expect((await request("admin", "DELETE", `/inbox/mailboxes/${mine.id}`)).status).toBe(404);
   });
 });
 
@@ -398,13 +400,13 @@ describe("with the CRM installed", () => {
     handlers = [gmail({ m1: gmailMessage("m1", { subject: "Proposal v2" }) })];
     const out = collect();
     await syncMailbox(db, { ...m, syncCalendar: false }, sourceOf("google")!, client, out.emit);
-    // What kon-inbox announced, given as is to kon-crm's listener.
-    for (const e of out.out.filter((x) => x.name === "inbox:message.received")) await onInboxMessage(db, e.data);
+    // What the inbox announced, given as is to the CRM's listener.
+    for (const e of out.out.filter((x) => x.name === "crm:message.received")) await onInboxMessage(db, e.data);
     const items = await timelineOf(db, { contactId: "c-luis" });
-    expect(items).toContainEqual(expect.objectContaining({ kind: "link", type: "inbox_messages", relation: "about", summary: expect.objectContaining({ subject: "Proposal v2" }) }));
+    expect(items).toContainEqual(expect.objectContaining({ kind: "link", type: "crm_inbox_messages", relation: "about", summary: expect.objectContaining({ subject: "Proposal v2" }) }));
 
-    expect((await request("a", "DELETE", `/mailboxes/${m.id}`)).status).toBe(200);
-    expect(await q(`SELECT 1 FROM inbox_messages`)).toEqual([]);
+    expect((await request("a", "DELETE", `/inbox/mailboxes/${m.id}`)).status).toBe(200);
+    expect(await q(`SELECT 1 FROM crm_inbox_messages`)).toEqual([]);
     expect((await timelineOf(db, { contactId: "c-luis" })).filter((i) => i.kind === "link")).toEqual([]);
   });
 
@@ -414,8 +416,8 @@ describe("with the CRM installed", () => {
     await syncMailbox(db, m, sourceOf("google")!, client, () => undefined);
     for (const h of busHandlers.get("connections:connection.revoked") ?? []) h({ connectionId: connA });
     await new Promise((r) => setTimeout(r, 50));
-    expect(await q(`SELECT 1 FROM inbox_mailboxes`)).toEqual([]);
-    expect(await q(`SELECT 1 FROM inbox_events`)).toEqual([]);
+    expect(await q(`SELECT 1 FROM crm_inbox_mailboxes`)).toEqual([]);
+    expect(await q(`SELECT 1 FROM crm_inbox_events`)).toEqual([]);
   });
 });
 
@@ -423,12 +425,128 @@ describe("sending", () => {
   it("sends through the mailbox's own account, as a plain-text message", async () => {
     const m = await mailboxOf(A, connA);
     handlers = [(u, init) => (u.pathname.endsWith("/messages/send") && init?.method === "POST" ? json({ id: "sent-1", threadId: "t9" }) : undefined)];
-    const res = await request("a", "POST", `/mailboxes/${m.id}/send`, { to: ["luis@client.example"], subject: "Follow-up", text: "Hello" });
+    const res = await request("a", "POST", `/inbox/mailboxes/${m.id}/send`, { to: ["luis@client.example"], subject: "Follow-up", text: "Hello" });
     expect(res.status).toBe(201);
     const raw = JSON.parse(String(calls.at(-1)!.init!.body)).raw as string;
     const mime = Buffer.from(raw, "base64url").toString("utf8");
     expect(mime).toContain("To: luis@client.example");
     expect(mime).toContain("From: me@firm.example");
-    expect((await request("a", "POST", `/mailboxes/${m.id}/send`, { to: ["not an address"], subject: "x", text: "y" })).status).toBe(422);
+    expect((await request("a", "POST", `/inbox/mailboxes/${m.id}/send`, { to: ["not an address"], subject: "x", text: "y" })).status).toBe(422);
+  });
+});
+
+describe("mail as evidence of who someone is", () => {
+  beforeAll(async () => {
+    await ex(`
+      INSERT INTO crm_companies (id, name) VALUES ('co-acme', 'Acme Legal');
+      INSERT INTO crm_contacts (id, first_name, last_name, email, company_id) VALUES ('c-mar', 'Mar', '', 'mar@acme-legal.example', 'co-acme');
+      INSERT INTO crm_contacts (id, first_name, last_name, email) VALUES ('c-gm', 'Gil', '', 'gil@gmail.com');
+      INSERT INTO crm_contacts (id, first_name, last_name, email) VALUES ('c-dup1', 'Dup', '', 'dup@x.example'), ('c-dup2', 'Dup', '', 'dup@x.example');
+    `);
+  });
+  const message = (over: Record<string, unknown> = {}) => ({
+    messageId: "msg-1",
+    from: "mar@acme-legal.example",
+    fromName: "Mar Soler",
+    direction: "in",
+    visibility: "private",
+    subject: "Our confidential settlement",
+    mailboxAddresses: ["me@firm.example"],
+    ...over,
+  });
+  const observations = () =>
+    q<{ entity_id: string; field: string; value: unknown; status: string; source: string; evidence: string; note: string | null; external_ref: string }>(
+      "SELECT entity_id, field, value, status, source, evidence, note, external_ref FROM crm_observations ORDER BY field"
+    );
+
+  it("a message from a contact suggests the name it is written under and the company's domain, never writing them", async () => {
+    const outcomes = await mailEvidence(db, message());
+    expect(outcomes.map((o) => [o.data.field, o.outcome])).toEqual([
+      ["firstName", "confirmed"],
+      ["lastName", "suggested"],
+      ["domain", "suggested"],
+    ]);
+    const rows = await observations();
+    expect(rows.map((r) => [r.entity_id, r.field, r.value])).toEqual([
+      ["co-acme", "domain", "acme-legal.example"],
+      ["c-mar", "firstName", "Mar"],
+      ["c-mar", "lastName", "Soler"],
+    ]);
+    expect(new Set(rows.map((r) => `${r.source}/${r.evidence}`))).toEqual(new Set(["mail/mail-header"]));
+    // Nothing of the message itself: no subject, no mailbox, no other recipient.
+    expect(JSON.stringify(rows)).not.toMatch(/confidential|me@firm/);
+    const [contact] = await q<{ last_name: string | null }>("SELECT last_name FROM crm_contacts WHERE id = 'c-mar'");
+    expect(contact!.last_name).toBe("");
+    const [company] = await q<{ domain: string | null }>("SELECT domain FROM crm_companies WHERE id = 'co-acme'");
+    expect(company!.domain).toBeNull();
+  });
+
+  it("a retried sync records once; more mail from the same person is still one source", async () => {
+    expect((await mailEvidence(db, message())).every((o) => !o.created)).toBe(true);
+    const again = await mailEvidence(db, message({ messageId: "msg-2" }));
+    expect(again.find((o) => o.data.field === "lastName")).toMatchObject({ outcome: "suggested", weight: 10 });
+  });
+
+  it("nothing from an outgoing message, the mailbox itself, an address that is not one contact, or a switched-off kind", async () => {
+    const before = (await observations()).length;
+    expect(await mailEvidence(db, message({ messageId: "o-1", direction: "out" }))).toEqual([]);
+    expect(await mailEvidence(db, message({ messageId: "o-2", from: "me@firm.example" }))).toEqual([]);
+    expect(await mailEvidence(db, message({ messageId: "o-3", from: "nobody@else.example" }))).toEqual([]);
+    expect(await mailEvidence(db, message({ messageId: "o-4", from: "dup@x.example" }))).toEqual([]);
+    await ex("UPDATE crm_evidence_kinds SET active = false WHERE key = 'mail-header'");
+    expect(await mailEvidence(db, message({ messageId: "o-5", fromName: "Mar Vidal" }))).toEqual([]);
+    await ex("UPDATE crm_evidence_kinds SET active = true WHERE key = 'mail-header'");
+    expect((await observations()).length).toBe(before);
+  });
+
+  it("a free mail address says nothing about a company, and a display name that is not a person says nothing", async () => {
+    const outcomes = await mailEvidence(db, message({ messageId: "g-1", from: "gil@gmail.com", fromName: "ACME Support" }));
+    expect(outcomes).toEqual([]);
+    expect(companyDomainOf("gil@gmail.com")).toBeNull();
+    expect(companyDomainOf("ana@acme.example")).toBe("acme.example");
+    expect(nameFromDisplayName('"Luis Paz"')).toEqual({ firstName: "Luis", lastName: "Paz" });
+    expect(nameFromDisplayName("Ruiz, Ana")).toEqual({ firstName: "Ana", lastName: "Ruiz" });
+    expect(nameFromDisplayName("José María de la Cruz")).toEqual({ firstName: "José", lastName: "María de la Cruz" });
+    for (const notAName of ["Billing", "Ana from ACME", "ANA RUIZ", "ana@acme.example", "Team 42", "Notifications", "Acme, Inc, Ltd"]) {
+      expect(nameFromDisplayName(notAName), notAName).toBeNull();
+    }
+  });
+});
+
+describe("a private email on the CRM's timeline", () => {
+  const as = async (user: string, role: string) => {
+    await db.execute(sql`SELECT set_config('app.current_user_id', ${user}, false), set_config('app.current_user_role', ${role}, false)`);
+  };
+  const asSystem = () => as("", "");
+
+  it("the team sees that there was an email, never its subject; its owner and, once shared, the team read it", async () => {
+    const m = await mailboxOf(A, connA);
+    handlers = [gmail({ p1: gmailMessage("p1", { subject: "Secret settlement" }) })];
+    const out = collect();
+    await syncMailbox(db, { ...m, syncCalendar: false }, sourceOf("google")!, client, out.emit);
+    for (const e of out.out.filter((x) => x.name === "crm:message.received")) await onInboxMessage(db, e.data);
+    // The link itself never holds a private subject: `kitsuden_links` is read by more than the timeline.
+    expect(JSON.stringify(await q("SELECT metadata FROM kitsuden_links"))).not.toContain("Secret");
+
+    try {
+      await as(ACTORS.staff.id, "editor");
+      const seen = (await timelineOf(db, { contactId: "c-luis" })).filter((i) => i.kind === "link");
+      expect(seen).toEqual([expect.objectContaining({ type: "crm_inbox_messages", summary: { kind: "email", at: expect.any(String), private: true } })]);
+      await as(A, "editor");
+      const own = (await timelineOf(db, { contactId: "c-luis" })).filter((i) => i.kind === "link");
+      expect(own[0]).toMatchObject({ summary: { kind: "email", subject: "Secret settlement", direction: "in" } });
+    } finally {
+      await asSystem();
+    }
+
+    const [thread] = await q<{ id: string }>("SELECT id FROM crm_inbox_threads");
+    expect((await request("a", "PATCH", `/inbox/threads/${thread!.id}`, { visibility: "team" })).status).toBe(200);
+    try {
+      await as(ACTORS.staff.id, "editor");
+      const shared = (await timelineOf(db, { contactId: "c-luis" })).filter((i) => i.kind === "link");
+      expect(shared[0]).toMatchObject({ summary: { kind: "email", subject: "Secret settlement" } });
+    } finally {
+      await asSystem();
+    }
   });
 });

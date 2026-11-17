@@ -195,7 +195,7 @@ describe("payment:payment.succeeded / refunded", () => {
   });
 });
 
-describe("inbox:message.received / inbox:event.synced", () => {
+describe("crm:message.received / crm:meeting.synced (the CRM's inbox)", () => {
   it("links a message to the contacts on it, never creates one, and skips the mailbox's own address", async () => {
     const results = await onInboxMessage(db, {
       messageId: "msg-1",
@@ -238,7 +238,7 @@ describe("view-timeline", () => {
   it("puts activities, stage moves and links in one list, newest first", async () => {
     const items = await timelineOf(db, { contactId: "c-luis" });
     const kinds = items.map((i) => (i.kind === "link" ? `link:${i.type}` : i.kind));
-    expect(kinds).toEqual(expect.arrayContaining(["activity", "stage", "link:pay_events", "link:nl_members", "link:inbox_messages", "link:inbox_events"]));
+    expect(kinds).toEqual(expect.arrayContaining(["activity", "stage", "link:pay_events", "link:nl_members", "link:crm_inbox_messages", "link:crm_inbox_events"]));
     const ats = items.map((i) => i.at);
     expect([...ats].sort().reverse()).toEqual(ats);
 
@@ -301,8 +301,8 @@ describe("with and without the other kons", () => {
     listenToOtherKons(ctx as never);
     listenToOtherKons(ctx as never);
     expect([...handlers.keys()].sort()).toEqual([
-      "inbox:event.synced",
-      "inbox:message.received",
+      "crm:meeting.synced",
+      "crm:message.received",
       "newsletter:address.suppressed",
       "newsletter:address.unsuppressed",
       "newsletter:member.subscribed",

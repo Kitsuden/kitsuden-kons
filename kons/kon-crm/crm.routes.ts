@@ -31,7 +31,7 @@ import { z } from "@kitsuden/engine/zod";
 
 import { accessOperations } from "./crm.access";
 import { billingOperations } from "./crm.billing";
-import { SUPPORTED_ACTIONS } from "./crm.automation";
+import { StageActionSchema, StageRequirementsSchema } from "./crm.automation";
 import { rlsContext, dbDe, userOf } from "./crm.context";
 import { entityOfDeal, formatNumber, nextNumber, numberingOf } from "./crm.entities";
 import { agentOperations } from "./crm.agents";
@@ -49,6 +49,7 @@ import { salesOperations } from "./crm.sales";
 import { timelineOperations } from "./crm.timeline";
 import { intakeOperations } from "./crm.intake";
 import { registerCrmPolicy } from "./crm.policy";
+import { inboxOperations } from "./crm.inbox";
 import { presetOperations } from "./crm.presets";
 import { publicOperations } from "./crm.public";
 import { scoringOperations } from "./crm.scoring";
@@ -260,28 +261,9 @@ const CompleteActivity = z.object({
   notes: Text(20000).optional(),
 });
 
-const StageAction = z.object({
-  type: z.enum(SUPPORTED_ACTIONS),
-  template: Text(200).optional(),
-  title: Text(500).optional(),
-  field: Text(100).optional(),
-  value: z.unknown().optional(),
-  condition: z.object({ field: Text(100), operator: Text(10), value: z.unknown() }).optional(),
-});
-const StageRequirements = z.object({
-  requiredFields: z.array(Text(100)).max(100).optional(),
-  requiredDocuments: z.array(Text(100)).max(100).optional(),
-  customValidations: z
-    .array(
-      z.object({
-        field: Text(100),
-        operator: z.enum(["==", "!=", ">", "<", ">=", "<=", "exists"]),
-        value: z.unknown().optional(),
-      })
-    )
-    .max(100)
-    .optional(),
-});
+// The same shapes a preset uses (crm.automation.ts), so a preset cannot store what this route would refuse.
+const StageAction = StageActionSchema;
+const StageRequirements = StageRequirementsSchema;
 const StageConfig = z
   .object({
     trackTimeInStage: z.boolean(),
@@ -3208,12 +3190,13 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
   agentOperations(crmRoutes);
   evidenceOperations(crmRoutes);
   scoringOperations(crmRoutes);
-  presetOperations(crmRoutes);
+  presetOperations(crmRoutes, ctx);
   billingOperations(crmRoutes);
   publicOperations(crmRoutes, () => ctx.db.instance as CrmDb);
   inboundOperations(crmRoutes, () => ctx.db.instance as CrmDb);
 
-  return crmRoutes.ops;
+  // The CRM's inbox (crm.inbox.ts): a registry of its own, see crm.inbox.operations.ts.
+  return [...crmRoutes.ops, ...inboxOperations(ctx)];
 }
 
 /**

@@ -141,6 +141,26 @@
     "crm_inbound_emails",
     "crm_deal_lines",
     "crm_quotes",
-    "crm_sales_targets"
+    "crm_sales_targets",
+    {
+      "name": "crm_inbox_mailboxes",
+      "label": "Mailboxes",
+      "icon": "Inbox"
+    },
+    {
+      "name": "crm_inbox_threads",
+      "label": "Email threads",
+      "icon": "Mail"
+    },
+    {
+      "name": "crm_inbox_messages",
+      "label": "Email messages",
+      "icon": "Mail"
+    },
+    {
+      "name": "crm_inbox_events",
+      "label": "Calendar events",
+      "icon": "Calendar"
+    }
   ]
 }

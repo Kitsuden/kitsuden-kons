@@ -68,6 +68,38 @@ export function aliasesOf(name: string, data: Record<string, unknown>): Array<[s
  */
 export const CRM_EVENTS = {
   emits: {
+    "crm:message.received": {
+      description: "A new email was synced from a mailbox in the CRM's inbox (received or sent).",
+      payload: {
+        messageId: "id in crm_inbox_messages",
+        mailboxId: "id",
+        ownerId: "the mailbox's owner",
+        from: "sender address",
+        fromName: "the sender's display name, when the message has one",
+        visibility: "private (its owner only) or team",
+        to: "list of addresses",
+        cc: "list of addresses",
+        subject: "subject",
+        direction: "in or out",
+        at: "ISO date",
+        mailboxAddresses: "the mailbox's own addresses",
+      },
+    },
+    "crm:meeting.synced": {
+      description: "A calendar event was synced into the CRM's inbox (new or changed).",
+      payload: {
+        eventId: "id in crm_inbox_events",
+        visibility: "private (its owner only) or team",
+        mailboxId: "id",
+        ownerId: "the mailbox's owner",
+        title: "title",
+        startsAt: "ISO date",
+        endsAt: "ISO date",
+        attendees: "list of addresses",
+        cancelled: "true when cancelled",
+        mailboxAddresses: "the mailbox's own addresses",
+      },
+    },
     "crm:contact.created": {
       description: "A contact was created, by a person, a form, an import, an email or another kon.",
       payload: { contactId: "id of the contact", origin: "manual, import, form, email, agent or automation" },
@@ -114,8 +146,8 @@ export const CRM_EVENTS = {
     "newsletter:member.subscribed",
     "payment:payment.succeeded",
     "payment:payment.refunded",
-    "inbox:message.received",
-    "inbox:event.synced",
+    "connections:connection.revoked",
+    "connections:connection.expired",
     "newsletter:address.suppressed",
     "newsletter:address.unsuppressed",
   ],

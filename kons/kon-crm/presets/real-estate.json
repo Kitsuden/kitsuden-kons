@@ -1,0 +1,318 @@
+{
+  "$comment": "Example preset: a real estate agency on the generic CRM. A deal is an operation (a sale or a rental of one property); the property itself is a listing in kon-listings, referred to by its id or reference. Nothing in the kons' code knows about real estate; this file is all of it.",
+  "id": "real-estate",
+  "name": "Real estate agency",
+  "description": "Numbered operations for sales and rentals, each tied to a listing; buyer and tenant requirements on the contact (budget, zones, type, rooms); visits, valuations and signings as activity kinds; buyer, seller, tenant and landlord roles; visit confirmation and reservation letters; broker, agent and assistant profiles. Publish the properties themselves with kon-listings.",
+  "entity": {
+    "name": "operation",
+    "singular": "Operation",
+    "plural": "Operations"
+  },
+  "contactFields": [
+    {
+      "key": "lookingFor",
+      "label": "Looking to",
+      "type": "select",
+      "options": ["buy", "rent", "sell", "let", "invest"]
+    },
+    {
+      "key": "propertyTypes",
+      "label": "Property types",
+      "type": "multiselect",
+      "options": ["apartment", "house", "land", "office", "commercial", "warehouse", "room"]
+    },
+    {
+      "key": "zones",
+      "label": "Preferred zones",
+      "type": "text"
+    },
+    {
+      "key": "budgetMin",
+      "label": "Budget from",
+      "type": "currency"
+    },
+    {
+      "key": "budgetMax",
+      "label": "Budget up to",
+      "type": "currency"
+    },
+    {
+      "key": "bedroomsMin",
+      "label": "Bedrooms (minimum)",
+      "type": "number"
+    },
+    {
+      "key": "financing",
+      "label": "Financing",
+      "type": "select",
+      "options": ["cash", "mortgage-approved", "mortgage-pending", "unknown"]
+    },
+    {
+      "key": "nationalId",
+      "label": "National or tax ID",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "leadSource",
+      "label": "Lead source",
+      "type": "select",
+      "options": ["website", "portal", "referral", "walk-in", "sign", "social", "other"]
+    }
+  ],
+  "companyFields": [
+    {
+      "key": "taxId",
+      "label": "Tax ID",
+      "type": "text",
+      "sensitive": true
+    },
+    {
+      "key": "relationship",
+      "label": "Relationship",
+      "type": "select",
+      "options": ["developer", "co-broker", "corporate-tenant", "investor", "other"]
+    }
+  ],
+  "dealFields": [
+    {
+      "key": "operationNumber",
+      "label": "Operation number",
+      "type": "text",
+      "portal": true
+    },
+    {
+      "key": "operationType",
+      "label": "Operation",
+      "type": "select",
+      "options": ["sale", "rent"],
+      "required": true,
+      "portal": true
+    },
+    {
+      "key": "listingRef",
+      "label": "Listing (id or reference)",
+      "type": "text",
+      "portal": true
+    },
+    {
+      "key": "askingPrice",
+      "label": "Asking price",
+      "type": "currency",
+      "portal": true
+    },
+    {
+      "key": "offerAmount",
+      "label": "Offer",
+      "type": "currency"
+    },
+    {
+      "key": "commissionPct",
+      "label": "Commission (%)",
+      "type": "number"
+    },
+    {
+      "key": "exclusive",
+      "label": "Exclusive mandate",
+      "type": "boolean"
+    },
+    {
+      "key": "reservationDate",
+      "label": "Reservation date",
+      "type": "date",
+      "portal": true
+    },
+    {
+      "key": "closingDate",
+      "label": "Signing or move-in date",
+      "type": "date",
+      "portal": true
+    }
+  ],
+  "numbering": {
+    "field": "operationNumber",
+    "prefix": "OP-",
+    "padding": 5
+  },
+  "activityKinds": [
+    {
+      "key": "visit",
+      "label": "Property visit",
+      "type": "meeting",
+      "defaultDurationMinutes": 45
+    },
+    {
+      "key": "valuation",
+      "label": "Valuation",
+      "type": "meeting",
+      "defaultDurationMinutes": 60
+    },
+    {
+      "key": "signing",
+      "label": "Signing",
+      "type": "meeting",
+      "defaultDurationMinutes": 90
+    },
+    {
+      "key": "follow-up",
+      "label": "Follow-up call",
+      "type": "call",
+      "defaultDurationMinutes": 15
+    }
+  ],
+  "dealContactRoles": ["buyer", "seller", "tenant", "landlord", "co-broker", "guarantor"],
+  "pipeline": "Sales and rentals",
+  "stages": [
+    {
+      "name": "New lead",
+      "probability": 10,
+      "estimatedDays": 1,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Call the lead back",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "Contacted",
+      "probability": 20,
+      "estimatedDays": 7,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Offer visit times",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "Visit scheduled",
+      "probability": 35,
+      "estimatedDays": 7,
+      "entryRequirements": {
+        "requiredFields": ["listingRef"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_calendar_event",
+          "title": "Property visit",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "Visited",
+      "probability": 50,
+      "estimatedDays": 5,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Ask the client how the visit went",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "Offer",
+      "probability": 65,
+      "estimatedDays": 10,
+      "entryRequirements": {
+        "requiredFields": ["offerAmount"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Present the offer to the owner",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "Reservation",
+      "probability": 85,
+      "estimatedDays": 30,
+      "entryRequirements": {
+        "requiredFields": ["reservationDate"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Send the reservation agreement for signature",
+          "value": 1
+        },
+        {
+          "type": "create_task",
+          "title": "Mark the listing as reserved on the portals",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "Closing",
+      "probability": 95,
+      "entryRequirements": {
+        "requiredFields": ["closingDate"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_calendar_event",
+          "title": "Signing",
+          "value": 7
+        },
+        {
+          "type": "create_task",
+          "title": "Invoice the commission",
+          "value": 3
+        },
+        {
+          "type": "create_task",
+          "title": "Take the listing off the portals",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "name": "Visit confirmation",
+      "description": "Example to adapt before use.",
+      "body": "{{date.today}}\n\nDear {{contact.firstName}} {{contact.lastName}},\n\nThis confirms your visit to the property of the operation {{custom.operationNumber}} (\"{{deal.title}}\") on {{ask.visitDate}} at {{ask.visitTime}}. Address: {{ask.address}}.\n\nYour agent will be {{ask.agent}}. Please bring an ID.\n\nKind regards,\n{{ask.signatory}}\n"
+    },
+    {
+      "name": "Reservation agreement",
+      "description": "Example to review with a lawyer before use.",
+      "body": "{{date.today}}\n\nReservation of the property \"{{deal.title}}\" (operation {{custom.operationNumber}}, {{custom.operationType}}).\n\nThe party making the reservation, {{contact.firstName}} {{contact.lastName}}, pays a deposit of {{ask.deposit}}, which will count towards the price of {{custom.offerAmount}} if the operation closes by {{custom.closingDate}}. {{ask.refundTerms}}\n\nSigned,\n{{ask.signatory}}\n"
+    }
+  ],
+  "profiles": [
+    {
+      "profile": "broker",
+      "records": "all",
+      "money": true,
+      "sensitive": true,
+      "notes": true
+    },
+    {
+      "profile": "agent",
+      "records": "assigned",
+      "money": true,
+      "sensitive": false,
+      "notes": true
+    },
+    {
+      "profile": "assistant",
+      "records": "assigned",
+      "money": false,
+      "sensitive": false,
+      "notes": true
+    }
+  ],
+  "nextSteps": [
+    "Install kon-listings to keep the properties (photos, price, location, features) and publish them on your site and on portals.",
+    "Put the listing's id or reference in each operation's \"Listing\" field, so the team can open the property from the deal.",
+    "Grant the broker profile to whoever approves commissions, and the agent profile to the sales team.",
+    "Review the reservation agreement with a lawyer before sending it."
+  ]
+}

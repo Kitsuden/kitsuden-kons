@@ -6,10 +6,10 @@
  * provider must not keep one open), then stores it, moves the cursors in one short transaction, and
  * announces each NEW message and each new or changed calendar event:
  *
- *   inbox:message.received  { messageId, mailboxId, ownerId, from, to, cc, subject, direction, at, mailboxAddresses }
- *   inbox:event.synced      { eventId, mailboxId, ownerId, title, startsAt, endsAt, attendees, organizer, cancelled, mailboxAddresses }
+ *   crm:message.received  { messageId, mailboxId, ownerId, from, fromName, visibility, to, cc, subject, direction, at, mailboxAddresses }
+ *   crm:meeting.synced      { eventId, visibility, mailboxId, ownerId, title, startsAt, endsAt, attendees, organizer, cancelled, mailboxAddresses }
  *
- * `mailboxAddresses` is the mailbox's own address, so a listener (kon-crm) never treats the owner as a
+ * `mailboxAddresses` is the mailbox's own address, so a listener (crm.connected.ts) never treats the owner as a
  * contact. A message stored twice (a retried job, an overlapping page) is one row and one announcement:
  * the insert is `ON CONFLICT DO NOTHING` and only what it returns is announced.
  *
@@ -19,8 +19,8 @@
 
 import { and, eq, sql } from "drizzle-orm";
 
-import { inboxEvents, inboxMailboxes, inboxMessages, inboxThreads, type Mailbox } from "./inbox.schema";
-import type { Batch, Fetcher, MailSource, SyncedEvent, SyncedMessage } from "./inbox.sources";
+import { inboxEvents, inboxMailboxes, inboxMessages, inboxThreads, type Mailbox } from "./crm.inbox.schema";
+import type { Batch, Fetcher, MailSource, SyncedEvent, SyncedMessage } from "./crm.inbox.sources";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a Drizzle instance or transaction
 type Db = any;
@@ -33,7 +33,7 @@ export interface SyncResult {
   more: boolean;
 }
 
-async function storeMessage(db: Db, mailbox: Mailbox, m: SyncedMessage): Promise<string | null> {
+async function storeMessage(db: Db, mailbox: Mailbox, m: SyncedMessage): Promise<{ id: string; visibility: string } | null> {
   const [thread] = await db
     .insert(inboxThreads)
     .values({
@@ -74,10 +74,10 @@ async function storeMessage(db: Db, mailbox: Mailbox, m: SyncedMessage): Promise
     .update(inboxThreads)
     .set({ messageCount: sql`${inboxThreads.messageCount} + 1` })
     .where(eq(inboxThreads.id, thread.id));
-  return created.id;
+  return { id: created.id, visibility: thread.visibility };
 }
 
-async function storeEvent(db: Db, mailbox: Mailbox, e: SyncedEvent): Promise<string> {
+async function storeEvent(db: Db, mailbox: Mailbox, e: SyncedEvent): Promise<{ id: string; visibility: string }> {
   const values = {
     title: e.title,
     location: e.location,
@@ -92,8 +92,8 @@ async function storeEvent(db: Db, mailbox: Mailbox, e: SyncedEvent): Promise<str
     .insert(inboxEvents)
     .values({ ...values, mailboxId: mailbox.id, ownerId: mailbox.ownerId, externalId: e.externalId, visibility: mailbox.defaultVisibility })
     .onConflictDoUpdate({ target: [inboxEvents.mailboxId, inboxEvents.externalId], set: values })
-    .returning({ id: inboxEvents.id });
-  return row.id;
+    .returning({ id: inboxEvents.id, visibility: inboxEvents.visibility });
+  return row;
 }
 
 export interface Changes {
@@ -118,16 +118,18 @@ export async function storeChanges(db: Db, mailbox: Mailbox, changes: Changes, e
 
   if (changes.mail) {
     for (const m of changes.mail.items) {
-      const id = await storeMessage(db, mailbox, m);
-      if (!id) continue;
+      const stored = await storeMessage(db, mailbox, m);
+      if (!stored) continue;
       result.messages++;
       announced.push([
-        "inbox:message.received",
+        "crm:message.received",
         {
-          messageId: id,
+          messageId: stored.id,
           mailboxId: mailbox.id,
           ownerId: mailbox.ownerId,
           from: m.fromAddress,
+          fromName: m.fromName,
+          visibility: stored.visibility,
           to: m.to,
           cc: m.cc,
           subject: m.subject,
@@ -146,12 +148,13 @@ export async function storeChanges(db: Db, mailbox: Mailbox, changes: Changes, e
 
   if (changes.calendar) {
     for (const e of changes.calendar.items) {
-      const id = await storeEvent(db, mailbox, e);
+      const stored = await storeEvent(db, mailbox, e);
       result.events++;
       announced.push([
-        "inbox:event.synced",
+        "crm:meeting.synced",
         {
-          eventId: id,
+          eventId: stored.id,
+          visibility: stored.visibility,
           mailboxId: mailbox.id,
           ownerId: mailbox.ownerId,
           title: e.title,

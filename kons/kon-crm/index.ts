@@ -7,6 +7,7 @@
  * - Pipelines & Stages
  * - Deals with Kanban view
  * - Activities (calls, emails, meetings, tasks)
+ * - An inbox: each person's mailbox and calendar, synced from their Google or Microsoft account
  *
  * ═══════════════════════════════════════════════════════════════════════════
  * ARCHITECTURE:
@@ -41,6 +42,7 @@ import { listenToOtherKons } from "./crm.connected";
 import type { CrmDb } from "./crm.db";
 import { migrateEntityTypes, useEntityTypes } from "./crm.entitystore";
 import { CRM_ACTION_HANDLERS, syncStageRules } from "./crm.handlers";
+import { startInbox, stopInbox } from "./crm.inbox";
 import { CRM_REPORTS } from "./crm.reports";
 import { CRM_EVENTS, useCrmEvents } from "./crm.events";
 import { createCRMRouter, crmOperations } from "./crm.routes";
@@ -125,6 +127,8 @@ const hooks = {
       if (synced.stages.length > 0) {
         ctx.logger.info("[CRM] Stage actions moved into automation rules", { rules: synced.rules });
       }
+      // People's mailboxes and calendars, synced through Kitsuden's connections (crm.inbox.ts).
+      await startInbox(ctx);
     } catch (err) {
       ctx.logger.error("[CRM] Failed to verify tables", {
         error: err instanceof Error ? err.message : String(err),
@@ -150,6 +154,7 @@ const hooks = {
    * onDisable: Cleanup when disabled
    */
   onDisable: async (ctx: KonContext) => {
+    stopInbox();
     ctx.logger.info("[CRM] Disabled - routes will be removed");
   },
 };

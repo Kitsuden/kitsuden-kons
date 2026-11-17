@@ -273,17 +273,13 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
-  kons/kon-inbox:
-    devDependencies:
-      typescript:
-        specifier: ^5.7.0
-        version: 5.9.3
-
   kons/kon-ingest:
     devDependencies:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  kons/kon-listings: {}
 
   kons/kon-maps:
     dependencies:

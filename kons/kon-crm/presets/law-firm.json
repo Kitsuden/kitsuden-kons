@@ -208,19 +208,85 @@
   "stages": [
     {
       "name": "New",
-      "probability": 10
+      "probability": 10,
+      "estimatedDays": 7,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Run the conflict check",
+          "value": 2
+        },
+        {
+          "type": "create_task",
+          "title": "Send the engagement letter",
+          "value": 3
+        }
+      ]
     },
     {
       "name": "In progress",
-      "probability": 50
+      "probability": 50,
+      "estimatedDays": 120,
+      "entryRequirements": {
+        "requiredFields": [
+          "practiceArea",
+          "feeType"
+        ]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_calendar_event",
+          "title": "Kick-off meeting with the client",
+          "value": 5
+        },
+        {
+          "type": "create_task",
+          "title": "Request the client's documents",
+          "value": 7
+        },
+        {
+          "type": "create_task",
+          "title": "Agree the success fee in writing",
+          "value": 3,
+          "condition": {
+            "field": "custom.feeType",
+            "operator": "==",
+            "value": "success"
+          }
+        }
+      ]
     },
     {
       "name": "Resolution",
-      "probability": 80
+      "probability": 80,
+      "estimatedDays": 30,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Review the unbilled time before the final invoice",
+          "value": 5
+        },
+        {
+          "type": "create_task",
+          "title": "Prepare the closing report for the client",
+          "value": 10
+        }
+      ]
     },
     {
       "name": "Closed",
-      "probability": 100
+      "probability": 100,
+      "onEnterActions": [
+        {
+          "type": "create_activity",
+          "title": "Matter closed"
+        },
+        {
+          "type": "create_task",
+          "title": "Return the original documents and archive the file",
+          "value": 14
+        }
+      ]
     }
   ],
   "templates": [

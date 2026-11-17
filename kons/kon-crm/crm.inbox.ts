@@ -1,10 +1,11 @@
 /**
- * @kitsuden/kon-inbox
+ * The CRM's inbox
  * ============================================================================
  *
  * A person's mailbox and calendar, synced from an account they connected in Kitsuden (`ctx.connections`), matched to
- * the CRM's contacts by email (kon-crm listens to this kon's events and links each message and meeting to
- * the contacts on it).
+ * the CRM's contacts by email: each message and meeting lands on the timeline of the contacts on it
+ * (crm.connected.ts), and what a message says about who someone is becomes evidence for a person to accept
+ * (crm.inbox.evidence.ts).
  *
  * ── PRIVACY ────────────────────────────────────────────────────────────────
  *
@@ -13,25 +14,24 @@
  *   what is kept      sender, recipients, subject, the provider's short preview, dates. Never a body or an
  *                     attachment
  *   who sees it       the owner. A thread (or the whole mailbox, by default) marked `team` is also READ by
- *                     admins and editors. Row security enforces it (migrations/0001_inbox.sql)
+ *                     admins and editors. Row security enforces it (migrations/0015_inbox.sql)
  *   deleting          removing a mailbox deletes everything synced from it and its links; revoking its
  *                     connection in Kitsuden's connections does the same, by itself
  *
  * ── SYNC ───────────────────────────────────────────────────────────────────
  *
- * Through Kitsuden's queue (`kon-inbox` / `sync`), one mailbox per job, a bounded step per job: a long
+ * Through Kitsuden's queue (`kon-crm:inbox` / `sync`), one mailbox per job, a bounded step per job: a long
  * backfill re-queues itself. Every five minutes the mailboxes not synced in the last five are queued. A host
  * without a queue runs the same step inline.
  */
 
-import { AppError, defineKonSdk, operationsRouter, queue, unlinkAll, type AnyOperation, type AuthzUser } from "@kitsuden/engine";
+import { AppError, queue, unlinkAll, type AnyOperation, type AuthzUser } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, gte, inArray, lt, lte, or, isNull } from "drizzle-orm";
-import type { Hono } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
-import { KON, connectionErrorOf, connectionsOf } from "./inbox.connections";
-import "./inbox.policy";
+import { KON, connectionErrorOf, connectionsOf } from "./crm.inbox.connections";
+import "./crm.inbox.policy";
 import {
   inboxEvents,
   inboxMailboxes,
@@ -39,18 +39,12 @@ import {
   inboxThreads,
   publicMailbox,
   type Mailbox,
-} from "./inbox.schema";
-import { isAddress, sourceOf, SourceError } from "./inbox.sources";
-import { fetchChanges, storeChanges, type SyncResult } from "./inbox.sync";
-import manifest from "./kon.json" with { type: "json" };
-import { KON_ID, OWN, SEND, registry } from "./operations";
+} from "./crm.inbox.schema";
+import { isAddress, sourceOf, SourceError } from "./crm.inbox.sources";
+import { fetchChanges, storeChanges, type SyncResult } from "./crm.inbox.sync";
+import { OWN, SEND, registry } from "./crm.inbox.operations";
 
-export * from "./inbox.schema";
-export { syncMailbox } from "./inbox.sync";
-export { parseAddressList, buildMime, sourceOf } from "./inbox.sources";
-
-const konTables = manifest.tables.map((t: string | { name: string }) => (typeof t === "string" ? t : t.name));
-const QUEUE = "kon-inbox";
+const QUEUE = "kon-crm:inbox";
 const SYNC_EVERY_MS = 5 * 60_000;
 
 // ── Schemas ─────────────────────────────────────────────────────────────────
@@ -146,7 +140,7 @@ export async function runSync(ctx: KonContext, mailboxId: string, now = new Date
 /** Through the queue when there is one; inline otherwise. */
 async function requestSync(ctx: KonContext, mailboxId: string): Promise<"queued" | "ran"> {
   if (queue.configured()) {
-    await queue.dispatch(QUEUE, "sync", { mailboxId }, { reason: "kon-inbox: sync a mailbox", attempts: 3, cost: 0 });
+    await queue.dispatch(QUEUE, "sync", { mailboxId }, { reason: "kon-crm: sync a mailbox", attempts: 3, cost: 0 });
     return "queued";
   }
   const r = await runSync(ctx, mailboxId);
@@ -160,8 +154,8 @@ export async function removeMailbox(db: unknown, mailboxId: string): Promise<voi
   const d = db as any;
   const messages = await d.select({ id: inboxMessages.id }).from(inboxMessages).where(eq(inboxMessages.mailboxId, mailboxId));
   const events = await d.select({ id: inboxEvents.id }).from(inboxEvents).where(eq(inboxEvents.mailboxId, mailboxId));
-  for (const m of messages) await unlinkAll({ type: "inbox_messages", id: m.id }, d);
-  for (const e of events) await unlinkAll({ type: "inbox_events", id: e.id }, d);
+  for (const m of messages) await unlinkAll({ type: "crm_inbox_messages", id: m.id }, d);
+  for (const e of events) await unlinkAll({ type: "crm_inbox_events", id: e.id }, d);
   // Threads, messages and events go with it (ON DELETE CASCADE).
   await d.delete(inboxMailboxes).where(eq(inboxMailboxes.id, mailboxId));
 }
@@ -179,7 +173,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   };
 
   app.get(
-    "/mailboxes",
+    "/inbox/mailboxes",
     {
       id: "list-mailboxes",
       summary: "Your synced mailboxes",
@@ -195,7 +189,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.post(
-    "/mailboxes",
+    "/inbox/mailboxes",
     {
       id: "add-mailbox",
       summary: "Start syncing one of your connected accounts",
@@ -249,7 +243,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.patch(
-    "/mailboxes/:id",
+    "/inbox/mailboxes/:id",
     {
       id: "update-mailbox",
       summary: "Change what a mailbox syncs or who sees it",
@@ -274,7 +268,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.delete(
-    "/mailboxes/:id",
+    "/inbox/mailboxes/:id",
     {
       id: "remove-mailbox",
       summary: "Stop syncing a mailbox and delete what it brought",
@@ -294,7 +288,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.post(
-    "/mailboxes/:id/sync",
+    "/inbox/mailboxes/:id/sync",
     {
       id: "sync-mailbox",
       summary: "Sync a mailbox now",
@@ -312,7 +306,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.get(
-    "/threads",
+    "/inbox/threads",
     {
       id: "list-threads",
       summary: "Email threads you may read",
@@ -336,7 +330,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.get(
-    "/threads/:id",
+    "/inbox/threads/:id",
     {
       id: "get-thread",
       summary: "One thread and its messages",
@@ -356,7 +350,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.patch(
-    "/threads/:id",
+    "/inbox/threads/:id",
     {
       id: "set-thread-visibility",
       summary: "Share a thread with the team, or make it private",
@@ -383,7 +377,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.get(
-    "/events",
+    "/inbox/events",
     {
       id: "list-events",
       summary: "Calendar events you may read",
@@ -408,7 +402,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.post(
-    "/mailboxes/:id/send",
+    "/inbox/mailboxes/:id/send",
     {
       id: "send-mail",
       summary: "Send an email from your mailbox",
@@ -521,89 +515,31 @@ export function listenToConnections(ctx: KonContext): void {
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
-export function createKonInbox(ctx: KonContext): Hono {
-  return operationsRouter(KON_ID, inboxOperations(ctx), ctx);
+/**
+ * Starts the inbox with the CRM: the queue's handler, the listeners on connections and the five-minute pass.
+ * The CRM's startup calls it once it has checked every table of kon.json, the inbox's among them.
+ */
+export async function startInbox(ctx: KonContext): Promise<boolean> {
+  queue.handle<{ mailboxId: string }>(
+    QUEUE,
+    async (job) => {
+      const r = await runSync(ctx, job.payload.mailboxId);
+      // A long backfill goes on in another job, so one mailbox never holds the queue.
+      if (r?.more) await queue.dispatch(QUEUE, "sync", { mailboxId: job.payload.mailboxId }, { reason: "kon-crm: continue a sync", cost: 0 });
+    },
+    { concurrency: 2 }
+  );
+  listenToConnections(ctx);
+  if (!timer) {
+    timer = setInterval(() => void syncDue(ctx).catch(() => undefined), SYNC_EVERY_MS);
+    timer.unref?.();
+  }
+  ctx.logger.info("[CRM] inbox ready");
+  return true;
 }
 
-const events = {
-  emits: {
-    "inbox:message.received": {
-      description: "A new email was synced from a mailbox (received or sent).",
-      payload: {
-        messageId: "id in inbox_messages",
-        mailboxId: "id",
-        ownerId: "the mailbox's owner",
-        from: "sender address",
-        to: "list of addresses",
-        cc: "list of addresses",
-        subject: "subject",
-        direction: "in or out",
-        at: "ISO date",
-        mailboxAddresses: "the mailbox's own addresses",
-      },
-    },
-    "inbox:event.synced": {
-      description: "A calendar event was synced (new or changed).",
-      payload: {
-        eventId: "id in inbox_events",
-        mailboxId: "id",
-        ownerId: "the mailbox's owner",
-        title: "title",
-        startsAt: "ISO date",
-        endsAt: "ISO date",
-        attendees: "list of addresses",
-        cancelled: "true when cancelled",
-        mailboxAddresses: "the mailbox's own addresses",
-      },
-    },
-  },
-  listens: ["connections:connection.revoked", "connections:connection.expired"],
-};
+export function stopInbox(): void {
+  if (timer) clearInterval(timer);
+  timer = null;
+}
 
-const definition = defineKonSdk({
-  id: KON_ID,
-  name: "Inbox",
-  version: manifest.version,
-  description: "A person's mailbox and calendar, synced from a connected account and matched to CRM contacts",
-  icon: "Inbox",
-  mountPath: manifest.mount.path,
-  operations: (ctx: KonContext) => inboxOperations(ctx),
-  tables: konTables,
-  admin: {
-    category: manifest.admin.category as "tools",
-    views: manifest.admin.views.map((v) => ({ id: v.id, type: v.type as "grid", title: v.title, table: v.table })),
-  },
-  dependencies: { kons: manifest.dependencies.kons, core: ["auth"] },
-  hooks: {
-    onStartup: async (ctx) => {
-      for (const table of konTables) {
-        if (!(await ctx.db.tableExists(table))) {
-          ctx.logger.warn("[inbox] tables missing: run the kon's migrations", { table });
-          return;
-        }
-      }
-      queue.handle<{ mailboxId: string }>(
-        QUEUE,
-        async (job) => {
-          const r = await runSync(ctx, job.payload.mailboxId);
-          // A long backfill goes on in another job, so one mailbox never holds the queue.
-          if (r?.more) await queue.dispatch(QUEUE, "sync", { mailboxId: job.payload.mailboxId }, { reason: "kon-inbox: continue a sync", cost: 0 });
-        },
-        { concurrency: 2 }
-      );
-      listenToConnections(ctx);
-      if (!timer) {
-        timer = setInterval(() => void syncDue(ctx).catch(() => undefined), SYNC_EVERY_MS);
-        timer.unref?.();
-      }
-      ctx.logger.info("[inbox] ready");
-    },
-    onDisable: async () => {
-      if (timer) clearInterval(timer);
-      timer = null;
-    },
-  },
-});
-
-export const kon = { ...definition, ...({ events } as object) } as typeof definition;
-export default kon;
