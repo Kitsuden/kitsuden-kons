@@ -20,7 +20,7 @@
 
 import { randomUUID } from "node:crypto";
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   RARITY_COLOR,

@@ -14,7 +14,7 @@
  * member, written under a short per-member lock (dc.fun.ts).
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { COINS, ME, idOf, number, readJson, withLock } from "./dc.fun";
 import { clip, defineDcModule, registerDcModule, type CatalogItem, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

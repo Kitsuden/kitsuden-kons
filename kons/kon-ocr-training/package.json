@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-ocr-training",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "OCR model operations bridge to the vekocr engine: template proposals, training, vocabulary and direct extraction",
   "type": "module",
   "main": "./index.ts",

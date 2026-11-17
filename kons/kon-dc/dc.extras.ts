@@ -9,7 +9,7 @@
  *                   role for 24 hours (and coins, if you like)
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, LocalId, Snowflake } from "./dc.contract";
 import { baseVars, clip, defineDcModule, messageOf, registerDcModule, render, type DcModule, type Reply } from "./dc.modules";

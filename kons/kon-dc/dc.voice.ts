@@ -11,7 +11,7 @@
  * state (`temp:<channel>` = owner), so a restart forgets nothing.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import { baseVars, clip, defineDcModule, messageOf, registerDcModule, render, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

@@ -17,7 +17,7 @@
  * the booth's scopes and no more: BOOTH_SCOPES below.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { BlueprintDefinition, Snowflake, type BlueprintDefinitionInput } from "./dc.contract";
 

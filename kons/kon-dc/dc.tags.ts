@@ -12,7 +12,7 @@
  * when the form opens AND again when it is submitted.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { PermissionName, Snowflake } from "./dc.contract";
 import { langOf, translate } from "./dc.i18n";

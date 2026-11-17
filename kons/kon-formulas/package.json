@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-formulas",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Game formula engine: whitelist-safe evaluator and derived stat systems",
   "type": "module",
   "main": "./index.ts",

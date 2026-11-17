@@ -15,7 +15,7 @@
  * (`default_member_permissions`), and the module checks the permission again on every use.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import {

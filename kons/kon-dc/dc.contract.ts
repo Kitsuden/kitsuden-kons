@@ -20,7 +20,7 @@
  * that builds blueprints, or another kon that adds a module, validates with the same schemas.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 /** Version of the blueprint format. Bumped only for a change old blueprints cannot be read with. */
 export const BLUEPRINT_FORMAT = 1;

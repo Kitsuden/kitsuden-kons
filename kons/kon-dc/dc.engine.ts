@@ -29,7 +29,7 @@ import { AppError } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, or, sql } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   DC_EVENTS,

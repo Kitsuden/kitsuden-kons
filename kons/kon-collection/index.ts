@@ -26,7 +26,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import "./collection.policy.js";
 import { collectionMarks } from "./collection.schema.js";

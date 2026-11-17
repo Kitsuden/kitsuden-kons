@@ -65,6 +65,8 @@ import type { BulkTransport, FeedbackAdapter } from "./newsletter.types";
 import { mailgunTransport } from "./transports/mailgun";
 import { postalTransport } from "./transports/postal";
 import { resendTransport } from "./transports/resend";
+import { connectedHttp, followConnections, refreshConnectedProviders } from "./newsletter.connections";
+import { listenToCrmExclusions, useNewsletterEvents } from "./newsletter.exclusions";
 import { driverTransport } from "./transports/smtp";
 import { KON_ID } from "./operations";
 
@@ -119,7 +121,8 @@ interface BlogPostLike {
  * It is the correct default option, not a plan B.
  */
 export function buildTransport(env = process.env, driver?: MailDriver): BulkTransport {
-  const natives = [resendTransport(env), mailgunTransport(env), postalTransport(env)];
+  // A key in the environment wins; otherwise the organization's connection in Kitsuden (ctx.connections), if any.
+  const natives = [resendTransport(env, connectedHttp("resend")), mailgunTransport(env, connectedHttp("mailgun")), postalTransport(env)];
 
   const forced = env.NEWSLETTER_TRANSPORT;
   if (forced) {
@@ -409,6 +412,12 @@ const definition = defineKonSdk({
 
   hooks: {
     onStartup: async (ctx: KonContext) => {
+      // Sending services stored in Kitsuden's connections (newsletter.connections.ts).
+      await refreshConnectedProviders(ctx).catch(() => []);
+      followConnections(ctx);
+      // One "do not contact" with the CRM (newsletter.exclusions.ts).
+      useNewsletterEvents(ctx.events);
+      listenToCrmExclusions(ctx);
       // A kon registers its own emails: the host knows nothing about them.
       mail.registerAll(newsletterMailables);
       for (const [locale, entries] of Object.entries(newsletterTranslations)) {

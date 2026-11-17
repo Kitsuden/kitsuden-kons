@@ -6,7 +6,7 @@
 
 import { AppError, isUuid } from "@kitsuden/engine";
 import { and, eq, gte, inArray, isNotNull, isNull, lte, or, sql, type SQL } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   agileIssueLabels,

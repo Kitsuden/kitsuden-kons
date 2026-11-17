@@ -109,6 +109,24 @@ async function quietly<T>(ctx: KonContext, db: Db, fn: (db: Db) => Promise<T>): 
   }
 }
 
+/**
+ * What `shop:order.paid` carries. The buyer's email and name are there so a CRM can find or create the
+ * person without reading `shop_orders` (it has no access to them, and must not depend on this kon). The
+ * event never leaves the process: it is a listener in the same API that reads it, never a webhook.
+ */
+export function buyerPayload(order: ShopOrder): Record<string, unknown> {
+  return {
+    orderId: order.id,
+    number: order.number,
+    customerEmail: order.customerEmail,
+    customerName: order.customerName ?? null,
+    totalCents: order.totalCents,
+    currency: order.currency,
+    paymentRef: order.paymentRef ?? null,
+    paymentProvider: order.paymentProvider ?? null,
+  };
+}
+
 /** Right after buying: the email carries the order's own token, the only time it is known. */
 export async function notifyReceived(
   ctx: KonContext,
@@ -146,7 +164,10 @@ export async function notifyStatus(
   });
   // Paid just now: it came from unpaid (pending, or cancelled and reopened by a late payment).
   const paidNow = (from === "pending" || from === "cancelled") && PAID_STATUSES.has(order.status);
-  if (paidNow) ctx.events.emit("shop:order.paid", { orderId: order.id, number: order.number });
+  if (paidNow) ctx.events.emit("shop:order.paid", buyerPayload(order));
+  if (order.status === "delivered" && from !== "delivered") {
+    ctx.events.emit("shop:order.delivered", { orderId: order.id, number: order.number });
+  }
 
   const mailName = paidNow
     ? "shop.order-paid"

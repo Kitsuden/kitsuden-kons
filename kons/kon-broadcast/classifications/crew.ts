@@ -14,7 +14,7 @@
  */
 
 import type { GameProfile } from "../broadcast.profiles";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 /** A crew member, with their state in the battle. */
 const crewMember = z.object({

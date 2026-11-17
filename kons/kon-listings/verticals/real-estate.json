@@ -1,0 +1,39 @@
+{
+  "$comment": "Properties for sale or rent. `fields` are the listing's attributes; `publish` says what a listing needs before it can be published. A field is checked by type on every write, and `required` only when the listing is published.",
+  "id": "real-estate",
+  "name": "Real estate",
+  "fields": [
+    {
+      "key": "operation",
+      "label": "Operation",
+      "type": "select",
+      "options": ["sale", "rent"],
+      "required": true
+    },
+    {
+      "key": "propertyType",
+      "label": "Property type",
+      "type": "select",
+      "options": ["apartment", "house", "land", "office", "commercial", "warehouse", "room", "parking"],
+      "required": true
+    },
+    { "key": "bedrooms", "label": "Bedrooms", "type": "number", "minValue": 0, "maxValue": 100 },
+    { "key": "bathrooms", "label": "Bathrooms", "type": "number", "minValue": 0, "maxValue": 100 },
+    { "key": "areaM2", "label": "Built area (m²)", "type": "number", "minValue": 0 },
+    { "key": "lotM2", "label": "Lot area (m²)", "type": "number", "minValue": 0 },
+    { "key": "parking", "label": "Parking spaces", "type": "number", "minValue": 0, "maxValue": 100 },
+    { "key": "floor", "label": "Floor", "type": "number" },
+    { "key": "yearBuilt", "label": "Year built", "type": "number", "minValue": 1800, "maxValue": 2100 },
+    { "key": "furnished", "label": "Furnished", "type": "boolean" },
+    { "key": "newBuild", "label": "New build", "type": "boolean" },
+    {
+      "key": "amenities",
+      "label": "Amenities",
+      "type": "multiselect",
+      "options": ["pool", "gym", "elevator", "security", "balcony", "terrace", "garden", "air-conditioning", "pets-allowed", "storage"]
+    }
+  ],
+  "publish": {
+    "requires": ["price", "currency", "city", "images"]
+  }
+}

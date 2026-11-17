@@ -1,0 +1,37 @@
+{
+  "$comment": "Cars and other vehicles for sale. Same rules as every vertical: types are checked on every write, `required` only when the listing is published.",
+  "id": "vehicles",
+  "name": "Vehicles",
+  "fields": [
+    { "key": "make", "label": "Make", "type": "text", "required": true, "maxLength": 60 },
+    { "key": "model", "label": "Model", "type": "text", "required": true, "maxLength": 80 },
+    { "key": "year", "label": "Year", "type": "number", "required": true, "minValue": 1900, "maxValue": 2100 },
+    { "key": "mileageKm", "label": "Mileage (km)", "type": "number", "minValue": 0 },
+    {
+      "key": "condition",
+      "label": "Condition",
+      "type": "select",
+      "options": ["new", "used", "certified"],
+      "required": true
+    },
+    {
+      "key": "fuel",
+      "label": "Fuel",
+      "type": "select",
+      "options": ["gasoline", "diesel", "hybrid", "plug-in-hybrid", "electric", "lpg", "other"]
+    },
+    { "key": "transmission", "label": "Transmission", "type": "select", "options": ["manual", "automatic"] },
+    {
+      "key": "bodyType",
+      "label": "Body type",
+      "type": "select",
+      "options": ["sedan", "hatchback", "suv", "pickup", "van", "coupe", "convertible", "wagon", "motorcycle", "truck", "other"]
+    },
+    { "key": "color", "label": "Color", "type": "text", "maxLength": 40 },
+    { "key": "doors", "label": "Doors", "type": "number", "minValue": 0, "maxValue": 10 },
+    { "key": "engineCc", "label": "Engine (cc)", "type": "number", "minValue": 0 }
+  ],
+  "publish": {
+    "requires": ["price", "currency", "city", "images"]
+  }
+}

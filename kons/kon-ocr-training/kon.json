@@ -3,7 +3,7 @@
   "id": "kon-ocr-training",
   "name": "OCR Training + Vision LLM",
   "description": "OCR model operation (template proposals, /train, vocabulary against vekocr) and vision LLM governance: knobs in ocr_vision_config, provider key in KITSUDEN Secrets. The OCR job lifecycle lives in konusagi, outside this kon.",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

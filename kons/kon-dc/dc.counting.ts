@@ -13,7 +13,7 @@
  * the same number at once, only the first counts.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import { number } from "./dc.fun";

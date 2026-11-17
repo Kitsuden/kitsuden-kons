@@ -14,7 +14,7 @@
  * them with `global: true` on the wallet steps.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   clip,

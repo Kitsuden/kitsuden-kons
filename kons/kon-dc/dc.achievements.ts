@@ -18,7 +18,7 @@
  *   /achievements [member]    what is unlocked and how far the rest are
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, LocalId, Snowflake } from "./dc.contract";
 import { COINS, ME, PET_XP, claimCooldown, idOf, nowSec, number } from "./dc.fun";

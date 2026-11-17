@@ -45,7 +45,7 @@ import {
 import { denialThatCovers, operationFineScope, type KonContext } from "@kitsuden/shared";
 import { eq, desc, and, asc, count, gte, inArray, lte, ilike, isNull, or, sql, type SQL } from "drizzle-orm";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   accounts,

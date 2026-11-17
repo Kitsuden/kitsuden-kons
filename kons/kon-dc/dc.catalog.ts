@@ -11,7 +11,7 @@
  * Served by `GET /api/dc/blueprints/steps` (public: no data) and used by `generateBlueprint`.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { BlueprintStep, type BlueprintDefinitionInput } from "./dc.contract";
 

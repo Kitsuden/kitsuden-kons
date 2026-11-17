@@ -17,7 +17,7 @@
  * from what the staff or a member typed: nothing here can backtrack.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, LocalId, Snowflake } from "./dc.contract";
 import { baseVars, clip, defineDcModule, messageOf, registerDcModule, render, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

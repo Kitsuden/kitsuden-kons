@@ -10,7 +10,7 @@
 import { AppError, can } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, desc, eq, or, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { planCapture, type FormSubmission } from "./crm.capture";
 import { dbDe, userOf } from "./crm.context";
@@ -80,7 +80,7 @@ export async function isSuppressed(db: CrmDb, email: string): Promise<boolean> {
 }
 
 /** Contacts that could be the same person: only by what the score can match on, so the whole base is not read. */
-async function candidatesFor(db: CrmDb, contact: Partial<ContactLike>) {
+export async function candidatesFor(db: CrmDb, contact: Partial<ContactLike>) {
   const conditions = [];
   const email = normalizeEmail(contact.email);
   if (email) conditions.push(sql`lower(${crmContacts.email}) = ${email}`);
@@ -234,7 +234,7 @@ export function intakeOperations(routes: ReturnType<typeof registry>): void {
       id: "add-suppression",
       summary: "Exclude an email or a domain from the CRM",
       description:
-        "From now on, capture and import skip that address or domain. Existing contacts are not touched: erasing one is `delete-contact`. Repeating an entry changes nothing. Requires CRM edit access.",
+        "From now on, capture and import skip that address or domain, and kon-newsletter (if installed) stops sending to that address. Existing contacts are not touched: erasing one is `delete-contact`. Repeating an entry changes nothing. Requires CRM edit access.",
       access: "session",
       permission: EDIT,
       input: { body: Suppression },
@@ -243,10 +243,13 @@ export function intakeOperations(routes: ReturnType<typeof registry>): void {
     async (c, input) => {
       const { kind, reason } = input.body;
       const value = normalizedSuppression(kind, input.body.value);
-      await dbDe(c)
+      const added = await dbDe(c)
         .insert(crmSuppressions)
         .values({ kind, value, reason, createdBy: userOf(c)?.id ?? null })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning();
+      // The newsletter stops writing to it too (crm.exclusions.ts).
+      if (added.length > 0) emitCrm("address.suppressed", { kind, value });
       return c.json({ kind, value }, 201);
     }
   );
@@ -271,6 +274,7 @@ export function intakeOperations(routes: ReturnType<typeof registry>): void {
         .where(and(eq(crmSuppressions.kind, kind), eq(crmSuppressions.value, value)))
         .returning();
       if (removed.length === 0) throw AppError.notFound("That entry is not listed");
+      emitCrm("address.unsuppressed", { kind, value });
       return c.json({ data: { kind, value, deleted: true } });
     }
   );

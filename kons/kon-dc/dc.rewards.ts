@@ -22,7 +22,7 @@
 
 import { randomInt, randomUUID } from "node:crypto";
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, LocalId, Snowflake, WEEKDAYS, type Choice, type Schedule } from "./dc.contract";
 import {

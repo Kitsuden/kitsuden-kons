@@ -11,7 +11,7 @@
  * (dc_activity), as soon as some module asks the gateway for messages or voice: this one does.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake, WEEKDAYS } from "./dc.contract";
 import { clip, defineDcModule, messageOf, registerDcModule, type ActivityMetric, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

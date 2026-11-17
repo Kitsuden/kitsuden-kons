@@ -3,7 +3,7 @@
   "id": "kon-directory",
   "name": "Employee Directory",
   "description": "Employee profiles, departments, positions, and organizational hierarchy.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

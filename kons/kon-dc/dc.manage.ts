@@ -16,7 +16,7 @@
 
 import { AppError, defineOperation, isUuid, type AnyOperation } from "@kitsuden/engine";
 import { and, asc, count, desc, eq, gte, inArray, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { DC_EVENTS, Snowflake } from "./dc.contract";
 import type { DcDb } from "./dc.engine";

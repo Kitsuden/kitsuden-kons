@@ -8,7 +8,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import type { Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { canAccess, viewerLevel, type ContentGate } from "./members.access.js";
 import { accessMailActive, registerMembersMails, accessUrl } from "./members.mails.js";

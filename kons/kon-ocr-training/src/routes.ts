@@ -35,7 +35,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { eq } from "drizzle-orm";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { KON_ID, registry, adminOnly } from "./operations";
 // Importing it registers the policy (deny-by-default).

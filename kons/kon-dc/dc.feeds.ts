@@ -15,7 +15,7 @@
  * already there, so switching it on never floods a channel. At most 3 new items per feed and poll.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { LocalId, Snowflake } from "./dc.contract";
 import { parseFeed, type FeedEntry, type TextFetcher } from "./dc.http";

@@ -17,7 +17,7 @@
  * shows the author, the image and the link only.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import { clip, defineDcModule, messageOf, registerDcModule, type DcModule, type ModuleRuntime } from "./dc.modules";

@@ -45,7 +45,7 @@ import { eq, and, or, gte, lte, gt, lt, sql, asc, desc, inArray, type SQL } from
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { rlsContext, dbDe, userOf } from "./booking.context";
 import type { BookingDb } from "./booking.db";

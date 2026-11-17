@@ -15,7 +15,7 @@
  * posts in that channel only, and the team that can read dc_kv already runs the bot.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import { clip, defineDcModule, messageOf, registerDcModule, type Character, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

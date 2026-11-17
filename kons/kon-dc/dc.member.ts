@@ -24,7 +24,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { Snowflake } from "./dc.contract";
 import { defineDcModule, levelOf, registerDcModule, type DcModule, type ModuleRuntime } from "./dc.modules";
@@ -87,8 +87,10 @@ function readSigned<T>(secret: string, value: string | undefined): T | null {
   if (!value) return null;
   const [body, mac] = value.split(".");
   if (!body || !mac) return null;
-  const want = createHmac("sha256", secret).update(body).digest();
-  const got = Buffer.from(mac, "base64url");
+  // Compared as the exact text: decoding first would accept other spellings of the same bytes (the last
+  // base64url character carries unused bits), so a changed cookie could still pass as the same one.
+  const want = Buffer.from(createHmac("sha256", secret).update(body).digest("base64url"));
+  const got = Buffer.from(mac);
   if (got.length !== want.length || !timingSafeEqual(got, want)) return null;
   try {
     const data = JSON.parse(unb64(body)) as T & { exp?: number };

@@ -15,7 +15,7 @@
  * member, written under a short per-member lock (dc.fun.ts); coins and items are taken in one write.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { LocalId } from "./dc.contract";
 import { COINS, ME, PET_XP, bar, idOf, nowSec, number, plainName, readJson, withLock } from "./dc.fun";

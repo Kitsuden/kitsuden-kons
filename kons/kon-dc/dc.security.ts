@@ -21,7 +21,7 @@
 
 import { randomInt } from "node:crypto";
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import { clip, customId, defineDcModule, hasPermissions, messageOf, permissionBits, registerDcModule, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

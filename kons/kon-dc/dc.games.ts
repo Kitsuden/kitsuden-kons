@@ -18,7 +18,7 @@
 
 import { randomInt, randomUUID } from "node:crypto";
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { COINS, ME, claimCooldown, idOf, nowSec, number, readJson } from "./dc.fun";
 import { clip, customId, defineDcModule, registerDcModule, type DcModule, type ModuleRuntime, type Reply } from "./dc.modules";

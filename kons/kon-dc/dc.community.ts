@@ -15,7 +15,7 @@
  * `invites` currency, so the leaderboard is one query and blueprints and the member page can read it.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { INTENTS, Snowflake } from "./dc.contract";
 import {

@@ -29,7 +29,7 @@
 import type { KonContext } from "@kitsuden/shared";
 import { and, eq, or, sql } from "drizzle-orm";
 import type { AnyOperation } from "@kitsuden/engine";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { EsportsDb } from "./esports.db";
 import { query, text } from "./schemas";

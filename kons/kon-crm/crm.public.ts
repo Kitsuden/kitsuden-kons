@@ -16,7 +16,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { AppError, asSystem } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, asc, desc, eq, gt, inArray, isNull, or } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";

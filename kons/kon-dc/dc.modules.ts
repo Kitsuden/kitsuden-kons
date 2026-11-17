@@ -29,7 +29,7 @@ import { runAi, type AiPurpose, type AiRunner } from "./dc.extensions";
 import { randomInt } from "node:crypto";
 
 import type { KonContext } from "@kitsuden/shared";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   BLUEPRINT_EVENT_PREFIX,

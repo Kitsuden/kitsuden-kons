@@ -51,7 +51,7 @@ import { AppError, defineOperation, isUuid, operationsRouter, type AnyOperation 
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   BlueprintDefinition,
