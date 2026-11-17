@@ -18,7 +18,7 @@
  * A broken file is reported by name (`GET /presets` → `problems`) and skipped: it never hides the others.
  */
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -168,11 +168,17 @@ export function readPresets(sources: PresetSource[] = presetSources()): PresetCa
       const path = join(dir, file);
       let raw: string;
       try {
-        if (statSync(path).size > MAX_PRESET_BYTES) {
-          problems.push({ file, origin, message: `larger than ${MAX_PRESET_BYTES / 1024} KB` });
-          continue;
+        // One descriptor for the size check and the read: no gap between them (CodeQL js/file-system-race).
+        const fd = openSync(path, "r");
+        try {
+          if (fstatSync(fd).size > MAX_PRESET_BYTES) {
+            problems.push({ file, origin, message: `larger than ${MAX_PRESET_BYTES / 1024} KB` });
+            continue;
+          }
+          raw = readFileSync(fd, "utf8");
+        } finally {
+          closeSync(fd);
         }
-        raw = readFileSync(path, "utf8");
       } catch (err) {
         problems.push({ file, origin, message: `cannot be read (${(err as NodeJS.ErrnoException).code ?? "error"})` });
         continue;
