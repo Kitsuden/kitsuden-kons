@@ -1,0 +1,212 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-dc",
+  "name": "Discord",
+  "description": "Discord bots built from declarative blueprints: modules you switch on per server, slash commands over HTTP and a separate Go gateway worker",
+  "version": "0.3.0",
+  "sdk": 1,
+  "maturity": "experimental",
+  "category": "content",
+  "type": "kon",
+  "tier": "specialized",
+  "icon": "Network",
+  "kitsuden": ">=0.9.0",
+  "mount": {
+    "path": "/api/dc"
+  },
+  "tables": [
+    {
+      "name": "dc_guilds",
+      "label": "Servers",
+      "icon": "Network",
+      "searchableFields": [
+        "name"
+      ]
+    },
+    {
+      "name": "dc_blueprints",
+      "label": "Blueprints",
+      "icon": "Network",
+      "searchableFields": [
+        "name"
+      ],
+      "filterableFields": [
+        "status"
+      ]
+    },
+    {
+      "name": "dc_guild_modules",
+      "label": "Modules per server",
+      "icon": "Network",
+      "filterableFields": [
+        "module_id",
+        "enabled"
+      ]
+    },
+    {
+      "name": "dc_kv",
+      "label": "Module state",
+      "icon": "Network",
+      "readonly": true
+    },
+    {
+      "name": "dc_panels",
+      "label": "Live panels",
+      "icon": "Network",
+      "readonly": true,
+      "filterableFields": [
+        "module_id",
+        "panel_id"
+      ]
+    },
+    {
+      "name": "dc_wallets",
+      "label": "Balances (coins, XP)",
+      "icon": "Network",
+      "readonly": true,
+      "filterableFields": [
+        "currency"
+      ]
+    },
+    {
+      "name": "dc_inventory",
+      "label": "Inventories",
+      "icon": "Network",
+      "readonly": true,
+      "filterableFields": [
+        "item"
+      ]
+    },
+    {
+      "name": "dc_list_members",
+      "label": "Member lists",
+      "icon": "Network",
+      "readonly": true,
+      "filterableFields": [
+        "list"
+      ]
+    },
+    {
+      "name": "dc_schedules",
+      "label": "Schedules",
+      "icon": "Network",
+      "readonly": true
+    },
+    {
+      "name": "dc_profiles",
+      "label": "Profiles",
+      "icon": "Network",
+      "readonly": true,
+      "searchableFields": [
+        "name"
+      ]
+    },
+    {
+      "name": "dc_global_wallets",
+      "label": "Global balances",
+      "icon": "Network",
+      "readonly": true,
+      "filterableFields": [
+        "currency"
+      ]
+    },
+    {
+      "name": "dc_items",
+      "label": "Item catalog",
+      "icon": "Network",
+      "searchableFields": [
+        "name",
+        "item"
+      ],
+      "filterableFields": [
+        "rarity",
+        "kind"
+      ]
+    },
+    {
+      "name": "dc_global_inventory",
+      "label": "Global inventories",
+      "icon": "Network",
+      "readonly": true,
+      "filterableFields": [
+        "item"
+      ]
+    },
+    {
+      "name": "dc_voice_sessions",
+      "label": "Voice sessions",
+      "icon": "Network",
+      "readonly": true
+    },
+    {
+      "name": "dc_activity",
+      "label": "Activity per day",
+      "icon": "Network",
+      "readonly": true
+    },
+    {
+      "name": "dc_characters",
+      "label": "Characters",
+      "icon": "Network",
+      "readonly": true,
+      "searchableFields": [
+        "name"
+      ]
+    },
+    {
+      "name": "dc_message_cache",
+      "label": "Message cache (logs)",
+      "icon": "Network",
+      "readonly": true
+    },
+    {
+      "name": "dc_guild_plans",
+      "label": "Server plans",
+      "icon": "Network",
+      "filterableFields": [
+        "plan"
+      ]
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "bot",
+    "views": [
+      {
+        "id": "bot",
+        "type": "element",
+        "title": "Discord bot",
+        "element": "dc-bot-admin",
+        "src": "admin/bot.js"
+      },
+      {
+        "id": "grid-dc-guilds",
+        "type": "grid",
+        "title": "Servers",
+        "table": "dc_guilds"
+      },
+      {
+        "id": "grid-dc-blueprints",
+        "type": "grid",
+        "title": "Blueprints",
+        "table": "dc_blueprints"
+      },
+      {
+        "id": "grid-dc-modules",
+        "type": "grid",
+        "title": "Modules per server",
+        "table": "dc_guild_modules"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": "./dc.schema.ts",
+    "strategy": "sql"
+  }
+}
