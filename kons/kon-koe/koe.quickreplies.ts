@@ -167,6 +167,8 @@ export const quickReplyOperations: OperationsModule = (app, ctx) => {
       permission: USE,
       input: { query: ListQuery },
       output: { schema: Output },
+      // 404 when `conversationId` names no conversation.
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input, h) => {
       const me = await requireMember(db(), h.user);

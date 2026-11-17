@@ -815,7 +815,9 @@ export const mediaOperations: OperationsModule = (app, ctx) => {
       access: "session",
       permission: USE,
       input: { body: z.object({ mediaId: z.string().min(1).max(100), name: z.string().trim().min(1).max(60).optional() }) },
-      output: { schema: Output, status: 201 },
+      output: { schema: Output, status: 201, otherStatuses: [200] },
+      // 404 when `mediaId` names no media.
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input, h) => {
       const me = await requireMember(db(), h.user);

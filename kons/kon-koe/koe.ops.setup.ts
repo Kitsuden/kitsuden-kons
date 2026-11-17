@@ -164,10 +164,13 @@ export const setupOperations: OperationsModule = (app, ctx) => {
 
   app.patch(
     "/teams/:id",
-    { id: "update-team", summary: "Change a team", description: "Supervisors and admins.", access: "session", permission: USE, input: { params: ParamId, body: TeamFields.partial() }, output: { schema: Output } },
+    { id: "update-team", summary: "Change a team", description: "Supervisors and admins. An empty body changes nothing and returns the team.", access: "session", permission: USE, input: { params: ParamId, body: TeamFields.partial() }, output: { schema: Output } },
     async (c, input, h) => {
       await requireLead(db(), h.user);
-      const [row] = (await db().update(koeTeams).set(input.body).where(eq(koeTeams.id, input.params.id)).returning()) as unknown[];
+      // Nothing to change is not an error: answer the team as it is (an UPDATE with no columns would fail).
+      const [row] = (Object.keys(input.body).length
+        ? await db().update(koeTeams).set(input.body).where(eq(koeTeams.id, input.params.id)).returning()
+        : await db().select().from(koeTeams).where(eq(koeTeams.id, input.params.id)).limit(1)) as unknown[];
       if (!row) throw AppError.notFound("Team not found");
       return c.json({ data: row });
     }
@@ -361,6 +364,8 @@ export const setupOperations: OperationsModule = (app, ctx) => {
       access: "public",
       input: { query: z.object({ "hub.mode": z.string().max(40).optional(), "hub.verify_token": z.string().max(200).optional(), "hub.challenge": z.string().max(200).optional() }).passthrough() },
       output: { type: "text/plain", description: "The challenge" },
+      // 403 when the verify token or the mode does not match.
+      errors: ["KITSUDEN_E_FORBIDDEN"],
       mcp: { exclude: "called by Meta" },
     },
     async (c, input) => {
@@ -382,6 +387,8 @@ export const setupOperations: OperationsModule = (app, ctx) => {
       description: "WhatsApp, Messenger and Instagram events. The signature is checked against the app secret of the channels the body names; the body is stored and processed by a job.",
       access: "public",
       output: { schema: Output },
+      // 400 for a body that is not JSON, 401 for a bad signature, 413 past 3 MB.
+      errors: ["KITSUDEN_E_BAD_REQUEST", "KITSUDEN_E_UNAUTHENTICATED", "KITSUDEN_E_PAYLOAD_TOO_LARGE"],
       mcp: { exclude: "called by Meta" },
     },
     async (c) => {

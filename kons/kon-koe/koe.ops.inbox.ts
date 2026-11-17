@@ -656,9 +656,14 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
       permission: USE,
       input: { params: ParamId, body: z.object({ channelId: z.string().min(1).max(100), status: z.enum(["opted_in", "opted_out"]), source: z.string().trim().min(1).max(200) }) },
       output: { schema: Output },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input, h) => {
       await requireMember(db(), h.user);
+      const [contact] = (await db().select({ id: koeContacts.id }).from(koeContacts).where(eq(koeContacts.id, input.params.id)).limit(1)) as unknown[];
+      if (!contact) throw AppError.notFound("Contact not found");
+      const [channel] = (await db().select({ id: koeChannels.id }).from(koeChannels).where(eq(koeChannels.id, input.body.channelId)).limit(1)) as unknown[];
+      if (!channel) throw AppError.notFound("Channel not found");
       const [row] = (await db()
         .insert(koeConsents)
         .values({ id: newId(), contactId: input.params.id, ...input.body })
