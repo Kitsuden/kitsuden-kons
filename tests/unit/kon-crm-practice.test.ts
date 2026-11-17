@@ -373,6 +373,60 @@ describe("custom fields and setting up a firm", () => {
     expect((await json(await request("admin", "POST", "/presets/law-firm/apply"))).created).toEqual([]);
   });
 
+  it("the preset brings each stage's automation, and it runs on the first move", async () => {
+    await client.exec("RESET ROLE");
+    const pipeline = await client.query<{ id: string }>("SELECT id FROM crm_pipelines WHERE name = 'Matters'");
+    const stages = await client.query<{
+      id: string;
+      name: string;
+      on_enter_actions: unknown[];
+      entry_requirements: unknown;
+      estimated_days: number | null;
+    }>(
+      'SELECT id, name, on_enter_actions, entry_requirements, estimated_days FROM crm_pipeline_stages WHERE pipeline_id = $1 ORDER BY "order"',
+      [pipeline.rows[0]!.id]
+    );
+    const byName = Object.fromEntries(stages.rows.map((r) => [r.name, r]));
+    expect(byName["New"]!.on_enter_actions).toHaveLength(2);
+    expect(byName["In progress"]!.entry_requirements).toEqual({ requiredFields: ["practiceArea", "feeType"] });
+    expect(byName["Resolution"]!.estimated_days).toBe(30);
+    await client.exec(`
+      INSERT INTO crm_deals (id, title, pipeline_id, stage_id, contact_id, assigned_to) VALUES
+        ('d_matter', 'Unpaid wages', '${pipeline.rows[0]!.id}', '${byName["New"]!.id}', 'c1', '${STAFF}');
+    `);
+    await dropToAppRole(client);
+
+    // The stage asks for the practice area and the fee type before a matter may enter it.
+    const refused = await request("admin", "POST", "/deals/d_matter/move", { targetStageId: byName["In progress"]!.id });
+    expect(refused.status).toBe(400);
+    const filled = await request("admin", "PATCH", "/deals/d_matter", { customFields: { practiceArea: "labor", feeType: "success" } });
+    expect(filled.status).toBe(200);
+    const moved = await json(await request("admin", "POST", "/deals/d_matter/move", { targetStageId: byName["In progress"]!.id }));
+    expect(moved.automation).toEqual({ ran: ["create_calendar_event", "create_task", "create_task"], failed: [] });
+    const activities = (await json(await request("admin", "GET", "/activities?dealId=d_matter"))).data;
+    expect(activities.map((a: { subject: string }) => a.subject)).toEqual(
+      expect.arrayContaining(["Kick-off meeting with the client", "Request the client's documents", "Agree the success fee in writing"])
+    );
+  });
+
+  it("an older install gets the automation a stage lacks; what the team set stays", async () => {
+    await client.exec("RESET ROLE");
+    await client.exec(`
+      UPDATE crm_pipeline_stages SET on_enter_actions = '[]', estimated_days = NULL WHERE name = 'Resolution';
+      UPDATE crm_pipeline_stages SET on_enter_actions = '[{"type":"create_activity","title":"Ours"}]' WHERE name = 'Closed';
+    `);
+    await dropToAppRole(client);
+    const again = await json(await request("admin", "POST", "/presets/law-firm/apply"));
+    expect(again.created).toEqual(["stage:Resolution.estimatedDays", "stage:Resolution.onEnterActions"]);
+    await client.exec("RESET ROLE");
+    const closed = await client.query<{ on_enter_actions: unknown }>(
+      "SELECT on_enter_actions FROM crm_pipeline_stages WHERE name = 'Closed'"
+    );
+    await dropToAppRole(client);
+    expect(closed.rows[0]!.on_enter_actions).toEqual([{ type: "create_activity", title: "Ours" }]);
+    expect((await json(await request("admin", "POST", "/presets/law-firm/apply"))).created).toEqual([]);
+  });
+
   it("defined fields are validated when written", async () => {
     const res = await request("staff", "PATCH", "/contacts/c1", { customFields: { kycStatus: "whatever" } });
     expect(res.status).toBe(422);
@@ -450,8 +504,178 @@ describe("presets are data, not code", () => {
     expect(() => loadPresets(dir)).toThrow(/broken\.json/);
   });
 
+  it("a stage automation that would fail later is a problem when the file is read", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { readPresets, presetSources } = await import("../../kons/kon-crm/crm.presets");
+    const dir = mkdtempSync(resolve(tmpdir(), "presets-auto-"));
+    const base = {
+      name: "Clinic",
+      description: "Treatments.",
+      entity: { name: "treatment", singular: "Treatment", plural: "Treatments" },
+      contactFields: [],
+      dealFields: [{ key: "tooth", label: "Tooth", type: "text" }],
+      pipeline: "Treatments",
+    };
+    const stage = (extra: object) => [{ name: "Plan", probability: 20, ...extra }];
+    const cases: Array<[string, object, RegExp]> = [
+      ["owner", { onEnterActions: [{ type: "update_field", field: "assignedTo", value: "x" }] }, /update_field may change/],
+      ["unknown-custom", { onEnterActions: [{ type: "update_field", field: "custom.nope", value: 1 }] }, /custom\.<one of the dealFields>/],
+      ["required", { entryRequirements: { requiredFields: ["nope"] } }, /"nope", which is not one of the dealFields/],
+      ["time", { onEnterActions: [{ type: "log_time", title: "Prep" }] }, /log_time needs the quantity/],
+      ["days", { onEnterActions: [{ type: "create_task", title: "Call", value: "soon" }] }, /number of days/],
+      [
+        "condition",
+        { onEnterActions: [{ type: "create_task", condition: { field: "custom.nope", operator: "exists", value: null } }] },
+        /no deal has/,
+      ],
+      ["webhook", { onEnterActions: [{ type: "webhook", url: "https://example.com" }] }, /type/],
+      ["twice", { name: "Plan" }, /same name/],
+    ];
+    for (const [id, extra] of cases) {
+      const stages = id === "twice" ? [...stage({}), ...stage({})] : stage(extra);
+      writeFileSync(resolve(dir, `${id}.json`), JSON.stringify({ ...base, id, stages }));
+    }
+    writeFileSync(
+      resolve(dir, "fine.json"),
+      JSON.stringify({
+        ...base,
+        id: "fine",
+        stages: stage({ estimatedDays: 3, onEnterActions: [{ type: "update_field", field: "custom.tooth", value: "18" }] }),
+      })
+    );
+    const { presets, problems } = readPresets(presetSources({ CRM_PRESETS_DIR: dir }));
+    expect(presets.get("fine")?.origin).toBe("installation");
+    for (const [id, , message] of cases) {
+      const problem = problems.find((p) => p.file === `${id}.json`);
+      expect(problem?.message, id).toMatch(message);
+    }
+  });
+
+  it("every shipped stage automation is one move-deal can run", async () => {
+    const { loadPresets, presetProblem } = await import("../../kons/kon-crm/crm.presets");
+    for (const [id, preset] of loadPresets()) {
+      expect(presetProblem(preset), id).toBeNull();
+      // Each preset ships automation: a CRM that does nothing on day one is the thing this exists to avoid.
+      expect(preset.stages.some((s) => s.onEnterActions.length > 0), id).toBe(true);
+    }
+  });
+
   it("the shipped presets list", async () => {
     const list = (await json(await request("staff", "GET", "/presets"))).data;
-    expect(list.map((p: { id: string }) => p.id)).toContain("law-firm");
+    expect(list.map((p: { id: string }) => p.id)).toEqual(expect.arrayContaining(["law-firm", "real-estate"]));
+  });
+
+  it("the real estate preset is coherent: numbering, required and listing fields exist", async () => {
+    const { loadPresets } = await import("../../kons/kon-crm/crm.presets");
+    const preset = loadPresets().get("real-estate")!;
+    const dealKeys = preset.dealFields.map((f) => f.key);
+    expect(dealKeys).toContain(preset.numbering!.field);
+    expect(dealKeys).toEqual(expect.arrayContaining(["operationType", "listingRef", "offerAmount"]));
+    expect(new Set(dealKeys).size).toBe(dealKeys.length);
+    const contactKeys = preset.contactFields.map((f) => f.key);
+    expect(new Set(contactKeys).size).toBe(contactKeys.length);
+    // Probabilities only go up along the pipeline.
+    const probabilities = preset.stages.map((s) => s.probability);
+    expect([...probabilities].sort((a, b) => a - b)).toEqual(probabilities);
+    // A national ID is personal data: only the sensitive grant reads it.
+    expect(preset.contactFields.find((f) => f.key === "nationalId")?.sensitive).toBe(true);
+  });
+
+  it("an installation adds its own presets, and a broken file never hides the others", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { readPresets, presetSources } = await import("../../kons/kon-crm/crm.presets");
+    const own = mkdtempSync(resolve(tmpdir(), "own-presets-"));
+    const clinic = {
+      id: "clinic",
+      name: "Clinic",
+      description: "Patients and treatments.",
+      entity: { name: "treatment", singular: "Treatment", plural: "Treatments" },
+      contactFields: [],
+      dealFields: [{ key: "area", label: "Area", type: "text" }],
+      pipeline: "Treatments",
+      stages: [{ name: "Booked", probability: 30 }],
+    };
+    writeFileSync(resolve(own, "clinic.json"), JSON.stringify(clinic));
+    writeFileSync(resolve(own, "clinic-copy.json"), JSON.stringify({ ...clinic, name: "Second clinic" }));
+    writeFileSync(resolve(own, "broken.json"), "{ not json");
+    writeFileSync(resolve(own, "wrong.json"), JSON.stringify({ ...clinic, id: "wrong", stages: [] }));
+    writeFileSync(
+      resolve(own, "real-estate.json"),
+      JSON.stringify({ ...clinic, id: "real-estate", name: "Our agency", pipeline: "Our pipeline" })
+    );
+
+    const { presets, problems } = readPresets(presetSources({ CRM_PRESETS_DIR: own }));
+    expect(presets.get("clinic")).toMatchObject({ origin: "installation", file: "clinic-copy.json", replacesShipped: false });
+    expect(presets.get("law-firm")).toMatchObject({ origin: "shipped" });
+    // The installation's version of a shipped preset takes its place.
+    expect(presets.get("real-estate")).toMatchObject({ origin: "installation", replacesShipped: true });
+    expect(presets.get("real-estate")!.preset.name).toBe("Our agency");
+    expect(problems.map((p) => p.file).sort()).toEqual(["broken.json", "clinic.json", "wrong.json"]);
+    expect(problems.find((p) => p.file === "broken.json")!.message).toMatch(/not valid JSON/);
+    expect(problems.find((p) => p.file === "wrong.json")!.message).toMatch(/stages/);
+    expect(problems.find((p) => p.file === "clinic.json")!.message).toMatch(/same folder/);
+
+    // A folder that does not exist is a problem, not an outage.
+    const missing = readPresets(presetSources({ CRM_PRESETS_DIR: resolve(own, "nope") }));
+    expect(missing.presets.has("law-firm")).toBe(true);
+    expect(missing.problems).toEqual([expect.objectContaining({ origin: "installation", message: expect.stringMatching(/cannot be read/) })]);
+  });
+
+  it("the routes list and apply the installation's presets, and report the skipped files", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const own = mkdtempSync(resolve(tmpdir(), "own-presets-"));
+    writeFileSync(
+      resolve(own, "dental.json"),
+      JSON.stringify({
+        id: "dental",
+        name: "Dental practice",
+        description: "Patients and treatment plans.",
+        entity: { name: "plan", singular: "Plan", plural: "Plans" },
+        contactFields: [],
+        dealFields: [{ key: "teeth", label: "Teeth", type: "text" }],
+        pipeline: "Treatment plans",
+        stages: [{ name: "Proposed", probability: 40 }],
+      })
+    );
+    writeFileSync(resolve(own, "broken.json"), "[]");
+    const previous = process.env.CRM_PRESETS_DIR;
+    process.env.CRM_PRESETS_DIR = own;
+    try {
+      const listed = await json(await request("staff", "GET", "/presets"));
+      expect(listed.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: "dental", origin: "installation", replacesShipped: false }),
+          expect.objectContaining({ id: "law-firm", origin: "shipped" }),
+        ])
+      );
+      expect(listed.problems).toEqual([expect.objectContaining({ file: "broken.json", origin: "installation" })]);
+      const applied = await json(await request("admin", "POST", "/presets/dental/apply"));
+      expect(applied.created).toEqual(expect.arrayContaining(["pipeline:Treatment plans", "entity:plan"]));
+    } finally {
+      if (previous === undefined) delete process.env.CRM_PRESETS_DIR;
+      else process.env.CRM_PRESETS_DIR = previous;
+    }
+    // Without the folder, its presets are gone from the list.
+    const after = await json(await request("staff", "GET", "/presets"));
+    expect(after.data.map((p: { id: string }) => p.id)).not.toContain("dental");
+    expect(after.problems).toEqual([]);
+  });
+
+  it("the real estate preset sets up an agency, and repeating it changes nothing", async () => {
+    expect((await request("staff", "POST", "/presets/real-estate/apply")).status).toBe(403);
+    const first = await json(await request("admin", "POST", "/presets/real-estate/apply"));
+    expect(first.created).toEqual(
+      expect.arrayContaining([
+        "pipeline:Sales and rentals",
+        "entity:operation",
+        "template:Visit confirmation",
+        "template:Reservation agreement",
+      ])
+    );
+    expect(first.profiles.map((p: { profile: string }) => p.profile)).toEqual(["broker", "agent", "assistant"]);
+    expect((await json(await request("admin", "POST", "/presets/real-estate/apply"))).created).toEqual([]);
   });
 });

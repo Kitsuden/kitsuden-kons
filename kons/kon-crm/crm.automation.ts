@@ -14,6 +14,7 @@
 
 import { withSavepoint } from "@kitsuden/engine";
 import { eq } from "drizzle-orm";
+import { z } from "@kitsuden/engine/zod";
 
 import { logDealWork } from "./crm.billing";
 import type { CrmDb } from "./crm.db";
@@ -28,10 +29,38 @@ export const SUPPORTED_ACTIONS = [
   "update_field",
 ] as const;
 
+const Text = (max: number) => z.string().trim().max(max);
+
+/** One action of a stage, as `configure-stage` and a preset accept it. */
+export const StageActionSchema = z.object({
+  type: z.enum(SUPPORTED_ACTIONS),
+  template: Text(200).optional(),
+  title: Text(500).optional(),
+  field: Text(100).optional(),
+  value: z.unknown().optional(),
+  condition: z.object({ field: Text(100), operator: Text(10), value: z.unknown() }).optional(),
+});
+
+/** What a deal needs before it may enter a stage (checked by `move-deal`). */
+export const StageRequirementsSchema = z.object({
+  requiredFields: z.array(Text(100)).max(100).optional(),
+  requiredDocuments: z.array(Text(100)).max(100).optional(),
+  customValidations: z
+    .array(
+      z.object({
+        field: Text(100),
+        operator: z.enum(["==", "!=", ">", "<", ">=", "<=", "exists"]),
+        value: z.unknown().optional(),
+      })
+    )
+    .max(100)
+    .optional(),
+});
+
 type Deal = typeof crmDeals.$inferSelect;
 
 /** Fields a stage may change. Stage, owner and amount are decisions, not side effects. */
-const UPDATABLE = new Set(["probability", "status", "lostReason", "campaign"]);
+export const UPDATABLE = new Set(["probability", "status", "lostReason", "campaign"]);
 
 function fieldOf(deal: Deal, field: string): unknown {
   if (field.startsWith("custom.")) {

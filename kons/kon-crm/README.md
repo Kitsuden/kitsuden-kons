@@ -52,7 +52,39 @@ Environment variables are needed only to receive email into the CRM (see
 What the code does with them:
 
 - **Presets.** A JSON file in `presets/` sets up an entity with fields, a pipeline, deal roles,
-  document templates and kon-conta's words. `presets/law-firm.json` is the example.
+  document templates and kon-conta's words. Two ship with the kon: `presets/law-firm.json`
+  (numbered matters, KYC, hearings) and `presets/real-estate.json` (sales and rentals as numbered
+  operations tied to a listing, buyer and tenant requirements, visits and signings; the
+  properties themselves live in kon-listings). An installation adds its own in the folder named
+  by `CRM_PRESETS_DIR`; one with the id of a shipped preset replaces it. A broken file is skipped
+  and listed in `problems` by `GET /api/crm/presets`, so it never hides the others.
+- **Presets bring their automation.** Each stage of a preset can say what happens when a deal
+  enters or leaves it (`onEnterActions`, `onExitActions`: a task or a meeting due in N days, an
+  activity, logged time, a field), what a deal needs before it may enter (`entryRequirements`)
+  and how many days it should stay (`estimatedDays`), so the CRM works the day it is set up. Both
+  shipped presets do: the law firm asks for the practice area and the fee type before a matter is
+  in progress, and the agency asks for the listing before a visit. Applying a preset again fills a
+  stage the team never configured and leaves the ones they did. An action that `move-deal` could
+  not run (a field a stage may not change, a field the preset does not define, time without a
+  quantity) makes the file a problem when it is read, not a failure on a deal later.
+
+  ```json
+  {
+    "name": "In progress",
+    "probability": 50,
+    "estimatedDays": 120,
+    "entryRequirements": { "requiredFields": ["practiceArea", "feeType"] },
+    "onEnterActions": [
+      { "type": "create_calendar_event", "title": "Kick-off meeting with the client", "value": 5 },
+      {
+        "type": "create_task",
+        "title": "Agree the success fee in writing",
+        "value": 3,
+        "condition": { "field": "custom.feeType", "operator": "==", "value": "success" }
+      }
+    ]
+  }
+  ```
 - **Access dials.** Per person or agent: `records` (all, or assigned/created; applied by row
   security), `sensitive`, `money` and `notes`. By default the team sees all records, amounts and
   notes, not sensitive data; an agent sees the same without notes. `crm:read-all` or a grant made
@@ -276,10 +308,12 @@ and activity kinds) live in Kitsuden's entities when the host has them (`ctx.ent
 `migratedTo`. Custom field values stay on the records (`custom_fields`). On a Kitsuden without runtime
 entities, `crm_entity_configs` is used as before.
 
-Only for receiving email (`crm.inbound.ts`); every lock is closed by default:
+For the installation's own presets, and for receiving email (`crm.inbound.ts`, where every lock
+is closed by default):
 
 | Variable | What it is |
 | --- | --- |
+| `CRM_PRESETS_DIR` | A folder with the installation's own preset files (`*.json`, same format as `presets/`); relative to the API's working directory. Unset: only the shipped presets |
 | `CRM_INBOUND_ALLOWED_SENDERS` | Comma-separated addresses or domains whose mail is accepted; empty rejects everything |
 | `MAILGUN_WEBHOOK_SIGNING_KEY` | Mailgun's signing key, for provider `mailgun` |
 | `CRM_INBOUND_POSTMARK_TOKEN` | The password in Postmark's inbound webhook URL, for provider `postmark` |

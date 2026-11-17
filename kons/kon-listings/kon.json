@@ -1,0 +1,79 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-listings",
+  "name": "Listings",
+  "description": "Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from visitors, and the XML feeds portals such as Trovit and Mitula read.",
+  "version": "0.1.0",
+  "sdk": 1,
+  "maturity": "experimental",
+  "category": "business",
+  "type": "kon",
+  "tier": "specialized",
+  "icon": "Package",
+  "kitsuden": ">=0.9.0",
+  "mount": {
+    "path": "/api/listings"
+  },
+  "tables": [
+    {
+      "name": "listings_items",
+      "label": "Listings",
+      "icon": "Package",
+      "searchableFields": ["title", "reference", "city"],
+      "filterableFields": ["vertical", "status", "city"]
+    },
+    {
+      "name": "listings_feeds",
+      "label": "Portal feeds",
+      "icon": "Package",
+      "searchableFields": ["portal"],
+      "filterableFields": ["portal", "vertical", "enabled"]
+    },
+    {
+      "name": "listings_inquiries",
+      "label": "Inquiries",
+      "icon": "Package",
+      "searchableFields": ["name", "email"],
+      "filterableFields": ["listing_id"]
+    }
+  ],
+  "sensitivity": {
+    "listings_inquiries": {
+      "name": "personal",
+      "email": "personal",
+      "phone": "personal",
+      "message": "customer"
+    }
+  },
+  "admin": {
+    "category": "business",
+    "views": [
+      {
+        "id": "grid-listings",
+        "type": "grid",
+        "title": "Listings",
+        "table": "listings_items"
+      },
+      {
+        "id": "grid-feeds",
+        "type": "grid",
+        "title": "Portal feeds",
+        "table": "listings_feeds"
+      },
+      {
+        "id": "grid-inquiries",
+        "type": "grid",
+        "title": "Inquiries",
+        "table": "listings_inquiries"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": ["auth"]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  }
+}

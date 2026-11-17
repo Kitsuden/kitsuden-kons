@@ -270,6 +270,11 @@ export function stageActionToStep(action: StageAction): KonRule["steps"][number]
   return { handler: `${KON_ID}:${action.type.replace(/_/g, "-")}`, config, continueOnError: true };
 }
 
+/** The slug of the rule a stage's actions become on one side. */
+export function stageRuleSlug(stageId: string, side: "enter" | "exit"): string {
+  return `stage-${stageId.toLowerCase().replace(/[^a-z0-9-]/g, "-")}-${side}`.slice(0, 100);
+}
+
 /** The two rules a stage's actions become, or `null` for a side without actions. */
 export function rulesOfStage(stage: {
   id: string;
@@ -283,7 +288,7 @@ export function rulesOfStage(stage: {
       .filter((s): s is NonNullable<typeof s> => s !== null);
     if (steps.length === 0) return null;
     return {
-      slug: `stage-${stage.id.toLowerCase().replace(/[^a-z0-9-]/g, "-")}-${side}`.slice(0, 100),
+      slug: stageRuleSlug(stage.id, side),
       name: `${side === "enter" ? "On entering" : "On leaving"} stage: ${stage.name}`,
       event: "crm:deal.moved",
       conditions: [{ field: side === "enter" ? "toStageId" : "fromStageId", op: "eq", value: stage.id }],
