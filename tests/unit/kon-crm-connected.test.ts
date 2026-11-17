@@ -155,7 +155,10 @@ describe("newsletter:member.subscribed", () => {
   it("links the member and the contact as the same person", async () => {
     const r = await onNewsletterSubscribed(db, { memberId: "m-1", email: "luis@client.example", name: "Luis Paz" });
     expect(r).toMatchObject({ outcome: "linked", contactId: "c-luis", created: false });
-    const [row] = await q<{ relation: string }>(`SELECT relation FROM kitsuden_links WHERE from_type = 'nl_members' AND from_id = 'm-1'`);
+    // `same_person` has no direction: the core stores its two ends in a canonical order, so look both ways.
+    const [row] = await q<{ relation: string }>(
+      `SELECT relation FROM kitsuden_links WHERE (from_type = 'nl_members' AND from_id = 'm-1') OR (to_type = 'nl_members' AND to_id = 'm-1')`
+    );
     expect(row!.relation).toBe("same_person");
   });
 });

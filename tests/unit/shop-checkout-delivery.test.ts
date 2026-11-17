@@ -811,7 +811,12 @@ describe("a quote accepted in the CRM becomes an order", () => {
     );
     // The shop's own price (900), not the quote's (800): the shop never takes a price from outside.
     expect(order).toMatchObject({ total_cents: 1800, customer_email: "deal@contact.example", status: "pending" });
-    expect(await q(`SELECT relation FROM kitsuden_links WHERE from_id = '${orderId}' AND to_type = 'crm_deals' AND to_id = 'd-1'`)).toEqual([
+    // `related` has no direction: the core may store the deal first. Look both ways.
+    expect(
+      await q(
+        `SELECT relation FROM kitsuden_links WHERE (from_id = '${orderId}' AND to_id = 'd-1') OR (from_id = 'd-1' AND to_id = '${orderId}')`
+      )
+    ).toEqual([
       { relation: "related" },
     ]);
     const again = await orderFromQuote(db, accepted());
