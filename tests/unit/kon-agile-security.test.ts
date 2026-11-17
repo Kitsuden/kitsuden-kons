@@ -48,6 +48,7 @@ beforeAll(async () => {
     "0003_english_names.sql",
     "0004_english_rls.sql",
     "0005_planning_squads_and_agents.sql",
+    "0006_attachments_time_github_search.sql",
   ]);
   const db = await dropToAppRole(client);
   const auth = testAuth();

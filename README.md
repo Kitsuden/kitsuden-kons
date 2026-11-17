@@ -80,7 +80,7 @@ use a kon has had, not how many features it has:
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `kon-academy-lms` | beta | 1.1.1 | 1 | `/api/academy` | Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment… |
-| `kon-agile` | beta | 1.3.3 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
+| `kon-agile` | beta | 1.4.0 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
 | `kon-booking` | beta | 1.0.1 | 1 | `/api/booking` | Room and resource reservation system with availability tracking, amenities management and conflict detection. |
 | `kon-conta` | beta | 1.0.2 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
 | `kon-crm` | beta | 1.0.4 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |

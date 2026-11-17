@@ -62,7 +62,13 @@ scrum master) and proposes everything else as an intake a person decides. Human 
 | `agile.planning.ts` | Labels, states, estimates, links, cycles, modules, delete/archive, sub-issues, history, checklists, custom fields, initiatives |
 | `agile.team.ts` | Squads, hand-offs, notifications, work queue, agent schedules |
 | `agile.views.ts` | Saved views, calendar, timeline, dashboard |
-| `agile.workflow.ts` | `prepareIssue`/`afterIssue` (state validations, auto-assign, notifications, queue rows, `agile:agent_work` event) and `tick` |
+| `agile.collab.ts` | Attachments (media library ids), subscribers, comment reactions (1.4) |
+| `agile.bulk.ts` | One change on up to 100 issues, checked in full before any write (1.4) |
+| `agile.search.ts` | Full-text search with snippets; the condition itself is in `agile.query.ts` (1.4) |
+| `agile.time.ts` | Logged time, an issue's cost (people and agents), the project's time report (1.4) |
+| `agile.github.ts` | Connected repositories, sealed webhook secret, signed webhook, pull requests on issues (1.4) |
+| `agile.events.ts` | The `agile:*` events declared for rules, the `agile.issue-event` mail, ready-made rules (1.4) |
+| `agile.workflow.ts` | `prepareIssue`/`afterIssue` (state validations, auto-assign, notifications, subscribers, queue rows, `agile:*` events) and `tick` |
 | `agile.access.ts` | Membership role, `projectFor` (404/403), agent reach, same-project checks |
 | `agile.policy.ts` | Policies `agile_project` (view, propose, write, manage) and `agile` (`actAsUser`); gate `agile:create-project` |
 | `agile.query.ts` | Issue filters and grouping shared by lists, views, calendar and timeline |
@@ -72,7 +78,7 @@ scrum master) and proposes everything else as an intake a person decides. Human 
 | `http-errors.ts` | Error translation: no Postgres text to the client |
 | `admin-src/` | Svelte 5 source of the admin panel (`Workspace.svelte`, `sections/`, `ui/`, copied `tallao/`) |
 | `admin/workspace.js` | Built admin panel (generated; do not edit) |
-| `migrations/` | SQL 0000-0005 and `history.json` |
+| `migrations/` | SQL 0000-0006 and `history.json` |
 | `MCP_EXAMPLE.md` | MCP tools and an example call |
 
 ## Rules that must hold
@@ -94,10 +100,20 @@ scrum master) and proposes everything else as an intake a person decides. Human 
 - **A piece of work is claimed once**; `tick` uses conditional updates so several workers do not
   repeat work.
 - **Closing a cycle carries unfinished issues** to the next one.
+- **A bulk change is all or nothing** (`agile.bulk.ts`): the host rolls back only on a 5xx, so every
+  issue, reference, reach and state validation is checked before the first write. Guard: "bulk
+  changes" in `tests/unit/kon-agile-plane-parity.test.ts`.
+- **A GitHub delivery is trusted only with its signature** (`X-Hub-Signature-256`, the sealed secret
+  of that repository) and only for the connected repository. The secret is shown once and never
+  leaves the kon again. Guard: "GitHub pull requests".
+- **Reactions go through `agile_toggle_reaction`** (migration 0006), so a viewer reacts without the
+  right to edit a comment. Guard: "reactions".
+- **The kon never learns an email.** Notifications out of the kon are automation rules a person
+  writes on the `agile:*` events (`agile.events.ts`).
 
 ## Changing it
 
-- New migration: the next number in `migrations/` (now `0006_...sql`). Never edit an applied one.
+- New migration: the next number in `migrations/` (now `0007_...sql`). Never edit an applied one.
   `migrations/history.json` records renamed files and earlier checksums; touch it only when
   renaming or rewording an applied migration. New tables need forced RLS by membership, and the
   agent rule if agents may write them.
@@ -116,4 +132,5 @@ scrum master) and proposes everything else as an intake a person decides. Human 
 pnpm vitest run tests/unit/kon-agile-security.test.ts     # routes, membership, RLS
 pnpm vitest run tests/unit/kon-agile-teammates.test.ts    # agent reach, squads, queue, planning
 pnpm vitest run tests/unit/agile-operations-mcp.test.ts   # after touching AGENT_TOOLS or agile.operations.ts
+pnpm vitest run tests/unit/kon-agile-plane-parity.test.ts # 1.4: attachments, bulk, search, time, GitHub, events
 ```

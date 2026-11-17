@@ -116,6 +116,26 @@ export function filtersFromQuery(q: Record<string, string | undefined>): IssueFi
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, (m) => `\\${m}`);
 
+/**
+ * Full-text search (1.4, migration 0006): the words of `search` against the issue's key, title and
+ * description and against its comments (`websearch_to_tsquery`: `"exact phrase"`, `-without`, `or`),
+ * plus a substring match on the key and title so a half-typed word (`PLAT-1`, `logi`) still finds it.
+ */
+export function searchQuery(search: string): SQL {
+  return sql`websearch_to_tsquery('simple', ${search.trim()})`;
+}
+
+export function searchCondition(search: string): SQL {
+  const term = `%${escapeLike(search.trim())}%`;
+  const q = searchQuery(search);
+  return or(
+    sql`${agileIssues.key} ILIKE ${term}`,
+    sql`${agileIssues.name} ILIKE ${term}`,
+    sql`"agile_issues"."search_vector" @@ ${q}`,
+    sql`exists (select 1 from agile_comments k where k.issue_id = ${agileIssues.id} and k.search_vector @@ ${q})`
+  ) as SQL;
+}
+
 /** The WHERE of the issues of `projectId` that match `f` (the query joins `agile_states`). */
 export function issueConditions(projectId: string, f: IssueFiltersValue): SQL[] {
   const c: SQL[] = [eq(agileIssues.projectId, projectId)];
@@ -158,15 +178,7 @@ export function issueConditions(projectId: string, f: IssueFiltersValue): SQL[] 
         : none
     );
   }
-  if (f.search) {
-    const term = `%${escapeLike(f.search)}%`;
-    c.push(
-      or(
-        sql`${agileIssues.name} ILIKE ${term}`,
-        sql`${agileIssues.key} ILIKE ${term}`
-      ) as SQL
-    );
-  }
+  if (f.search?.trim()) c.push(searchCondition(f.search));
   if (f.targetFrom) c.push(gte(agileIssues.targetDate, new Date(f.targetFrom)));
   if (f.targetTo) c.push(lte(agileIssues.targetDate, endOfDay(f.targetTo)));
   return c;

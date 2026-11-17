@@ -27,18 +27,21 @@ import { and, asc, eq, gt, inArray, isNull, lte, notInArray, or, sql } from "dri
 
 import type { AgileAccess, User } from "./agile.access";
 import type { AgileDb } from "./agile.db";
+import type { AgileEventName } from "./agile.events";
 import {
   agileAgentSchedules,
   agileAgentWork,
   agileComments,
   agileCycles,
   agileIssues,
+  agileIssueSubscribers,
   agileNotifications,
   agileProjectMembers,
   agileProjects,
   agileStates,
   type AgileIssue,
   type AgileProject,
+  NOTIFICATION_KINDS,
   WORK_TRIGGERS,
 } from "./agile.schema";
 
@@ -141,7 +144,7 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
     commentId?: string | null;
     userId: string;
     actorId: string;
-    kind: "mention" | "assigned" | "handoff" | "agent_work";
+    kind: (typeof NOTIFICATION_KINDS)[number];
     message?: string;
   }) {
     if (n.userId === n.actorId) return;
@@ -205,6 +208,85 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
     return row;
   }
 
+  /** Emits an agile event on the host's bus (after commit, at most once: docs/kons/events.md). */
+  function emit(name: AgileEventName, data: Record<string, unknown>) {
+    try {
+      hooks.emit?.(name, data);
+    } catch (e) {
+      hooks.logger?.warn("📋 Agile event not emitted", { event: name, message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  /** The payload every issue event carries (agile.events.ts, `ISSUE_PAYLOAD`). */
+  async function issuePayload(issue: AgileIssue, actorId: string) {
+    const state = await stateById(issue.stateId);
+    return {
+      projectId: issue.projectId,
+      issueId: issue.id,
+      key: issue.key,
+      name: issue.name,
+      type: issue.type,
+      priority: issue.priority,
+      stateId: issue.stateId,
+      stateGroup: state?.group ?? null,
+      assigneeId: issue.assigneeId ?? null,
+      actorId,
+    };
+  }
+
+  /** Subscribes members to an issue; a repeat changes nothing. The system is never a subscriber. */
+  async function subscribe(issueId: string, userIds: (string | null | undefined)[]) {
+    const ids = [...new Set(userIds.filter((u): u is string => !!u && u !== SYSTEM_ACTOR))];
+    if (!ids.length) return;
+    await db.instance
+      .insert(agileIssueSubscribers)
+      .values(ids.map((userId) => ({ issueId, userId })))
+      .onConflictDoNothing();
+  }
+
+  /** A notification for each subscriber of the issue, except the actor and `skip`. */
+  async function notifySubscribers(
+    issue: AgileIssue,
+    actorId: string,
+    kind: "comment" | "state_changed",
+    message: string,
+    opts: { commentId?: string; skip?: Iterable<string> } = {}
+  ) {
+    const skip = new Set([actorId, ...(opts.skip ?? [])]);
+    const subscribers = await db.instance
+      .select({ userId: agileIssueSubscribers.userId })
+      .from(agileIssueSubscribers)
+      .where(eq(agileIssueSubscribers.issueId, issue.id));
+    for (const { userId } of subscribers) {
+      if (skip.has(userId)) continue;
+      await notify({ projectId: issue.projectId, issueId: issue.id, commentId: opts.commentId, userId, actorId, kind, message });
+    }
+  }
+
+  /**
+   * After a comment was written: its author follows the issue, subscribers hear about it (the
+   * mentioned ones already got a mention), and `agile:issue.commented` goes to the bus.
+   */
+  async function commented(
+    issue: AgileIssue,
+    comment: { id: string; contentText: string | null },
+    actorId: string,
+    mentions: string[] = []
+  ) {
+    const excerpt = (comment.contentText ?? "").slice(0, 280);
+    await subscribe(issue.id, [actorId]);
+    await notifySubscribers(issue, actorId, "comment", `${issue.key}: ${excerpt}`, {
+      commentId: comment.id,
+      skip: mentions,
+    });
+    emit("agile:issue.commented", {
+      ...(await issuePayload(issue, actorId)),
+      commentId: comment.id,
+      excerpt,
+      mentions: [...new Set(mentions)],
+    });
+  }
+
   /** History, sub-issue counts, notifications and agent work after an issue was written. */
   async function afterIssue(
     project: AgileProject,
@@ -213,6 +295,7 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
     after: AgileIssue,
     opts: { handoffNote?: string; customFieldsChanged?: boolean } = {}
   ) {
+    let changedFields: string[] = [];
     if (before === null) {
       await logActivity({
         actorId: actor.id,
@@ -233,6 +316,7 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
       if (opts.customFieldsChanged) {
         changes.customFields = [before.props?.customFields ?? {}, after.props?.customFields ?? {}];
       }
+      changedFields = Object.keys(changes);
       if (Object.keys(changes).length) {
         await logActivity({
           actorId: actor.id,
@@ -273,6 +357,30 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
         });
       }
     }
+
+    // 1.4: subscribers and events. The creator and every assignee follow the issue.
+    await subscribe(after.id, before === null ? [after.createdBy, after.assigneeId] : [after.assigneeId]);
+    const payload = await issuePayload(after, actor.id);
+    if (before === null) {
+      emit("agile:issue.created", payload);
+    } else {
+      if (changedFields.length) emit("agile:issue.updated", { ...payload, changed: changedFields });
+      if (before.stateId !== after.stateId) {
+        emit("agile:issue.state_changed", { ...payload, previousStateId: before.stateId });
+        const state = payload.stateGroup ? ` → ${payload.stateGroup}` : "";
+        await notifySubscribers(after, actor.id, "state_changed", `${after.key}: ${after.name}${state}`, {
+          // The new assignee already got its own notification.
+          skip: newAssignee && newAssignee !== before.assigneeId ? [newAssignee] : [],
+        });
+      }
+    }
+    if (newAssignee && newAssignee !== (before?.assigneeId ?? null)) {
+      emit("agile:issue.assigned", {
+        ...payload,
+        previousAssigneeId: before?.assigneeId ?? null,
+        handoff: opts.handoffNote !== undefined,
+      });
+    }
   }
 
   /** A plain comment written by the kon itself (a hand-off note), counted and in the history. */
@@ -298,6 +406,7 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
       entityId: row.id,
       action: "commented",
     });
+    await commented(issue, row, actorId);
     return row;
   }
 
@@ -523,6 +632,10 @@ export function agileWorkflow(db: { instance: AgileDb }, access: AgileAccess, ho
     afterIssue,
     mentioned,
     comment,
+    commented,
+    subscribe,
+    emit,
+    issuePayload,
     notify,
     queueAgentWork,
     isAgentMember,

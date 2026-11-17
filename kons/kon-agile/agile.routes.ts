@@ -45,8 +45,12 @@ import { Hono, type Context } from "hono";
 import { z } from "zod";
 
 import { agileAccess, isAgent, type AgileAccess, type User } from "./agile.access";
+import { bulkOperations } from "./agile.bulk";
+import { collabOperations } from "./agile.collab";
 import type { AgileDb } from "./agile.db";
 import { fieldsOf, mergeCustomFields } from "./agile.fields";
+import { eventOperations } from "./agile.events";
+import { githubOperations } from "./agile.github";
 import { agileOperationsList } from "./agile.operations";
 import { planningOperations } from "./agile.planning";
 import { registerAgilePolicy } from "./agile.policy";
@@ -63,7 +67,9 @@ import {
   PROJECT_ROLES,
   type AgileIssue,
 } from "./agile.schema";
+import { searchOperations } from "./agile.search";
 import { teamOperations } from "./agile.team";
+import { timeOperations } from "./agile.time";
 import { viewOperations } from "./agile.views";
 import { agileWorkflow, type AgileWorkflow } from "./agile.workflow";
 import { respondWithError } from "./http-errors";
@@ -125,6 +131,13 @@ const projectSchema = z.object({
         .describe("state id → member id: entering that state assigns the issue to that member"),
       autoArchiveDays: z.number().int().min(1).max(3650).nullable().optional(),
       autoCloseCycles: z.boolean().optional(),
+      hourlyRateUsd: z
+        .number()
+        .min(0)
+        .max(100_000)
+        .nullable()
+        .optional()
+        .describe("What an hour of a person's logged time costs, for an issue's total cost (1.4)"),
     })
     .strict()
     .optional(),
@@ -806,6 +819,8 @@ export function agileOperations(
         const excerpt = (comment.contentText ?? "").slice(0, 280);
         await workflow.mentioned(project, issue, comment.id, user.id, body.mentions, excerpt);
       }
+      // 1.4: the author follows the issue, subscribers hear about it, `agile:issue.commented` is emitted.
+      await workflow.commented(issue, comment, user.id, body.mentions ?? []);
 
       return c.json(comment, 201);
     }
@@ -1403,6 +1418,13 @@ export function allAgileOperations(ctx: KonContext): AnyOperation[] {
     ...planningOperations(shared.db, shared.access, shared.workflow),
     ...viewOperations(shared.db, shared.access),
     ...teamOperations(shared.db, shared.access, shared.workflow),
+    // 1.4: attachments, subscribers, reactions, bulk changes, search, time and cost, GitHub, events.
+    ...collabOperations(shared.db, shared.access, shared.workflow),
+    ...bulkOperations(shared.db, shared.access, shared.workflow),
+    ...searchOperations(shared.db, shared.access),
+    ...timeOperations(shared.db, shared.access),
+    ...githubOperations(shared.db, shared.access, shared.workflow, ctx),
+    ...eventOperations(),
   ];
 }
 

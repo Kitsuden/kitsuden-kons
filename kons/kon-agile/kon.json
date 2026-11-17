@@ -1,8 +1,8 @@
 {
   "id": "kon-agile",
   "name": "Agile Tracker",
-  "description": "Agile management where agents work as teammates: projects, customizable states, issues with unique keys, sprints with carry-over, epics, initiatives, labels, checklists, custom fields, saved views, calendar, timeline and dashboard. Agents are members with a work queue; an agent writes only on its own issues, or its squad's as scrum master, and an inbox keeps AI triage under human approval.",
-  "version": "1.3.3",
+  "description": "Agile management where agents work as teammates: projects, customizable states, issues with unique keys, sprints with carry-over, epics, initiatives, labels, checklists, custom fields, saved views, calendar, timeline and dashboard. Agents are members with a work queue; an agent writes only on its own issues, or its squad's as scrum master, and an inbox keeps AI triage under human approval. Attachments, subscribers and reactions, bulk changes, full-text search, logged time with each issue's total cost, GitHub pull requests that close issues on merge, and events for email and webhook rules.",
+  "version": "1.4.0",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",
@@ -156,7 +156,39 @@
         "agentId"
       ]
     },
-    "agile_agent_schedules"
+    "agile_agent_schedules",
+    {
+      "name": "agile_issue_attachments",
+      "label": "Attachments",
+      "icon": "Paperclip",
+      "readonly": true
+    },
+    "agile_issue_subscribers",
+    {
+      "name": "agile_time_entries",
+      "label": "Time",
+      "icon": "Clock",
+      "readonly": true,
+      "filterableFields": [
+        "userId",
+        "spentOn"
+      ]
+    },
+    {
+      "name": "agile_github_repos",
+      "label": "GitHub repositories",
+      "icon": "GitBranch",
+      "readonly": true
+    },
+    {
+      "name": "agile_issue_pull_requests",
+      "label": "Pull requests",
+      "icon": "Link2",
+      "readonly": true,
+      "filterableFields": [
+        "state"
+      ]
+    }
   ],
   "database": {
     "enums": [
@@ -293,7 +325,16 @@
     "initiatives",
     "custom-fields",
     "checklists",
-    "mentions"
+    "mentions",
+    "attachments",
+    "subscriptions",
+    "reactions",
+    "bulk-operations",
+    "full-text-search",
+    "time-tracking",
+    "issue-cost",
+    "github-integration",
+    "automation-events"
   ],
   "mcp": {
     "enabled": true,
@@ -377,6 +418,56 @@
         "name": "agile_list_squads",
         "description": "SDK operation list-squads: To know your squad and who you can hand work to.",
         "type": "read"
+      },
+      {
+        "name": "agile_search",
+        "description": "SDK operation search-issues: To find issues by words in their title, description or comments; answers a short snippet, not the whole issue.",
+        "type": "read"
+      },
+      {
+        "name": "agile_bulk_update",
+        "description": "SDK operation bulk-update-issues: To apply the same change (state, sprint, assignee, labels, archive) to many issues in one call instead of one per issue.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_link_issues",
+        "description": "SDK operation link-issues: To mark that your issue blocks, relates to or duplicates another issue of the project.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_list_links",
+        "description": "SDK operation list-issue-links: To see what an issue blocks or is blocked by.",
+        "type": "read"
+      },
+      {
+        "name": "agile_list_attachments",
+        "description": "SDK operation list-attachments: To see the files attached to an issue.",
+        "type": "read"
+      },
+      {
+        "name": "agile_attach_file",
+        "description": "SDK operation attach-file: To attach a file you uploaded to the media library (its media id) to an issue in your reach.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_log_time",
+        "description": "SDK operation log-time: To record minutes spent on an issue in your reach.",
+        "type": "write-controlled"
+      },
+      {
+        "name": "agile_issue_cost",
+        "description": "SDK operation issue-cost: To know what an issue cost so far: people's hours and agents' runs, tokens and USD.",
+        "type": "read"
+      },
+      {
+        "name": "agile_list_pull_requests",
+        "description": "SDK operation list-pull-requests: To see the GitHub pull requests that mention an issue and their state.",
+        "type": "read"
+      },
+      {
+        "name": "agile_follow_issue",
+        "description": "SDK operation subscribe-issue: To hear about the comments and state changes of an issue you are not assigned to.",
+        "type": "write-controlled"
       }
     ]
   },
@@ -404,7 +495,9 @@
     "issues",
     "project-management",
     "ai-triage",
-    "mcp"
+    "mcp",
+    "time-tracking",
+    "github"
   ],
   "schema": {
     "entry": "./agile.schema.ts",

@@ -155,6 +155,8 @@ export const agileProjects = pgTable(
         autoArchiveDays?: number;
         /** a cycle whose end date passed is closed and its unfinished issues move to the next one */
         autoCloseCycles?: boolean;
+        /** what an hour of a person's logged time costs, for an issue's total cost (1.4) */
+        hourlyRateUsd?: number | null;
       }>()
       .default({}),
 
@@ -818,7 +820,15 @@ export const agileSavedViews = pgTable("agile_saved_views", {
 // 19. NOTIFICATIONS — the inbox of each person or agent
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const NOTIFICATION_KINDS = ["mention", "assigned", "handoff", "agent_work"] as const;
+// `comment` and `state_changed` (1.4) reach the issue's subscribers.
+export const NOTIFICATION_KINDS = [
+  "mention",
+  "assigned",
+  "handoff",
+  "agent_work",
+  "comment",
+  "state_changed",
+] as const;
 
 export const agileNotifications = pgTable("agile_notifications", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -884,6 +894,114 @@ export const agileAgentWork = pgTable("agile_agent_work", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 21. ATTACHMENTS (1.4) — a file of the media library hung on an issue
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// The file itself lives in the core's media library (`POST /api/media`); the row keeps the media id
+// and a copy of its name, type and size, so the list reads without joining a table of another battery.
+
+export const agileIssueAttachments = pgTable(
+  "agile_issue_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    issueId: uuid("issue_id")
+      .references(() => agileIssues.id, { onDelete: "cascade" })
+      .notNull(),
+    mediaId: uuid("media_id").notNull(),
+    name: text("name").notNull(),
+    mimeType: text("mime_type"),
+    size: integer("size"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("agile_issue_attachments_issue_media_idx").on(t.issueId, t.mediaId)]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 22. SUBSCRIBERS (1.4) — who hears about an issue's comments and state changes
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const agileIssueSubscribers = pgTable(
+  "agile_issue_subscribers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    issueId: uuid("issue_id")
+      .references(() => agileIssues.id, { onDelete: "cascade" })
+      .notNull(),
+    userId: text("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("agile_issue_subscribers_issue_user_idx").on(t.issueId, t.userId)]
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 23. TIME (1.4) — minutes a person logged on an issue
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const agileTimeEntries = pgTable("agile_time_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .references(() => agileProjects.id, { onDelete: "cascade" })
+    .notNull(),
+  issueId: uuid("issue_id")
+    .references(() => agileIssues.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: text("user_id").notNull(),
+  minutes: integer("minutes").notNull(),
+  spentOn: text("spent_on").notNull(), // YYYY-MM-DD
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 24. GITHUB (1.4) — repositories connected to a project, and the pull requests they mention
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// `webhook_secret` is sealed with `ctx.secrets` (never readable in the row) and its name ends in
+// `secret`, so the core's generic reads hide it; index.ts declares it in `secretColumns`.
+
+export const agileGithubRepos = pgTable(
+  "agile_github_repos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .references(() => agileProjects.id, { onDelete: "cascade" })
+      .notNull(),
+    repo: text("repo").notNull(), // owner/name
+    webhookSecret: jsonb("webhook_secret").notNull(),
+    closeOnMerge: boolean("close_on_merge").default(true).notNull(),
+    createdBy: text("created_by").notNull(),
+    lastDeliveryAt: timestamp("last_delivery_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("agile_github_repos_project_repo_idx").on(t.projectId, t.repo)]
+);
+
+export const PULL_REQUEST_STATES = ["open", "closed", "merged"] as const;
+
+export const agileIssuePullRequests = pgTable(
+  "agile_issue_pull_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    issueId: uuid("issue_id")
+      .references(() => agileIssues.id, { onDelete: "cascade" })
+      .notNull(),
+    repoId: uuid("repo_id")
+      .references(() => agileGithubRepos.id, { onDelete: "cascade" })
+      .notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    url: text("url").notNull(),
+    state: text("state").$type<(typeof PULL_REQUEST_STATES)[number]>().notNull(),
+    author: text("author"),
+    closesIssue: boolean("closes_issue").default(false).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("agile_issue_pull_requests_issue_pr_idx").on(t.issueId, t.repoId, t.number)]
+);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // RELATIONS
@@ -1083,3 +1201,8 @@ export type AgileSavedView = typeof agileSavedViews.$inferSelect;
 export type AgileNotification = typeof agileNotifications.$inferSelect;
 export type AgileAgentSchedule = typeof agileAgentSchedules.$inferSelect;
 export type AgileAgentWork = typeof agileAgentWork.$inferSelect;
+export type AgileIssueAttachment = typeof agileIssueAttachments.$inferSelect;
+export type AgileIssueSubscriber = typeof agileIssueSubscribers.$inferSelect;
+export type AgileTimeEntry = typeof agileTimeEntries.$inferSelect;
+export type AgileGithubRepo = typeof agileGithubRepos.$inferSelect;
+export type AgileIssuePullRequest = typeof agileIssuePullRequests.$inferSelect;
