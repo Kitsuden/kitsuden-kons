@@ -1,14 +1,14 @@
 # kon-crm
 
 A CRM backend for Kitsuden: companies, contacts, pipelines and deals, activities and tasks, lead
-capture, a client portal, contact scoring, evidence-weighted data from agents, and billing through
-kon-conta. For a team that wants its client portfolio behind an API that people and agents share
+capture, a client portal, contact scoring, evidence-weighted data from agents, each person's mailbox and
+calendar synced into the contacts' timeline, and billing through kon-conta. For a team that wants its client portfolio behind an API that people and agents share
 under the same rules. The screens people work in belong to the app built on top; the kon's two
 admin views are configuration only.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.4 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
+| beta | business | 1.1.0 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
 
 ## Install
 
@@ -48,11 +48,46 @@ Environment variables are needed only to receive email into the CRM (see
 | `crm_counters` | Deal numbering per entity |
 | `crm_evidence_kinds`, `crm_evidence_policy`, `crm_observations` | Evidence kinds and their weights; observed values about contacts and companies |
 | `crm_inbound_emails` | Every email posted to the CRM and what happened to it |
+| `crm_inbox_mailboxes` | A mailbox its owner added: the connection it reads through, what it syncs, default visibility, cursors, last sync |
+| `crm_inbox_threads`, `crm_inbox_messages` | Synced threads and messages: direction, sender and display name, recipients, subject, the provider's short preview, date, visibility (`private` or `team`). Never a body or an attachment |
+| `crm_inbox_events` | Synced calendar events: title, place, start and end, attendees, organizer, cancelled, visibility |
 
 What the code does with them:
 
 - **Presets.** A JSON file in `presets/` sets up an entity with fields, a pipeline, deal roles,
-  document templates and kon-conta's words. `presets/law-firm.json` is the example.
+  document templates and kon-conta's words. Two ship with the kon: `presets/law-firm.json`
+  (numbered matters, KYC, hearings) and `presets/real-estate.json` (sales and rentals as numbered
+  operations tied to a listing, buyer and tenant requirements, visits and signings; the
+  properties themselves live in kon-listings). An installation adds its own in the folder named
+  by `CRM_PRESETS_DIR`; one with the id of a shipped preset replaces it. A broken file is skipped
+  and listed in `problems` by `GET /api/crm/presets`, so it never hides the others.
+- **Presets bring their automation.** Each stage of a preset can say what happens when a deal
+  enters or leaves it (`onEnterActions`, `onExitActions`: a task or a meeting due in N days, an
+  activity, logged time, a field), what a deal needs before it may enter (`entryRequirements`)
+  and how many days it should stay (`estimatedDays`), so the CRM works the day it is set up. Both
+  shipped presets do: the law firm asks for the practice area and the fee type before a matter is
+  in progress, and the agency asks for the listing before a visit. Applying a preset again fills a
+  stage the team never configured and leaves the ones they did. An action that `move-deal` could
+  not run (a field a stage may not change, a field the preset does not define, time without a
+  quantity) makes the file a problem when it is read, not a failure on a deal later.
+
+  ```json
+  {
+    "name": "In progress",
+    "probability": 50,
+    "estimatedDays": 120,
+    "entryRequirements": { "requiredFields": ["practiceArea", "feeType"] },
+    "onEnterActions": [
+      { "type": "create_calendar_event", "title": "Kick-off meeting with the client", "value": 5 },
+      {
+        "type": "create_task",
+        "title": "Agree the success fee in writing",
+        "value": 3,
+        "condition": { "field": "custom.feeType", "operator": "==", "value": "success" }
+      }
+    ]
+  }
+  ```
 - **Access dials.** Per person or agent: `records` (all, or assigned/created; applied by row
   security), `sensitive`, `money` and `notes`. By default the team sees all records, amounts and
   notes, not sensitive data; an agent sees the same without notes. `crm:read-all` or a grant made
@@ -101,6 +136,21 @@ admin. "Person" = refused to agents whatever their scopes.
 | `PATCH /api/crm/contacts/:id` | edit | Update a contact |
 | `DELETE /api/crm/contacts/:id` | delete | Delete a contact |
 | `POST /api/crm/contacts/import` | edit | Import a CSV: preview without `apply`, write with `apply: true` (5000 rows max) |
+| `GET /api/crm/timeline` | view | One contact (with its deals) or one deal, newest first: activities, stage moves, and what other kons linked (orders, payments, newsletter, mail, meetings) |
+| `GET /api/crm/deals/:id/lines` | view | A deal's product lines and totals |
+| `POST /api/crm/deals/:id/lines` | edit | Add a line: price frozen when added; product by shape (`productType` + `productId`) |
+| `PATCH /api/crm/deal-lines/:id` | edit | Quantity, discount, tax or name (never the frozen price) |
+| `DELETE /api/crm/deal-lines/:id` | edit | Remove a line; the deal's value follows its lines |
+| `GET /api/crm/deals/:id/quotes` | view | A deal's quotes |
+| `POST /api/crm/deals/:id/quotes` | edit | A draft quote: a numbered snapshot of the deal's lines |
+| `GET /api/crm/quotes/:id` | view | One quote |
+| `POST /api/crm/quotes/:id/send` | edit | draft → sent |
+| `POST /api/crm/quotes/:id/reject` | edit | sent → rejected |
+| `POST /api/crm/quotes/:id/accept` | edit | → accepted; `then: payment` opens a kon-payments payment, `then: order` asks kon-ecommerce for an order |
+| `GET /api/crm/forecast` | view | Per person and period: open, weighted, won, target, attainment |
+| `GET /api/crm/targets` | view | Sales targets |
+| `PUT /api/crm/targets` | configure | Set a person's target for a period |
+| `GET /api/crm/reports/:id` | view | `funnel`, `stage-conversion`, `lost-reasons` |
 | `GET /api/crm/contacts/:id/duplicates` | view | Possible duplicates with score and reasons |
 | `POST /api/crm/contacts/:id/merge` | edit; runs for a person with delete | Merge two contacts; from an agent, a 202 request for a person |
 | `GET /api/crm/merge-requests` | view | Merges agents asked for |
@@ -213,6 +263,21 @@ admin. "Person" = refused to agents whatever their scopes.
 | `GET /api/crm/inbound-emails` | configure | Emails posted to the CRM and why any was turned away |
 | `GET /api/crm/agent-guide` | view | `AGENT_GUIDE.md` plus this installation's entities, fields, kinds, the caller's access and the tool groups |
 
+### Inbox (each person's own; no CRM access needed)
+
+| Route | Needs | What it does |
+| --- | --- | --- |
+| `GET /api/crm/inbox/mailboxes` | the owner | Your mailboxes |
+| `POST /api/crm/inbox/mailboxes` | a person | Start syncing one of your connections (mail, calendar or both) |
+| `PATCH /api/crm/inbox/mailboxes/:id` | the owner | What it syncs, default visibility, pause or resume |
+| `DELETE /api/crm/inbox/mailboxes/:id` | the owner | Stop and delete everything it brought, and its links to contacts |
+| `POST /api/crm/inbox/mailboxes/:id/sync` | the owner | Sync now |
+| `POST /api/crm/inbox/mailboxes/:id/send` | the owner, sensitive | Send a plain-text email from the mailbox (the connection needs `mail.send`) |
+| `GET /api/crm/inbox/threads` | the owner; admins and editors for `team` threads | Threads, newest first |
+| `GET /api/crm/inbox/threads/:id` | the same | A thread and its messages |
+| `PATCH /api/crm/inbox/threads/:id` | the owner | `visibility`: `private` or `team` |
+| `GET /api/crm/inbox/events` | the owner; admins and editors for `team` events | Calendar events in a date range |
+
 ### Public (no account; rate limited)
 
 | Route | Needs | What it does |
@@ -220,6 +285,37 @@ admin. "Person" = refused to agents whatever their scopes.
 | `POST /api/crm/public/forms/:id` | public, 20/min | Submit a capture form; always 202 `{ ok: true }` once the form exists |
 | `POST /api/crm/public/portal` | public, 20/min | Read a client portal with its token; unknown, expired or revoked are all 404 |
 | `POST /api/crm/public/inbound/:provider` | provider signature, 300/min | Receive an email from `mailgun`, `postmark` or `generic` |
+
+## The inbox
+
+Each person connects their Google or Microsoft account in Kitsuden (`/api/connections/oauth/start`,
+asking for `mail.read` and `calendar.read`, and `mail.send` to send) and adds it with
+`POST /api/crm/inbox/mailboxes`. Nothing is read before that. The credential stays in Kitsuden's
+connections; the CRM never sees it.
+
+- **Sync** runs on Kitsuden's queue (`kon-crm:inbox` / `sync`), one mailbox per job and a bounded
+  step per job; a mailbox not synced for five minutes is queued again. Gmail reads `history`, Google
+  Calendar a `syncToken`, Microsoft Graph delta links; an expired cursor starts over.
+- **What is kept**: sender, recipients, subject, the provider's short preview and dates. Never a body
+  or an attachment.
+- **Who sees it**: its owner. A thread (or the whole mailbox, by default) marked `team` is also read
+  by admins and editors. Row security enforces it (`migrations/0015_inbox.sql`).
+- **On the contacts**: each message and meeting is linked (`about`) to the contacts on it; mail never
+  creates a contact. The timeline reads each one again as the reader: a message they may not read
+  shows only that there was an email and when, with `private: true`, never its subject. The link
+  itself only holds the subject of a `team` thread.
+- **As evidence**: a message from a contact suggests the name they write under (`"Ruiz, Ana"` is Ana
+  Ruiz) and, for a company address, the company's domain, as observations of kind `mail-header`
+  (weight 10, source `mail`). That is far under `applyAt`, so it waits for a person; display names
+  that are not a person ("Billing", "ACME Support", all capitals) and free mail domains say nothing.
+  No subject, preview, recipient or mailbox goes into an observation.
+- **Deleting**: removing a mailbox, or revoking its connection in Kitsuden, deletes everything it
+  brought and its links. An expired connection marks the mailbox in error.
+
+Events, after the sync's transaction commits: `crm:message.received` (`messageId`, `mailboxId`,
+`ownerId`, `from`, `fromName`, `visibility`, `to`, `cc`, `subject`, `direction`, `at`,
+`mailboxAddresses`) and `crm:meeting.synced` (`eventId`, `visibility`, `mailboxId`, `ownerId`,
+`title`, `startsAt`, `endsAt`, `attendees`, `organizer`, `cancelled`, `mailboxAddresses`).
 
 ## Who can do what
 
@@ -250,10 +346,23 @@ cannot read cannot be filtered or grouped by (403).
 
 ## Configuration
 
-Only for receiving email (`crm.inbound.ts`); every lock is closed by default:
+The exclusion list is shared with kon-newsletter when it is installed: an address excluded here stops
+getting campaigns, and someone who unsubscribes or complains there is excluded here (stored with
+`created_by: kon-newsletter`). Removing an entry on one side lifts it on the other only if that side put
+it there. Domains are not mirrored.
+
+Entity types (cases, properties, projects…, with their custom fields, flags, default pipeline, numbering
+and activity kinds) live in Kitsuden's entities when the host has them (`ctx.entities`), as
+`crm-<entityName>`: at startup each row of `crm_entity_configs` is moved there once and marked
+`migratedTo`. Custom field values stay on the records (`custom_fields`). On a Kitsuden without runtime
+entities, `crm_entity_configs` is used as before.
+
+For the installation's own presets, and for receiving email (`crm.inbound.ts`, where every lock
+is closed by default):
 
 | Variable | What it is |
 | --- | --- |
+| `CRM_PRESETS_DIR` | A folder with the installation's own preset files (`*.json`, same format as `presets/`); relative to the API's working directory. Unset: only the shipped presets |
 | `CRM_INBOUND_ALLOWED_SENDERS` | Comma-separated addresses or domains whose mail is accepted; empty rejects everything |
 | `MAILGUN_WEBHOOK_SIGNING_KEY` | Mailgun's signing key, for provider `mailgun` |
 | `CRM_INBOUND_POSTMARK_TOKEN` | The password in Postmark's inbound webhook URL, for provider `postmark` |
@@ -289,6 +398,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-crm-records.test.ts` | Preset entities, companies, activities and inbox, documents, client portal |
 | `tests/unit/kon-crm-evidence.test.ts` | Observations and evidence weights |
 | `tests/unit/kon-crm-inbound.test.ts` | Inbound email locks and recording |
+| `tests/unit/kon-crm-inbox.test.ts` | The inbox: Gmail, Calendar and Graph sync through a `ctx.connections` double, people kept apart, private mail on the timeline, mail as evidence, sending |
 | `tests/unit/kon-crm-practice.test.ts` | Notes, amounts, agent merges, stage automation, public forms, portal, score model, import |
 | `tests/unit/kon-crm-conta-bridge.test.ts` | Billing through kon-conta |
 | `tests/unit/crm-filters.test.ts` | Custom field filters |

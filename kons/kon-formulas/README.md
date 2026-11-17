@@ -6,7 +6,7 @@ them with their own inputs.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.1 | `/api/formulas` | — (core: `auth`) |
+| beta | gaming | 1.0.2 | `/api/formulas` | — (core: `auth`) |
 
 ## Install
 

@@ -28,7 +28,7 @@
  * artifact mechanism.
  */
 
-import { z, type ZodType } from "zod";
+import { z, type ZodType } from "@kitsuden/engine/zod";
 
 // ── Contract ─────────────────────────────────────────────────────────────────
 

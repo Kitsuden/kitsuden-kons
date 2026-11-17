@@ -34,7 +34,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { and, eq, ilike } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { compIsFull, compSummary, suggestUnits, traitPlan } from "./autobattler.builder.js";
 import {

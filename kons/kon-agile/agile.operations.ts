@@ -24,7 +24,7 @@
 import { AppError, defineOperation, eqEnum, isUuid, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { AgileDb } from "./agile.db";
 import type { ProjectResource } from "./agile.policy";

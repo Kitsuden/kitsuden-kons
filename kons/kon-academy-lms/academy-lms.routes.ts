@@ -30,7 +30,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { eq, and, desc, asc, inArray, sql, count, avg, sum, gt } from "drizzle-orm";
 import type { Hono, MiddlewareHandler } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 // Importing it registers the "academy" and "academy-course" policies (deny-by-default).
 import {

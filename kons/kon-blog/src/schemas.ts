@@ -9,7 +9,7 @@
  *
  * Here: parameters, query and outputs, for OpenAPI and MCP.
  */
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 const servedDate = () => z.string().datetime({ offset: true });
 

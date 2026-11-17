@@ -26,7 +26,7 @@ import { can, type AuthzUser, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, asc, count, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { applyResult } from "./bracket.persistence";
 import { canCheckIn } from "./checkin";

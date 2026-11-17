@@ -17,7 +17,7 @@
 import { defineOperation, type AnyOperation } from "@kitsuden/engine";
 import type { OperationContext, ValidatedInput, KonOperation } from "@kitsuden/shared";
 import type { Context } from "hono";
-import type { z } from "zod";
+import type { z } from "@kitsuden/engine/zod";
 
 export const KON_ID = "kon-academy-lms";
 

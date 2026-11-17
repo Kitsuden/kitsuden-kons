@@ -22,6 +22,8 @@ import {
   jsonb,
   pgEnum,
   uuid,
+  numeric,
+  date,
 } from "drizzle-orm/pg-core";
 
 // ============================================================================
@@ -883,4 +885,78 @@ export const crmInboundEmails = pgTable("crm_inbound_emails", {
   activityIds: jsonb("activity_ids").$type<string[]>().notNull().default([]),
   unmatched: jsonb("unmatched").$type<string[]>().notNull().default([]),
   receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ============================================================================
+// SALES (migration 0013): product lines, quotes, targets
+// ============================================================================
+
+export interface QuoteLine {
+  name: string;
+  sku: string | null;
+  productType: string | null;
+  productId: string | null;
+  quantity: number;
+  unitPrice: number;
+  discountPct: number;
+  taxPct: number;
+  lineTotal: number;
+}
+
+export const crmDealLines = pgTable("crm_deal_lines", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  dealId: text("deal_id")
+    .notNull()
+    .references(() => crmDeals.id, { onDelete: "cascade" }),
+  position: integer("position").notNull().default(0),
+  productType: text("product_type"),
+  productId: text("product_id"),
+  sku: text("sku"),
+  name: text("name").notNull(),
+  quantity: numeric("quantity", { precision: 12, scale: 3, mode: "number" }).notNull(),
+  unitPrice: integer("unit_price").notNull(),
+  discountPct: numeric("discount_pct", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
+  taxPct: numeric("tax_pct", { precision: 5, scale: 2, mode: "number" }).notNull().default(0),
+  lineTotal: integer("line_total").notNull().default(0),
+  currency: text("currency").notNull().default("USD"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const crmQuotes = pgTable("crm_quotes", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  dealId: text("deal_id")
+    .notNull()
+    .references(() => crmDeals.id, { onDelete: "cascade" }),
+  number: text("number").notNull().unique(),
+  status: text("status").$type<"draft" | "sent" | "accepted" | "rejected" | "expired">().notNull().default("draft"),
+  lines: jsonb("lines").$type<QuoteLine[]>().notNull().default([]),
+  subtotal: integer("subtotal").notNull().default(0),
+  tax: integer("tax").notNull().default(0),
+  total: integer("total").notNull().default(0),
+  currency: text("currency").notNull().default("USD"),
+  validUntil: date("valid_until"),
+  notes: text("notes"),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  acceptedBy: text("accepted_by"),
+  rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+  outcome: text("outcome").$type<"none" | "order" | "payment">(),
+  outcomeRef: text("outcome_ref"),
+  checkoutUrl: text("checkout_url"),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const crmSalesTargets = pgTable("crm_sales_targets", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  userId: text("user_id").notNull(),
+  periodStart: date("period_start").notNull(),
+  periodEnd: date("period_end").notNull(),
+  amount: integer("amount").notNull(),
+  currency: text("currency").notNull().default("USD"),
+  createdBy: text("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

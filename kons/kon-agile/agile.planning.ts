@@ -13,7 +13,7 @@
 
 import { AppError, isUuid, type AnyOperation } from "@kitsuden/engine";
 import { and, asc, desc, eq, inArray, isNull, lt, max, ne, or, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { AgileAccess } from "./agile.access";
 import type { AgileDb } from "./agile.db";

@@ -13,7 +13,7 @@
 import { AppError } from "@kitsuden/engine";
 import { and, desc, eq, ilike, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { accessOf, hiddenFieldKeys } from "./crm.access";
 import { dbDe } from "./crm.context";

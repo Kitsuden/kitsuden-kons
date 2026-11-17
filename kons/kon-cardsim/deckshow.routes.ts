@@ -28,7 +28,7 @@ import { randomBytes } from "node:crypto";
 import { repo, can, attemptSql, type AuthzUser, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import { and, eq, ilike } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { sectionsOf, validateDeck, type CardCatalog, type DeckInput } from "./cardsim.deck.js";
 import {

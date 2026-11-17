@@ -13,7 +13,7 @@
  * used for the request and never stored or echoed.
  */
 
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 const ENDPOINT = "https://api.start.gg/gql/alpha";
 

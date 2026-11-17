@@ -3,7 +3,7 @@
   "id": "kon-collection",
   "name": "Collection",
   "description": "What each reader already has: marks the records of an index that they have obtained and keeps count",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

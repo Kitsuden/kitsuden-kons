@@ -25,6 +25,7 @@ import { attemptSql, mail, background, type SentMessage } from "@kitsuden/engine
 import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import type { NewsletterDb } from "./newsletter.db";
+import { announceSuppressed, announceUnsuppressed } from "./newsletter.exclusions";
 import { unsubscribeHeaders } from "./newsletter.mails";
 import {
   type NlCampaign,
@@ -241,7 +242,7 @@ export async function confirm(
   db: Db,
   token: string,
   meta: { ip?: string; source?: string; appUrl?: string } = {}
-): Promise<{ ok: boolean; member?: NlMember; welcome?: Promise<unknown> }> {
+): Promise<{ ok: boolean; member?: NlMember; welcome?: Promise<unknown>; confirmedNow?: boolean }> {
   if (!token) return { ok: false };
 
   const [member] = await db
@@ -302,7 +303,7 @@ export async function confirm(
     return null;
   });
 
-  return { ok: true, member: updated, welcome };
+  return { ok: true, member: updated, welcome, confirmedNow: true };
 }
 
 // ── Unsubscribe and suppression ──────────────────────────────────────────────
@@ -352,15 +353,21 @@ export async function suppress(
   source = "local",
   detail?: string
 ): Promise<void> {
-  await db
+  const address = normalizeEmail(email);
+  const added = await db
     .insert(nlSuppressions)
-    .values({ email: normalizeEmail(email), reason, source, detail })
-    .onConflictDoNothing();
+    .values({ email: address, reason, source, detail })
+    .onConflictDoNothing()
+    .returning({ id: nlSuppressions.id });
+  // Only a NEW suppression is told to the CRM (newsletter.exclusions.ts): a provider's retry says nothing.
+  if (added.length > 0) announceSuppressed(address, reason, source);
 }
 
 /** Removes a suppression. Only by explicit human action. */
 export async function unsuppress(db: Db, email: string): Promise<void> {
-  await db.delete(nlSuppressions).where(eq(nlSuppressions.email, normalizeEmail(email)));
+  const address = normalizeEmail(email);
+  const removed = await db.delete(nlSuppressions).where(eq(nlSuppressions.email, address)).returning({ id: nlSuppressions.id });
+  if (removed.length > 0) announceUnsuppressed(address);
 }
 
 // ── Segments ─────────────────────────────────────────────────────────────────
