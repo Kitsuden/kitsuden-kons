@@ -5,7 +5,12 @@
  * The kon knows deals, contacts, pipelines and fields; it does not know what a law firm, an agency or a clinic is.
  * A preset is a JSON file in `presets/` that says it: an entity with its fields, a pipeline with stages, the roles
  * people take on a deal, document templates, suggested access profiles and, when kon-conta is installed, the words
- * the ledger shows ("Matter" for a project, "Lawyer" for a resource). `law-firm.json` is the worked example; a new
+ * the ledger shows ("Matter" for a project, "Lawyer" for a resource).
+ *
+ * Each stage can also bring its automation, so the CRM works the day it is set up: what happens when a deal enters
+ * or leaves it (`onEnterActions`, `onExitActions`: a task, an activity, a meeting, logged time, a field), what a
+ * deal needs before it may enter (`entryRequirements`) and how many days it should stay (`estimatedDays`). The
+ * actions are the stage's own, the same `configure-stage` stores and `move-deal` runs. `law-firm.json` is the worked example; a new
  * business is a new file, with no code.
  *
  * Applying twice changes nothing: what exists, by name, stays as the team left it. A preset never grants access by
@@ -27,6 +32,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
+import { StageActionSchema, StageRequirementsSchema, UPDATABLE } from "./crm.automation";
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
 import { activityTypeEnum, crmDocumentTemplates, crmEntityConfigs, crmPipelineStages, crmPipelines } from "./crm.schema";
@@ -68,7 +74,18 @@ export const Preset = z.object({
     .default([]),
   dealContactRoles: z.array(z.string()).default([]),
   pipeline: z.string().min(1),
-  stages: z.array(z.object({ name: z.string().min(1), probability: z.number().int().min(0).max(100) })).min(1),
+  stages: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        probability: z.number().int().min(0).max(100),
+        estimatedDays: z.number().int().min(0).max(3650).optional().describe("How many days a deal should stay"),
+        entryRequirements: StageRequirementsSchema.optional().describe("What a deal needs before it may enter"),
+        onEnterActions: z.array(StageActionSchema).max(50).default([]),
+        onExitActions: z.array(StageActionSchema).max(50).default([]),
+      })
+    )
+    .min(1),
   templates: z.array(z.object({ name: z.string(), description: z.string(), body: z.string() })).default([]),
   profiles: z
     .array(
@@ -95,6 +112,51 @@ export const Preset = z.object({
   nextSteps: z.array(z.string()).default([]),
 });
 export type Preset = z.infer<typeof Preset>;
+
+/** Deal columns any preset may name next to its own fields. */
+const STANDARD_DEAL_FIELDS = new Set(["title", "value", "currency", "probability", "status", "stageId", "expectedCloseDate", "lostReason", "campaign"]);
+
+/**
+ * What the format cannot say: a stage that changes a field a stage may not touch, names a field the preset does not
+ * define, or logs time without a quantity. The same things `move-deal` would fail on later, found when the file is read.
+ */
+export function presetProblem(preset: Preset): string | null {
+  const own = new Set(preset.dealFields.map((f) => f.key));
+  const names = new Set<string>();
+  for (const [index, stage] of preset.stages.entries()) {
+    const where = `stages.${index} (${stage.name})`;
+    if (names.has(stage.name)) return `${where}: another stage has the same name`;
+    names.add(stage.name);
+    const requirements = stage.entryRequirements ?? {};
+    for (const key of [...(requirements.requiredFields ?? []), ...(requirements.customValidations ?? []).map((v) => v.field)]) {
+      if (!own.has(key)) return `${where}: entryRequirements names "${key}", which is not one of the dealFields`;
+    }
+    for (const [side, actions] of [["onEnterActions", stage.onEnterActions], ["onExitActions", stage.onExitActions]] as const) {
+      for (const [n, action] of actions.entries()) {
+        const at = `${where}.${side}.${n}`;
+        if (action.type === "update_field") {
+          const field = action.field ?? "";
+          const custom = field.startsWith("custom.") ? field.slice("custom.".length) : null;
+          if (custom !== null ? !own.has(custom) : !UPDATABLE.has(field)) {
+            return `${at}: update_field may change ${[...UPDATABLE].join(", ")} or custom.<one of the dealFields>, not "${field}"`;
+          }
+        }
+        if (action.type === "log_time" && !(typeof action.value === "number" && action.value > 0)) {
+          return `${at}: log_time needs the quantity in value`;
+        }
+        if ((action.type === "create_task" || action.type === "create_calendar_event") && action.value !== undefined && typeof action.value !== "number") {
+          return `${at}: value is the number of days until it is due`;
+        }
+        const condition = action.condition?.field;
+        if (condition) {
+          const key = condition.startsWith("custom.") ? condition.slice("custom.".length) : condition;
+          if (!own.has(key) && !STANDARD_DEAL_FIELDS.has(key)) return `${at}: the condition names "${condition}", which no deal has`;
+        }
+      }
+    }
+  }
+  return null;
+}
 
 const DIR = fileURLToPath(new URL("./presets/", import.meta.url));
 
@@ -196,6 +258,11 @@ export function readPresets(sources: PresetSource[] = presetSources()): PresetCa
         continue;
       }
       const preset = parsed.data;
+      const problem = presetProblem(preset);
+      if (problem) {
+        problems.push({ file, origin, message: problem });
+        continue;
+      }
       if (seenHere.has(preset.id)) {
         problems.push({ file, origin, message: `another file in the same folder already has the id "${preset.id}"` });
         continue;
@@ -246,6 +313,53 @@ async function applyToConta(db: CrmDb, preset: Preset): Promise<boolean> {
 
 const ParamPreset = z.object({ id: z.string().describe("Preset id, from `list-presets`") });
 
+type PresetStage = Preset["stages"][number];
+
+/** The stage columns a preset stage fills. */
+function stageAutomation(stage: PresetStage) {
+  return {
+    ...(stage.estimatedDays !== undefined ? { estimatedDays: stage.estimatedDays } : {}),
+    ...(stage.entryRequirements ? { entryRequirements: stage.entryRequirements } : {}),
+    onEnterActions: stage.onEnterActions,
+    onExitActions: stage.onExitActions,
+  };
+}
+
+const isEmpty = (value: unknown) =>
+  value === null || value === undefined || (Array.isArray(value) ? value.length === 0 : typeof value === "object" && Object.keys(value as object).length === 0);
+
+/**
+ * A pipeline set up by an older version of the preset gets the automation it now brings, stage by stage and only
+ * where the stage has none: what the team configured stays as they left it. Returns what it filled.
+ */
+async function fillStageAutomation(db: CrmDb, pipelineId: string, preset: Preset): Promise<string[]> {
+  const filled: string[] = [];
+  const existing = await db
+    .select({
+      id: crmPipelineStages.id,
+      name: crmPipelineStages.name,
+      estimatedDays: crmPipelineStages.estimatedDays,
+      entryRequirements: crmPipelineStages.entryRequirements,
+      onEnterActions: crmPipelineStages.onEnterActions,
+      onExitActions: crmPipelineStages.onExitActions,
+    })
+    .from(crmPipelineStages)
+    .where(eq(crmPipelineStages.pipelineId, pipelineId));
+  for (const stage of preset.stages) {
+    const row = existing.find((s) => s.name === stage.name);
+    if (!row) continue;
+    const set: Record<string, unknown> = {};
+    if (stage.estimatedDays !== undefined && row.estimatedDays === null) set.estimatedDays = stage.estimatedDays;
+    if (stage.entryRequirements && isEmpty(row.entryRequirements)) set.entryRequirements = stage.entryRequirements;
+    if (stage.onEnterActions.length && isEmpty(row.onEnterActions)) set.onEnterActions = stage.onEnterActions;
+    if (stage.onExitActions.length && isEmpty(row.onExitActions)) set.onExitActions = stage.onExitActions;
+    if (Object.keys(set).length === 0) continue;
+    await db.update(crmPipelineStages).set({ ...set, updatedAt: new Date() }).where(eq(crmPipelineStages.id, row.id));
+    filled.push(...Object.keys(set).map((k) => `stage:${stage.name}.${k}`));
+  }
+  return filled;
+}
+
 export function presetOperations(routes: ReturnType<typeof registry>): void {
   routes.get(
     "/presets",
@@ -279,7 +393,7 @@ export function presetOperations(routes: ReturnType<typeof registry>): void {
       id: "apply-preset",
       summary: "Set the CRM up for a kind of business",
       description:
-        "Creates the preset's entity with its fields, its pipeline with stages and its document templates, and gives kon-conta its words if it is installed. What already exists by name stays as it is, so repeating it is safe. Returns what it `created`, the deal contact `roles`, the suggested access `profiles` and the `nextSteps`. Admin only. 404 for an unknown preset; see `list-presets`.",
+        "Creates the preset's entity with its fields, its pipeline with stages (each with what it does when a deal enters or leaves it, what a deal needs to enter and how long it should stay) and its document templates, and gives kon-conta its words if it is installed. What already exists by name stays as it is, so repeating it is safe; a stage the preset now automates and the team never configured gets that automation. Returns what it `created`, the deal contact `roles`, the suggested access `profiles` and the `nextSteps`. Admin only. 404 for an unknown preset; see `list-presets`.",
       access: "session",
       permission: CONFIGURE,
       before: [requiresEdit],
@@ -299,9 +413,13 @@ export function presetOperations(routes: ReturnType<typeof registry>): void {
       if (!pipeline) {
         [pipeline] = await db.insert(crmPipelines).values({ name: preset.pipeline, createdBy }).returning();
         for (const [order, stage] of preset.stages.entries()) {
-          await db.insert(crmPipelineStages).values({ pipelineId: pipeline!.id, name: stage.name, order, probability: stage.probability });
+          await db
+            .insert(crmPipelineStages)
+            .values({ pipelineId: pipeline!.id, name: stage.name, order, probability: stage.probability, ...stageAutomation(stage) });
         }
         created.push(`pipeline:${preset.pipeline}`);
+      } else {
+        created.push(...(await fillStageAutomation(db, pipeline.id, preset)));
       }
 
       const taxId = preset.conta?.clientTaxIdField ? { conta: { taxId: preset.conta.clientTaxIdField } } : {};

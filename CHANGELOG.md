@@ -16,7 +16,10 @@ its maturity in the table of the [README](README.md). This file records releases
   tenant and landlord roles, a visit confirmation and a reservation letter, and broker, agent and
   assistant profiles. Presets are also read from the installation's own folder (`CRM_PRESETS_DIR`);
   one with a shipped id replaces it, and a broken file is skipped and listed in `problems` by
-  `GET /api/crm/presets` instead of breaking the list and every apply.
+  `GET /api/crm/presets` instead of breaking the list and every apply. A preset's stages bring
+  their automation (`onEnterActions`, `onExitActions`, `entryRequirements`, `estimatedDays`), so
+  a CRM set up from a preset creates its tasks and meetings from the first move; both shipped
+  presets do. Applying again fills a stage the team never configured and leaves the rest.
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles
   are in sentence case ("New journal entry", "Reimbursable expenses", "New template").

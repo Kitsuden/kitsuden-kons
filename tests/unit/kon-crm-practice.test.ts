@@ -373,6 +373,60 @@ describe("custom fields and setting up a firm", () => {
     expect((await json(await request("admin", "POST", "/presets/law-firm/apply"))).created).toEqual([]);
   });
 
+  it("the preset brings each stage's automation, and it runs on the first move", async () => {
+    await client.exec("RESET ROLE");
+    const pipeline = await client.query<{ id: string }>("SELECT id FROM crm_pipelines WHERE name = 'Matters'");
+    const stages = await client.query<{
+      id: string;
+      name: string;
+      on_enter_actions: unknown[];
+      entry_requirements: unknown;
+      estimated_days: number | null;
+    }>(
+      'SELECT id, name, on_enter_actions, entry_requirements, estimated_days FROM crm_pipeline_stages WHERE pipeline_id = $1 ORDER BY "order"',
+      [pipeline.rows[0]!.id]
+    );
+    const byName = Object.fromEntries(stages.rows.map((r) => [r.name, r]));
+    expect(byName["New"]!.on_enter_actions).toHaveLength(2);
+    expect(byName["In progress"]!.entry_requirements).toEqual({ requiredFields: ["practiceArea", "feeType"] });
+    expect(byName["Resolution"]!.estimated_days).toBe(30);
+    await client.exec(`
+      INSERT INTO crm_deals (id, title, pipeline_id, stage_id, contact_id, assigned_to) VALUES
+        ('d_matter', 'Unpaid wages', '${pipeline.rows[0]!.id}', '${byName["New"]!.id}', 'c1', '${STAFF}');
+    `);
+    await dropToAppRole(client);
+
+    // The stage asks for the practice area and the fee type before a matter may enter it.
+    const refused = await request("admin", "POST", "/deals/d_matter/move", { targetStageId: byName["In progress"]!.id });
+    expect(refused.status).toBe(400);
+    const filled = await request("admin", "PATCH", "/deals/d_matter", { customFields: { practiceArea: "labor", feeType: "success" } });
+    expect(filled.status).toBe(200);
+    const moved = await json(await request("admin", "POST", "/deals/d_matter/move", { targetStageId: byName["In progress"]!.id }));
+    expect(moved.automation).toEqual({ ran: ["create_calendar_event", "create_task", "create_task"], failed: [] });
+    const activities = (await json(await request("admin", "GET", "/activities?dealId=d_matter"))).data;
+    expect(activities.map((a: { subject: string }) => a.subject)).toEqual(
+      expect.arrayContaining(["Kick-off meeting with the client", "Request the client's documents", "Agree the success fee in writing"])
+    );
+  });
+
+  it("an older install gets the automation a stage lacks; what the team set stays", async () => {
+    await client.exec("RESET ROLE");
+    await client.exec(`
+      UPDATE crm_pipeline_stages SET on_enter_actions = '[]', estimated_days = NULL WHERE name = 'Resolution';
+      UPDATE crm_pipeline_stages SET on_enter_actions = '[{"type":"create_activity","title":"Ours"}]' WHERE name = 'Closed';
+    `);
+    await dropToAppRole(client);
+    const again = await json(await request("admin", "POST", "/presets/law-firm/apply"));
+    expect(again.created).toEqual(["stage:Resolution.estimatedDays", "stage:Resolution.onEnterActions"]);
+    await client.exec("RESET ROLE");
+    const closed = await client.query<{ on_enter_actions: unknown }>(
+      "SELECT on_enter_actions FROM crm_pipeline_stages WHERE name = 'Closed'"
+    );
+    await dropToAppRole(client);
+    expect(closed.rows[0]!.on_enter_actions).toEqual([{ type: "create_activity", title: "Ours" }]);
+    expect((await json(await request("admin", "POST", "/presets/law-firm/apply"))).created).toEqual([]);
+  });
+
   it("defined fields are validated when written", async () => {
     const res = await request("staff", "PATCH", "/contacts/c1", { customFields: { kycStatus: "whatever" } });
     expect(res.status).toBe(422);
@@ -448,6 +502,63 @@ describe("presets are data, not code", () => {
     expect(presets.get("agency")!.dealContactRoles).toEqual([]);
     writeFileSync(resolve(dir, "broken.json"), JSON.stringify({ id: "Broken!" }));
     expect(() => loadPresets(dir)).toThrow(/broken\.json/);
+  });
+
+  it("a stage automation that would fail later is a problem when the file is read", async () => {
+    const { mkdtempSync, writeFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { readPresets, presetSources } = await import("../../kons/kon-crm/crm.presets");
+    const dir = mkdtempSync(resolve(tmpdir(), "presets-auto-"));
+    const base = {
+      name: "Clinic",
+      description: "Treatments.",
+      entity: { name: "treatment", singular: "Treatment", plural: "Treatments" },
+      contactFields: [],
+      dealFields: [{ key: "tooth", label: "Tooth", type: "text" }],
+      pipeline: "Treatments",
+    };
+    const stage = (extra: object) => [{ name: "Plan", probability: 20, ...extra }];
+    const cases: Array<[string, object, RegExp]> = [
+      ["owner", { onEnterActions: [{ type: "update_field", field: "assignedTo", value: "x" }] }, /update_field may change/],
+      ["unknown-custom", { onEnterActions: [{ type: "update_field", field: "custom.nope", value: 1 }] }, /custom\.<one of the dealFields>/],
+      ["required", { entryRequirements: { requiredFields: ["nope"] } }, /"nope", which is not one of the dealFields/],
+      ["time", { onEnterActions: [{ type: "log_time", title: "Prep" }] }, /log_time needs the quantity/],
+      ["days", { onEnterActions: [{ type: "create_task", title: "Call", value: "soon" }] }, /number of days/],
+      [
+        "condition",
+        { onEnterActions: [{ type: "create_task", condition: { field: "custom.nope", operator: "exists", value: null } }] },
+        /no deal has/,
+      ],
+      ["webhook", { onEnterActions: [{ type: "webhook", url: "https://example.com" }] }, /type/],
+      ["twice", { name: "Plan" }, /same name/],
+    ];
+    for (const [id, extra] of cases) {
+      const stages = id === "twice" ? [...stage({}), ...stage({})] : stage(extra);
+      writeFileSync(resolve(dir, `${id}.json`), JSON.stringify({ ...base, id, stages }));
+    }
+    writeFileSync(
+      resolve(dir, "fine.json"),
+      JSON.stringify({
+        ...base,
+        id: "fine",
+        stages: stage({ estimatedDays: 3, onEnterActions: [{ type: "update_field", field: "custom.tooth", value: "18" }] }),
+      })
+    );
+    const { presets, problems } = readPresets(presetSources({ CRM_PRESETS_DIR: dir }));
+    expect(presets.get("fine")?.origin).toBe("installation");
+    for (const [id, , message] of cases) {
+      const problem = problems.find((p) => p.file === `${id}.json`);
+      expect(problem?.message, id).toMatch(message);
+    }
+  });
+
+  it("every shipped stage automation is one move-deal can run", async () => {
+    const { loadPresets, presetProblem } = await import("../../kons/kon-crm/crm.presets");
+    for (const [id, preset] of loadPresets()) {
+      expect(presetProblem(preset), id).toBeNull();
+      // Each preset ships automation: a CRM that does nothing on day one is the thing this exists to avoid.
+      expect(preset.stages.some((s) => s.onEnterActions.length > 0), id).toBe(true);
+    }
   });
 
   it("the shipped presets list", async () => {

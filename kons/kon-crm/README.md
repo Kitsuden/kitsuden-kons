@@ -58,6 +58,33 @@ What the code does with them:
   properties themselves live in kon-listings). An installation adds its own in the folder named
   by `CRM_PRESETS_DIR`; one with the id of a shipped preset replaces it. A broken file is skipped
   and listed in `problems` by `GET /api/crm/presets`, so it never hides the others.
+- **Presets bring their automation.** Each stage of a preset can say what happens when a deal
+  enters or leaves it (`onEnterActions`, `onExitActions`: a task or a meeting due in N days, an
+  activity, logged time, a field), what a deal needs before it may enter (`entryRequirements`)
+  and how many days it should stay (`estimatedDays`), so the CRM works the day it is set up. Both
+  shipped presets do: the law firm asks for the practice area and the fee type before a matter is
+  in progress, and the agency asks for the listing before a visit. Applying a preset again fills a
+  stage the team never configured and leaves the ones they did. An action that `move-deal` could
+  not run (a field a stage may not change, a field the preset does not define, time without a
+  quantity) makes the file a problem when it is read, not a failure on a deal later.
+
+  ```json
+  {
+    "name": "In progress",
+    "probability": 50,
+    "estimatedDays": 120,
+    "entryRequirements": { "requiredFields": ["practiceArea", "feeType"] },
+    "onEnterActions": [
+      { "type": "create_calendar_event", "title": "Kick-off meeting with the client", "value": 5 },
+      {
+        "type": "create_task",
+        "title": "Agree the success fee in writing",
+        "value": 3,
+        "condition": { "field": "custom.feeType", "operator": "==", "value": "success" }
+      }
+    ]
+  }
+  ```
 - **Access dials.** Per person or agent: `records` (all, or assigned/created; applied by row
   security), `sensitive`, `money` and `notes`. By default the team sees all records, amounts and
   notes, not sensitive data; an agent sees the same without notes. `crm:read-all` or a grant made

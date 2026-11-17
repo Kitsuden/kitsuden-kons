@@ -165,31 +165,113 @@
   "stages": [
     {
       "name": "New lead",
-      "probability": 10
+      "probability": 10,
+      "estimatedDays": 1,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Call the lead back",
+          "value": 1
+        }
+      ]
     },
     {
       "name": "Contacted",
-      "probability": 20
+      "probability": 20,
+      "estimatedDays": 7,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Offer visit times",
+          "value": 2
+        }
+      ]
     },
     {
       "name": "Visit scheduled",
-      "probability": 35
+      "probability": 35,
+      "estimatedDays": 7,
+      "entryRequirements": {
+        "requiredFields": ["listingRef"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_calendar_event",
+          "title": "Property visit",
+          "value": 3
+        }
+      ]
     },
     {
       "name": "Visited",
-      "probability": 50
+      "probability": 50,
+      "estimatedDays": 5,
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Ask the client how the visit went",
+          "value": 1
+        }
+      ]
     },
     {
       "name": "Offer",
-      "probability": 65
+      "probability": 65,
+      "estimatedDays": 10,
+      "entryRequirements": {
+        "requiredFields": ["offerAmount"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Present the offer to the owner",
+          "value": 2
+        }
+      ]
     },
     {
       "name": "Reservation",
-      "probability": 85
+      "probability": 85,
+      "estimatedDays": 30,
+      "entryRequirements": {
+        "requiredFields": ["reservationDate"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_task",
+          "title": "Send the reservation agreement for signature",
+          "value": 1
+        },
+        {
+          "type": "create_task",
+          "title": "Mark the listing as reserved on the portals",
+          "value": 1
+        }
+      ]
     },
     {
       "name": "Closing",
-      "probability": 95
+      "probability": 95,
+      "entryRequirements": {
+        "requiredFields": ["closingDate"]
+      },
+      "onEnterActions": [
+        {
+          "type": "create_calendar_event",
+          "title": "Signing",
+          "value": 7
+        },
+        {
+          "type": "create_task",
+          "title": "Invoice the commission",
+          "value": 3
+        },
+        {
+          "type": "create_task",
+          "title": "Take the listing off the portals",
+          "value": 1
+        }
+      ]
     }
   ],
   "templates": [

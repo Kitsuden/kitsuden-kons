@@ -72,7 +72,7 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `crm.scoring.ts` | Score model, versions and scoring |
 | `crm.records.ts` | Activity reopen, activity kinds, documents across deals |
 | `crm.work.ts` | Task inbox, agenda, deal contacts, saved views, document templates |
-| `crm.presets.ts` | Presets from `presets/` and `CRM_PRESETS_DIR` (a broken file is skipped and reported) and applying them (with kon-conta's words) |
+| `crm.presets.ts` | Presets from `presets/` and `CRM_PRESETS_DIR` (a broken file, or a stage automation `move-deal` could not run, is skipped and reported) and applying them: stages with their automation, kon-conta's words |
 | `crm.entities.ts` | Entities, fields, activity kinds, numbering |
 | `crm.events.ts` | `emitCrm`: events after commit, ids only |
 | `crm.mails.ts` | The kon's email templates, registered at startup |
