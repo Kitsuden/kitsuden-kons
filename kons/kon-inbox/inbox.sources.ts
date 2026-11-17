@@ -93,7 +93,41 @@ async function getJson(client: Fetcher, url: string, init?: RequestInit): Promis
 
 // ── Addresses ───────────────────────────────────────────────────────────────
 
-const ADDRESS = /^[^\s@<>",;]+@[^\s@<>",;]+\.[^\s@<>",;]+$/;
+/** Characters an address never contains. */
+const ADDRESS_FORBIDDEN = /[\s<>",;]/;
+
+/**
+ * `local@domain.tld`, checked without a backtracking regex (CodeQL js/polynomial-redos): exactly one
+ * `@`, none of the forbidden characters, and a dot inside the domain with a character on each side.
+ */
+const ADDRESS = {
+  test(value: string): boolean {
+    if (ADDRESS_FORBIDDEN.test(value)) return false;
+    const at = value.indexOf("@");
+    if (at < 1 || at !== value.lastIndexOf("@")) return false;
+    const domain = value.slice(at + 1);
+    const dot = domain.indexOf(".", 1);
+    return dot !== -1 && dot < domain.length - 1;
+  },
+};
+
+/**
+ * `Display Name <address>` (the name optionally quoted) → its two parts, or null when the text is not
+ * that shape. Linear: it looks for the last `<` instead of a regex with nested optional groups.
+ */
+function splitNamed(part: string): { name: string; address: string } | null {
+  const text = part.trim();
+  if (!text.endsWith(">")) return null;
+  const lt = text.lastIndexOf("<");
+  if (lt === -1) return null;
+  const address = text.slice(lt + 1, -1);
+  if (address.length === 0 || address.includes(">")) return null;
+  let name = text.slice(0, lt).trim();
+  if (name.startsWith('"')) name = name.slice(1);
+  if (name.endsWith('"')) name = name.slice(0, -1);
+  if (name.includes('"') || name.includes("<")) return null;
+  return { name, address };
+}
 
 /** `"Ana Ortega" <ana@x.com>, bruno@y.com` → [{ name, address }]. Quoted commas do not split. */
 export function parseAddressList(header: string | null | undefined): Array<{ name: string | null; address: string }> {
@@ -114,10 +148,10 @@ export function parseAddressList(header: string | null | undefined): Array<{ nam
   parts.push(current);
   const out: Array<{ name: string | null; address: string }> = [];
   for (const part of parts) {
-    const m = /^\s*(?:"?([^"<]*?)"?\s*)?<([^>]+)>\s*$/.exec(part);
-    const address = (m ? m[2]! : part).trim().toLowerCase();
+    const m = splitNamed(part);
+    const address = (m ? m.address : part).trim().toLowerCase();
     if (!ADDRESS.test(address)) continue;
-    const name = m?.[1]?.trim() || null;
+    const name = m?.name?.trim() || null;
     out.push({ name, address });
   }
   return out;
