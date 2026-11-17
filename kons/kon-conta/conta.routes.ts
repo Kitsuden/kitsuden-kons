@@ -86,18 +86,19 @@ import type { ContaDb } from "./types";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const id = z.string().min(1).max(64);
-// `[0-9]`, not `\d`: the same in JavaScript, but Schemathesis generates Unicode digits for `\d`
-// and then discards them as not matching, until its health check fails (POST /conta/journals/validate).
+// Patterns end in `$(?!\n)`, not `$`: the same in JavaScript, but the generator Schemathesis uses reads
+// `$` the Python way (it also matches before a final newline), so a third of its values ended in "\n"
+// and were thrown away; with four patterns per line its health check failed on POST /conta/journals/validate.
 /** Amount as text, as the database stores it (numeric 19,4). */
-const amount = z.string().regex(/^[0-9]{1,15}(\.[0-9]{1,4})?$/, "Invalid amount");
-const signedAmount = z.string().regex(/^-?[0-9]{1,15}(\.[0-9]{1,4})?$/, "Invalid amount");
-const rate = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,10})?$/, "Invalid exchange rate");
-const date = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/);
+const amount = z.string().regex(/^[0-9]{1,15}(\.[0-9]{1,4})?$(?!\n)/, "Invalid amount");
+const signedAmount = z.string().regex(/^-?[0-9]{1,15}(\.[0-9]{1,4})?$(?!\n)/, "Invalid amount");
+const rate = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,10})?$(?!\n)/, "Invalid exchange rate");
+const date = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$(?!\n)/);
 const metadata = z.record(z.string(), z.unknown());
 const text = (max: number) => z.string().max(max);
 
 const currencySchema = z.object({
-  code: z.string().regex(/^[A-Z]{3}$/),
+  code: z.string().regex(/^[A-Z]{3}$(?!\n)/),
   name: text(100).min(1),
   symbol: text(10).min(1),
   decimalPlaces: z.number().int().min(0).max(8).default(2),
@@ -146,7 +147,7 @@ const ledgerLineSchema = z.object({
   credit: amount.default("0"),
   currency: z
     .string()
-    .regex(/^[A-Z]{3}$/)
+    .regex(/^[A-Z]{3}$(?!\n)/)
     .default("USD"),
   exchangeRate: rate.default("1"),
   metadata: metadata.optional(),
