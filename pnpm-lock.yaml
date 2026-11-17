@@ -235,6 +235,8 @@ importers:
         specifier: ^4.0.18
         version: 4.1.12(@types/node@22.20.5)
 
+  kons/kon-dc: {}
+
   kons/kon-directory:
     devDependencies:
       typescript:

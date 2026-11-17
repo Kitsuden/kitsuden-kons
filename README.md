@@ -99,6 +99,7 @@ use a kon has had, not how many features it has:
 | `kon-newsletter` | beta | 1.1.0 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
 | `kon-wiki` | beta | 1.1.4 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
 | `kon-chat` | experimental | 1.0.4 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what… |
+| `kon-dc` | experimental | 0.3.0 | 1 | `/api/dc` | Discord bots built from declarative blueprints: modules you switch on per server, slash commands over HTTP… |
 
 ### Gaming
 
