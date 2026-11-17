@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-booking",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Room and resource booking system for Kitsuden",
   "type": "module",
   "main": "./index.ts",

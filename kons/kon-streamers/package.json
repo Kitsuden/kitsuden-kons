@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-streamers",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Streamer management with Twitch/YouTube/Kick sync and game associations",
   "type": "module",
   "main": "./index.ts",

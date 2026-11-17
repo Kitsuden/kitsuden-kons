@@ -3,7 +3,7 @@
   "id": "kon-dms",
   "name": "Document Management System",
   "description": "Versioned document management with hierarchical categories, approval workflows, semantic versioning, and comprehensive audit trail. Optimized for manuals and corporate documentation.",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

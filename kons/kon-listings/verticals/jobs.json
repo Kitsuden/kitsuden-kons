@@ -1,0 +1,24 @@
+{
+  "$comment": "Job offers. The listing's price is not used: pay goes in salaryMin/salaryMax with its period.",
+  "id": "jobs",
+  "name": "Jobs",
+  "fields": [
+    { "key": "company", "label": "Company", "type": "text", "required": true, "maxLength": 120 },
+    {
+      "key": "contract",
+      "label": "Contract",
+      "type": "select",
+      "options": ["full-time", "part-time", "temporary", "internship", "freelance"],
+      "required": true
+    },
+    { "key": "workplace", "label": "Workplace", "type": "select", "options": ["on-site", "hybrid", "remote"] },
+    { "key": "category", "label": "Category", "type": "text", "maxLength": 80 },
+    { "key": "salaryMin", "label": "Salary from", "type": "number", "minValue": 0 },
+    { "key": "salaryMax", "label": "Salary up to", "type": "number", "minValue": 0 },
+    { "key": "salaryPeriod", "label": "Salary period", "type": "select", "options": ["hour", "month", "year"] },
+    { "key": "experienceYears", "label": "Experience (years)", "type": "number", "minValue": 0, "maxValue": 60 }
+  ],
+  "publish": {
+    "requires": ["city"]
+  }
+}

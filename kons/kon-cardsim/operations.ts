@@ -20,7 +20,7 @@
 import { defineOperation, type AnyOperation } from "@kitsuden/engine";
 import type { OperationContext, ValidatedInput, KonOperation } from "@kitsuden/shared";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 export const KON_ID = "kon-cardsim";
 

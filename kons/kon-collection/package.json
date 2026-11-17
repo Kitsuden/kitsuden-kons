@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-collection",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Each reader's collection over an index with records: what they have and what they lack",
   "type": "module",
   "main": "./index.ts",

@@ -6,7 +6,7 @@ else) lives in your frontend.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.1 | `/api/maps` | — (core `auth`) |
+| beta | gaming | 1.0.2 | `/api/maps` | — (core `auth`) |
 
 ## Install
 

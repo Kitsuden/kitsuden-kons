@@ -7,7 +7,7 @@ can optionally write journal entries into kon-conta.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 1.1.1 | `/api/payments` | — (optional: kon-conta) |
+| experimental | business | 1.2.0 | `/api/payments` | — (optional: kon-conta) |
 
 ## Install
 
@@ -86,6 +86,12 @@ agent acts under its own identity, so it has no subscriptions of its own and `po
 answer 404 for it.
 
 ## Configuration
+
+On a Kitsuden with connections (`ctx.connections`), an admin can store the API key of Stripe, Lemon Squeezy or Paddle there
+instead of the environment (Kitsuden's connections API (`/api/connections/api-keys`), provider `stripe`, `lemonsqueezy` or
+`paddle`, scope `organization`). The key is sealed by the host and never reaches this kon: requests go
+through the connection's client, only to the provider's API host. A key in the environment wins. Webhook
+signing secrets stay in the environment.
 
 Providers (a provider is active when the first variable(s) listed are set):
 

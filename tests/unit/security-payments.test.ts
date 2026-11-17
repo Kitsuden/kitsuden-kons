@@ -70,6 +70,7 @@ const fake: PaymentProvider = {
 };
 
 const ANA = { id: "u-ana", role: "user" };
+const emitted: Array<{ name: string; data: Record<string, unknown> }> = [];
 const BEA = { id: "u-bea", role: "user" };
 
 beforeAll(async () => {
@@ -87,6 +88,7 @@ beforeAll(async () => {
       execute: async () => undefined,
       tableExists: async () => true,
     },
+    events: { emit: (name: string, data: Record<string, unknown>) => emitted.push({ name, data }), on: () => {}, off: () => {} },
     auth: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Hono middleware double
       requireAuth: (c: any, next: any) => {
@@ -279,6 +281,15 @@ describe("webhook: negative events do not grant access", () => {
         `SELECT status FROM pay_subscriptions WHERE user_id = '${userId}' ORDER BY created_at`
       )
     ).rows.map((r) => r.status);
+
+  it("the payment event names the pay_events row, so another kon can link it", async () => {
+    emitted.length = 0;
+    nextEvent = event({ type: "payment.succeeded", customerEmail: "ana@ejemplo.com", metadata: { userId: "u-ana" } });
+    await post("/webhook/stripe", {});
+    const [sent] = emitted.filter((e) => e.name === "payment:payment.succeeded");
+    const [row] = (await client.query<{ id: string }>(`SELECT id FROM pay_events ORDER BY processed_at DESC LIMIT 1`)).rows;
+    expect(sent?.data.paymentEventId).toBe(row!.id);
+  });
 
   it("a refund does NOT create an active subscription", async () => {
     nextEvent = event({

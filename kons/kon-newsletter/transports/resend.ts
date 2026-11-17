@@ -14,12 +14,17 @@ import type { BulkSendResult, BulkTransport } from "../newsletter.types";
 
 const BATCH_ENDPOINT = "https://api.resend.com/emails/batch";
 
-export function resendTransport(env = process.env): BulkTransport {
-  const apiKey = env.RESEND_API_KEY;
+/**
+ * `http`: the organization's resend connection in Kitsuden (ctx.connections), used when `RESEND_API_KEY` is not set. It adds
+ * the key itself on every request, so the key never reaches this file.
+ */
+export function resendTransport(env = process.env, http?: { fetch(url: string, init?: RequestInit): Promise<Response> }): BulkTransport {
+  const send = (url: string, init?: RequestInit) => (http && !env.RESEND_API_KEY ? http.fetch(url, init) : fetch(url, init));
+  const apiKey = env.RESEND_API_KEY ?? (http ? "" : undefined);
 
   return {
     name: "resend",
-    isConfigured: () => Boolean(apiKey),
+    isConfigured: () => Boolean(apiKey) || Boolean(http),
     batchSize: 100,
     ratePerSecond: Number(env.RESEND_RATE_PER_SECOND ?? 10),
 
@@ -41,7 +46,7 @@ export function resendTransport(env = process.env): BulkTransport {
 
       let res: Response;
       try {
-        res = await fetch(BATCH_ENDPOINT, {
+        res = await send(BATCH_ENDPOINT, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,

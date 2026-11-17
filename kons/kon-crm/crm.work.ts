@@ -9,7 +9,7 @@
 import { AppError, can } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { accessOf, hiddenFieldKeys } from "./crm.access";
 import { likePattern } from "./crm.records";

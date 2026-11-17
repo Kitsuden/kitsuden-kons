@@ -30,7 +30,7 @@ import {
 import { invalidWikiSlugReason, type KonContext, type KonDefinition } from "@kitsuden/shared";
 import { and, count, desc, eq, sql } from "drizzle-orm";
 import type { Context, Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import "./wiki.policy.js";
 import {

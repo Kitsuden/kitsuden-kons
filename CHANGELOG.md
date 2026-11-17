@@ -15,6 +15,70 @@ its maturity in the table of the [README](README.md). This file records releases
   `agile:issue.*` events for automation rules, ships the `agile.issue-event` mail template and five
   ready-made rules (`GET /api/agile/rule-templates`), and gains ten MCP tools. The agent rule holds
   for all of it, in the routes and in row security (migration 0006).
+- The CRM, the shop, payments and the newsletter know about each other, through events and links, with
+  none importing another (kon-crm 1.1.0, kon-ecommerce 1.2.0, kon-payments 1.2.0, kon-newsletter 1.1.0):
+  - new event names `crm:contact.created`, `crm:deal.moved`, `crm:deal.won`, `crm:deal.lost`,
+    `shop:order.delivered` and `newsletter:member.subscribed`; the old names still go out.
+    `shop:order.paid` carries the buyer, and `payment:payment.*` the `pay_events` row
+    (`paymentEventId`). Each kon declares what it emits and listens to (`events`), for Kitsuden's
+    catalog.
+  - kon-crm turns a paid order, a newsletter subscription and a payment into a contact (through its
+    duplicate detector, never from an address on the exclusion list) and a link (`ordered_by`,
+    `same_person`, `paid_by`). `view-timeline` shows a contact's or a deal's activities, stage moves
+    and links together.
+  - kon-ecommerce declares kon-payments as optional (it always charged through it at runtime).
+- kon-crm contributes six steps to Kitsuden's automation rules (`kon-crm:create-activity`,
+  `create-task`, `create-calendar-event`, `log-time`, `update-field`, `move-stage`). On a Kitsuden
+  with the rule engine (`ctx.automation`) a stage's on-enter and on-exit actions become rules of the kon
+  and leave the stage; on one without it, the CRM's own runner keeps them. Moving a deal lives in one
+  place (`crm.moves.ts`).
+- kon-crm has an inbox (`/api/crm/inbox`, migration 0015): a person's Gmail and Google Calendar or Microsoft 365
+  mailbox, synced incrementally on the queue through Kitsuden's connections (`ctx.connections`), metadata only
+  (no bodies). The owner picks the mailboxes and shares threads with the team; removing a mailbox or revoking its
+  connection deletes what it brought. Each message and meeting goes on the contacts' timeline, which shows a
+  private one only as "an email" to everyone but its owner. A message from a contact suggests the name they write
+  under and their company's domain, as `mail-header` evidence a person accepts. Events `crm:message.received`
+  and `crm:meeting.synced`.
+- kon-crm sells: product lines on a deal with a frozen price, quotes (draft, sent, accepted, rejected)
+  whose acceptance can open a kon-payments payment or a kon-ecommerce order, forecast and targets per
+  person and period, and a CSV import that marks the rows its duplicate detector matches. Its reports
+  (funnel, conversion per stage, lost reasons) answer as `get-report` and are declared for Kitsuden's
+  report engine.
+- kon-crm keeps its entity types in Kitsuden's entities when the host has them (`ctx.entities.define`,
+  `crm-<entityName>`, with flags, pipeline, numbering and activity kinds in `settings`) and stops reading
+  `crm_entity_configs`: each row moves once at startup and is marked `migratedTo`; a row the core refuses
+  stays readable. Migration 0014 drops the foreign key from `crm_deals.entity_config_id`, which now holds
+  the old row id or the entity's slug. Without `ctx.entities`, the table is used as before.
+- kon-payments (Stripe, Lemon Squeezy, Paddle) and kon-newsletter (Resend, Mailgun) register their providers
+  in Kitsuden's connections (`ctx.connections`) and can take their API key from an organization connection
+  instead of the environment; the key never reaches them, and the environment still wins.
+- One "do not contact" between kon-crm and kon-newsletter. An unsubscribe, a complaint or a manual
+  suppression in the newsletter excludes the address in the CRM, and an exclusion in the CRM suppresses it
+  in the newsletter (`newsletter:address.suppressed|unsuppressed`, `crm:address.suppressed|unsuppressed`).
+  Taking an address off one list lifts it from the other only if that is where it came from. A bounce is
+  not mirrored, and neither is a domain excluded in the CRM (the newsletter's list is by address).
+- Kons import Zod from `@kitsuden/engine/zod`, as Kitsuden's lint requires (73 files);
+  `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so. Patch versions for the kons whose only
+  change is that import: kon-academy-lms 1.1.2, kon-agile 1.3.4, kon-analytics 1.0.3, kon-autobattler 1.0.2,
+  kon-blog 2.0.3, kon-booking 1.0.2, kon-broadcast 1.0.5, kon-cardsim 2.3.2, kon-character-builder 1.1.3,
+  kon-chat 1.0.4, kon-collection 1.0.2, kon-comments 1.0.3, kon-conta 1.0.3, kon-directory 1.0.1,
+  kon-dms 2.0.1, kon-esports 1.0.5, kon-formulas 1.0.2, kon-games 2.1.3, kon-maps 1.0.2, kon-members 1.0.2,
+  kon-ocr-training 1.1.2, kon-streamers 1.0.3, kon-tierlist 1.0.3, kon-vekstudio 1.0.2, kon-wiki 1.1.4.
+- New kon-listings 0.1.0 (experimental): listings of any kind (real estate, vehicles, jobs) with a
+  public search for the agency's own site, inquiries from visitors (announced as
+  `listings:inquiry.received`), and the XML feeds portals read, built from one mapping per portal.
+  Trovit and Mitula ship as unverified mappings: neither publishes its specification, so check
+  them against the one the portal sends and edit `portals/<portal>.json`. A new kind of listing or
+  a new portal is a JSON file, not code.
+- kon-crm 1.1.0: a `real-estate` preset for agencies: numbered sales and rentals tied to a listing,
+  buyer and tenant requirements on the contact, visits, valuations and signings, buyer, seller,
+  tenant and landlord roles, a visit confirmation and a reservation letter, and broker, agent and
+  assistant profiles. Presets are also read from the installation's own folder (`CRM_PRESETS_DIR`);
+  one with a shipped id replaces it, and a broken file is skipped and listed in `problems` by
+  `GET /api/crm/presets` instead of breaking the list and every apply. A preset's stages bring
+  their automation (`onEnterActions`, `onExitActions`, `entryRequirements`, `estimatedDays`), so
+  a CRM set up from a preset creates its tasks and meetings from the first move; both shipped
+  presets do. Applying again fills a stage the team never configured and leaves the rest.
 - The admin views carry tallao f8eab12: a confirmation dialog no longer draws an empty band
   between its title and its buttons, and DiffView can show a hidden value. kon-conta's view titles
   are in sentence case ("New journal entry", "Reimbursable expenses", "New template").

@@ -41,7 +41,7 @@ import {
 import { readDatasetCatalog, type KonContext } from "@kitsuden/shared";
 import { and, eq, ilike } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { sectionsOf, validateDeck, type CardCatalog, type DeckInput } from "./cardsim.deck.js";
 import { formatDeckList, formatYdk, parseDeckList, parseYdk } from "./cardsim.decklist.js";

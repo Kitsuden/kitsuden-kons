@@ -27,12 +27,12 @@
 import { AppError } from "@kitsuden/engine";
 import { and, eq, sql } from "drizzle-orm";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
-import { activityKinds, entityByName, entityOfDeal } from "./crm.entities";
-import { crmAccessGrants, crmDeals, crmEntityConfigs, type EntityFieldSchema } from "./crm.schema";
+import { activityKinds, allFields, entityByName, entityOfDeal } from "./crm.entities";
+import { crmAccessGrants, crmDeals, type EntityFieldSchema } from "./crm.schema";
 import { CONFIGURE, VIEW, requiresEdit, type registry } from "./operations";
 
 export interface CrmAccess {
@@ -104,8 +104,7 @@ export function withoutFields(data: unknown, hidden: Set<string>): unknown {
 }
 
 async function activeFields(db: CrmDb): Promise<EntityFieldSchema[]> {
-  const rows = await db.select({ fieldSchema: crmEntityConfigs.fieldSchema }).from(crmEntityConfigs).where(eq(crmEntityConfigs.isActive, true));
-  return rows.flatMap((r) => r.fieldSchema ?? []);
+  return allFields(db);
 }
 
 /** The custom fields this access must not read: sensitive ones without `sensitive`, currency ones without `money`. */

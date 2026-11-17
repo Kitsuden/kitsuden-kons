@@ -42,7 +42,7 @@ import type { KonContext } from "@kitsuden/shared";
 import { eq, and, or, sql, asc, desc, ilike, isNull, inArray, type SQL } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { rlsContext, dbDe, userOf } from "./directory.context";
 import type { DirectoryDb } from "./directory.db";

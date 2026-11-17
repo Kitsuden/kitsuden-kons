@@ -16,7 +16,7 @@ import {
 import type { KonContext } from "@kitsuden/shared";
 import { eq, and, desc, ilike, sql, asc, ne, isNull, gt, inArray, lte } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   createBracket,

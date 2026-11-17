@@ -19,7 +19,7 @@
  */
 
 import { heading, layout, mail, paragraph, type Mailable, type AnyOperation } from "@kitsuden/engine";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { declareOp, registry } from "./operations";
 

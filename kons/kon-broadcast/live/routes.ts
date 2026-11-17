@@ -31,7 +31,7 @@ import { repo, can, attemptSql, type AuthzUser, type AnyOperation } from "@kitsu
 import { defineSyncedState } from "@kitsuden/engine";
 import type { OperationContext, KonContext } from "@kitsuden/shared";
 import type { Context } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import {
   bestOfFromFirstTo,

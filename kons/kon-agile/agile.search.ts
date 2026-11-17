@@ -10,7 +10,7 @@
 
 import { AppError, type AnyOperation } from "@kitsuden/engine";
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { AgileAccess } from "./agile.access";
 import type { AgileDb } from "./agile.db";

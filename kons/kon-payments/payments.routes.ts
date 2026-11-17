@@ -30,7 +30,7 @@ import { operationsRouter, type AuthzUser, type AnyOperation } from "@kitsuden/e
 import type { KonContext } from "@kitsuden/shared";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { ANY_ACCOUNT, KON_ID, registry, onTheirOwn } from "./operations";
 
@@ -357,6 +357,7 @@ export function paymentsOperations(
             userId: result.userId ?? null,
             subscriptionId: result.subscriptionId,
             subscription: result.subscription ?? null,
+            paymentEventId: result.eventId ?? null,
             event,
           });
         }

@@ -18,7 +18,7 @@
 
 import { AppError, isUuid, type AnyOperation } from "@kitsuden/engine";
 import { and, asc, eq, sql } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import type { AgileAccess } from "./agile.access";
 import type { AgileDb } from "./agile.db";

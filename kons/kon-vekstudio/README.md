@@ -6,7 +6,7 @@ job to a Kitsuden record. For teams that run the vekocr/vekdocs stack next to Ki
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | documents | 1.0.1 | `/api/ocr` | — (core `auth`; a reachable vekdocs gateway) |
+| experimental | documents | 1.0.2 | `/api/ocr` | — (core `auth`; a reachable vekdocs gateway) |
 
 ## Install
 

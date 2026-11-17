@@ -14,7 +14,7 @@ at `/api/cardsim`:
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 2.3.1 | `/api/cardsim` | — (core: `auth`) |
+| beta | gaming | 2.3.2 | `/api/cardsim` | — (core: `auth`) |
 
 ## Install
 

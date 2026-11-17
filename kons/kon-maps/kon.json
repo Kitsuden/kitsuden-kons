@@ -3,7 +3,7 @@
   "id": "kon-maps",
   "name": "Maps",
   "description": "Interactive game maps: layers, categories, markers with normalized coordinates and clustering",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

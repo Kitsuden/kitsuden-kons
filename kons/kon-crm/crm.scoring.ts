@@ -14,7 +14,7 @@
 
 import { AppError } from "@kitsuden/engine";
 import { and, desc, eq, gt, sql, asc } from "drizzle-orm";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";

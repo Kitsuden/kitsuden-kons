@@ -14,7 +14,7 @@
 import { AppError, isUuid, type AnyOperation } from "@kitsuden/engine";
 import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { isAgent, type AgileAccess } from "./agile.access";
 import type { AgileDb } from "./agile.db";

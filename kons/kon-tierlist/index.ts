@@ -25,7 +25,7 @@ import {
 } from "@kitsuden/engine";
 import { datasetImageUrl, readDatasetCatalog, type KonContext } from "@kitsuden/shared";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import "./tierlist.policy.js";
 import {

@@ -19,7 +19,7 @@ import {
 } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
 import type { Hono } from "hono";
-import { z } from "zod";
+import { z } from "@kitsuden/engine/zod";
 
 import { compileSystem, evaluateSystem, FormulaError } from "./formula.engine.js";
 import "./formulas.policy.js";
