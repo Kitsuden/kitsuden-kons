@@ -117,7 +117,15 @@ function renderSide(key, side) {
   $(`[data-sponsor-${key}]`).textContent = side?.sponsor ?? "";
   renderRoster(key, side);
   $(`[data-name-${key}]`).textContent = side?.name ?? "";
-  $(`[data-score-${key}]`).textContent = String(side?.score ?? 0);
+  const scoreEl = $(`[data-score-${key}]`);
+  const score = String(side?.score ?? 0);
+  // A change (not the first paint) pops: the audience sees which side scored.
+  if (document.body.dataset.ready === "1" && scoreEl.textContent !== score) {
+    scoreEl.classList.remove("pop");
+    void scoreEl.offsetWidth;
+    scoreEl.classList.add("pop");
+  }
+  scoreEl.textContent = score;
   document.querySelector(`[data-side="${key}"]`).dataset.losers = String(Boolean(side?.losers));
   chips($(`[data-chars-${key}]`), side?.chars, "char");
 
@@ -130,6 +138,7 @@ function renderSide(key, side) {
   $(`[data-vs-flag-${key}]`).textContent = flagEmoji(side?.country);
   $(`[data-vs-sponsor-${key}]`).textContent = side?.sponsor ?? "";
   $(`[data-vs-name-${key}]`).textContent = side?.name ?? "";
+  $(`[data-vs-losers-${key}]`).hidden = !side?.losers;
   chips($(`[data-vs-chars-${key}]`), side?.chars, "vs-char");
 }
 
@@ -148,7 +157,9 @@ function renderCasters(casters) {
 
         const handle = document.createElement("div");
         handle.className = "caster-handle";
-        handle.textContent = c.handle ?? "";
+        // One "@" whether the operator typed it or not.
+        const at = String(c.handle ?? "").trim().replace(/^@+/, "");
+        handle.textContent = at ? `@${at}` : "";
 
         box.append(name, handle);
         return box;
@@ -275,6 +286,8 @@ function render(state) {
   $("[data-round]").textContent = state.event?.round ?? "";
   $("[data-ft]").textContent = state.event?.firstTo ? `FIRST TO ${state.event.firstTo}` : "";
   $("[data-vs-event]").textContent = state.event?.title ?? "";
+  $("[data-vs-round]").textContent = state.event?.round ?? "";
+  $("[data-vs-ft]").textContent = state.event?.firstTo ? `· FIRST TO ${state.event.firstTo}` : "";
 
   renderTicker(state.ticker);
 

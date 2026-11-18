@@ -26,6 +26,15 @@ import {
 } from "./broadcast.schema.js";
 import { EXPLANATION, KON_ID, requiresSection, resolveSections } from "./broadcast.sections.js";
 import { liveOperations, republishGames } from "./live/routes.js";
+import {
+  StartggError,
+  StartggEventRef,
+  getStartggSet,
+  isLosersRound,
+  listEventSets,
+  splitEntrant,
+  startggToken,
+} from "./broadcast.startgg.js";
 import { ANY_ACCOUNT, registry, onTheSet } from "./operations.js";
 
 // ── FormRequests: declarative validation with Zod ────────────────────────────
@@ -160,7 +169,7 @@ const ScoreUpdate = z
   .object({
     side: z.enum(["a", "b"]),
     delta: z.number().int().optional(),
-    value: z.number().int().min(0).optional(),
+    value: z.number().int().min(0).max(99).optional(),
   })
   .refine((v) => v.delta !== undefined || v.value !== undefined, {
     message: "`delta` or `value` is required",
@@ -226,6 +235,21 @@ const FALLBACK_PROFILE = "1v1";
 export function broadcastOperations(ctx: KonContext): AnyOperation[] {
   const app = registry();
   const db = ctx.db.instance;
+
+  /**
+   * Publishes to the overlays AND tells the rest of the installation: `broadcast:match:updated` on
+   * the core's bus, after the write commits. It is what lets another kon follow a set without
+   * polling (kon-dc redraws its Discord panel, an action posts the result), with only what is on
+   * screen in the payload.
+   */
+  const publish = async (match: BroadcastMatch) => {
+    await publishOverlay(match);
+    try {
+      ctx.events?.emit(BROADCAST_EVENTS.updated, matchEvent(match));
+    } catch {
+      // Whoever listens never breaks the broadcast.
+    }
+  };
 
   /** What the active grimoire declares as this deployment's profile. */
   const configuredProfileId = konSetting<string>(ctx, KON_ID, "gameProfile");
@@ -510,7 +534,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         ownerId: user?.id ?? null,
       });
 
-      await publishOverlay(match);
+      await publish(match);
       return c.json({ data: match, channel: overlayStateKey(match.id) }, 201);
     }
   );
@@ -591,7 +615,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
               ...(other.status === "live" ? { status: "draft" } : {}),
               updatedAt: new Date(),
             });
-          if (off) await publishOverlay(off);
+          if (off) await publish(off);
         }
       }
 
@@ -607,7 +631,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
       } as Partial<NewBroadcastMatch>;
 
       const [updated] = await repo(broadcastMatches, { db }).filter({ id }).update(patch);
-      await publishOverlay(updated);
+      await publish(updated);
       // Theme, sponsors, casters and score are also painted in the graphic
       // of each game: without this, changing a team's color left the
       // already-open overlays with the old color until they reconnected.
@@ -635,6 +659,11 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ error: "Not found" }, 404);
       }
       await repo(broadcastMatches, { db }).filter({ id }).delete();
+      try {
+        ctx.events?.emit(BROADCAST_EVENTS.deleted, { matchId: id });
+      } catch {
+        // Whoever listens never breaks the delete.
+      }
       return c.json({ success: true });
     }
   );
@@ -670,11 +699,11 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
       const [updated] = await repo(broadcastMatches, { db })
         .filter({ id })
         .update({
-          [key]: { ...current, score: Math.max(0, next) },
+          [key]: { ...current, score: Math.min(99, Math.max(0, next)) },
           updatedAt: new Date(),
         } as Partial<NewBroadcastMatch>);
 
-      await publishOverlay(updated);
+      await publish(updated);
       return c.json({ data: updated });
     }
   );
@@ -709,7 +738,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
           updatedAt: new Date(),
         } as Partial<NewBroadcastMatch>);
 
-      await publishOverlay(updated);
+      await publish(updated);
       return c.json({ data: updated });
     }
   );
@@ -746,7 +775,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         .filter({ id })
         .update({ ticker: text, updatedAt: new Date() } as Partial<NewBroadcastMatch>);
 
-      await publishOverlay(updated);
+      await publish(updated);
       return c.json({ data: updated });
     }
   );
@@ -757,10 +786,16 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "swap-sides",
       summary: "Swap sides",
-      description: "Swaps side A and side B (the grand finals side switch). Owner or admin.",
+      description:
+        "Swaps side A and side B (the grand finals side switch). With `?keepColors=true` each color stays with its seat instead of following the player. Owner or admin.",
       access: "session",
       permission: onTheSet("update"),
-      input: { params: ParamId },
+      input: {
+        params: ParamId,
+        query: z
+          .object({ keepColors: z.enum(["true", "false"]).optional().describe("Colors stay with the seat (default: they follow the player)") })
+          .passthrough(),
+      },
       output: { schema: z.object({ data: SetOut }) },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
@@ -771,15 +806,162 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         return c.json({ error: "Not found" }, 404);
       }
 
+      const keepColors = c.req.query("keepColors") === "true";
       const [updated] = await repo(broadcastMatches, { db })
         .filter({ id })
         .update({
-          sideA: match.sideB,
-          sideB: match.sideA,
+          sideA: keepColors ? { ...match.sideB, color: match.sideA.color } : match.sideB,
+          sideB: keepColors ? { ...match.sideA, color: match.sideB.color } : match.sideA,
           updatedAt: new Date(),
         } as Partial<NewBroadcastMatch>);
 
-      await publishOverlay(updated);
+      await publish(updated);
+      return c.json({ data: updated });
+    }
+  );
+
+  /**
+   * Reset: the next set on the same booth. Scores back to zero, every screen off, no ticker. Event,
+   * round and format stay (the operator sets them for the next one); with `players=clear` the
+   * names, sponsors, characters and losers flags go back to the defaults too, keeping each side's
+   * color.
+   */
+  app.post(
+    "/matches/:id/reset",
+    {
+      id: "reset-set",
+      summary: "Reset a set for the next one",
+      description:
+        "Scores to 0, versus/K.O./casters/result off, ticker cleared. With `?players=clear` the sides go back to PLAYER 1 / PLAYER 2 with no sponsor, characters or losers flag (colors stay). Event, round and format are kept. Owner or admin.",
+      access: "session",
+      permission: onTheSet("update"),
+      idempotent: true,
+      input: {
+        params: ParamId,
+        query: z.object({ players: z.enum(["keep", "clear"]).optional().describe("Also clear the players (default keep)") }).passthrough(),
+      },
+      output: { schema: z.object({ data: SetOut }) },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
+    },
+    async (c, _input, h) => {
+      const id = c.req.param("id");
+      const match = await repo(broadcastMatches, { db }).find(id);
+      if (!match || !(await h.can(match, "update"))) {
+        return c.json({ error: "Not found" }, 404);
+      }
+      const clear = c.req.query("players") === "clear";
+      const side = (current: BroadcastSide, fallback: string): BroadcastSide =>
+        clear ? { ...defaultSide(fallback, current.color), color: current.color } : { ...current, score: 0 };
+      const [updated] = await repo(broadcastMatches, { db })
+        .filter({ id })
+        .update({
+          sideA: side(match.sideA, "PLAYER 1"),
+          sideB: side(match.sideB, "PLAYER 2"),
+          screens: { ...DEFAULT_SCREENS },
+          ticker: null,
+          updatedAt: new Date(),
+        } as Partial<NewBroadcastMatch>);
+      await publish(updated);
+      return c.json({ data: updated });
+    }
+  );
+
+  /**
+   * start.gg: an event's sets, to pick the next one. Only reads start.gg; the token is used for this
+   * request and never stored or echoed.
+   */
+  app.post(
+    "/startgg/sets",
+    {
+      id: "startgg-sets",
+      summary: "List an event's sets on start.gg",
+      description:
+        "Reads an event on start.gg (slug or URL) and lists its sets with two known entrants, unfinished first: id, round, state, both entrants and whether it is a losers set. `token` is a start.gg token (or STARTGG_TOKEN in the API); it is never stored. Admin/editor, or an agent with broadcast:create.",
+      access: "session",
+      permission: onTheSet("create"),
+      idempotent: true,
+      input: { body: z.object({ event: StartggEventRef, token: z.string().min(10).max(200).optional() }) },
+      output: {
+        schema: z.object({
+          event: z.string(),
+          sets: z.array(
+            z.object({
+              id: z.string(),
+              round: z.string(),
+              state: z.string(),
+              entrants: z.tuple([z.string(), z.string()]),
+              losers: z.boolean(),
+            })
+          ),
+        }),
+      },
+    },
+    async (c, input, h) => {
+      if (!(await h.can({}))) return c.json({ error: "Forbidden" }, 403);
+      const body = input.body as { event: string; token?: string };
+      try {
+        return c.json(await listEventSets(startggToken(body.token), body.event));
+      } catch (err) {
+        if (err instanceof StartggError) return c.json({ error: err.message }, err.status as 404);
+        throw err;
+      }
+    }
+  );
+
+  /** start.gg → this set: round, both entrants (`Sponsor | Name` split), losers side, scores to 0. */
+  app.post(
+    "/matches/:id/startgg",
+    {
+      id: "apply-startgg-set",
+      summary: "Fill a set from start.gg",
+      description:
+        "Takes one start.gg set (`setId` from startgg-sets) into this broadcast set: round, event title (unless `keepTitle`), both gamertags and sponsors (`Sponsor | Name` is split), the losers flag of a losers-bracket side, scores 0 and the K.O. off. Stores the start.gg id. `token` as in startgg-sets, never stored. Owner or admin.",
+      access: "session",
+      permission: onTheSet("update"),
+      input: {
+        params: ParamId,
+        body: z.object({
+          setId: z.string().min(1).max(40),
+          token: z.string().min(10).max(200).optional(),
+          keepTitle: z.boolean().optional(),
+        }),
+      },
+      output: { schema: z.object({ data: SetOut }) },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
+    },
+    async (c, input, h) => {
+      const id = c.req.param("id");
+      const match = await repo(broadcastMatches, { db }).find(id);
+      if (!match || !(await h.can(match, "update"))) {
+        return c.json({ error: "Not found" }, 404);
+      }
+      const body = input.body as { setId: string; token?: string; keepTitle?: boolean };
+      let set;
+      try {
+        set = await getStartggSet(startggToken(body.token), body.setId);
+      } catch (err) {
+        if (err instanceof StartggError) return c.json({ error: err.message }, err.status as 404);
+        throw err;
+      }
+      const profileId = profileOf(match);
+      // In grand finals both may come from different brackets; only a losers ROUND marks both.
+      const losers = isLosersRound(set.round);
+      const a = mergeSide(profileId, match.sideA, { ...splitEntrant(set.entrants[0]), score: 0, losers, chars: [] });
+      const b = mergeSide(profileId, match.sideB, { ...splitEntrant(set.entrants[1]), score: 0, losers, chars: [] });
+      if (!a.ok) return c.json({ error: a.error, issues: a.issues }, 422);
+      if (!b.ok) return c.json({ error: b.error, issues: b.issues }, 422);
+      const [updated] = await repo(broadcastMatches, { db })
+        .filter({ id })
+        .update({
+          round: set.round || match.round,
+          ...(body.keepTitle || !set.event ? {} : { eventTitle: set.event }),
+          sideA: a.value,
+          sideB: b.value,
+          screens: { ...match.screens, ko: false, result: false },
+          startggSetId: set.id,
+          updatedAt: new Date(),
+        } as Partial<NewBroadcastMatch>);
+      await publish(updated);
       return c.json({ data: updated });
     }
   );
@@ -834,7 +1016,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         .filter({ id })
         .update({ [key]: nextSide, updatedAt: new Date() } as Partial<NewBroadcastMatch>);
 
-      await publishOverlay(updated);
+      await publish(updated);
       return c.json({ data: updated });
     }
   );
@@ -912,7 +1094,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         ownerId: user?.id ?? null,
       });
 
-      await publishOverlay(match);
+      await publish(match);
       return c.json({ data: match, channel: overlayStateKey(match.id) }, 201);
     }
   );
@@ -970,7 +1152,7 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
         .filter({ id })
         .update({ status: "reported", live: false, updatedAt: new Date() });
 
-      await publishOverlay(updated);
+      await publish(updated);
       return c.json({
         data: updated,
         bracket: { championId: result.value.championId, complete: result.value.complete },
@@ -1148,5 +1330,34 @@ function toOverlayPayload(match: BroadcastMatch) {
     casters: match.casters,
     flags: match.screens,
     ticker: match.ticker ?? null,
+  };
+}
+
+// ── Events on the core's bus ─────────────────────────────────────────────────
+
+/**
+ * What kon-broadcast tells the rest of the installation. Other kons and the core's actions listen
+ * by name: kon-dc redraws a Discord booth on `updated`, an action can post a result.
+ */
+export const BROADCAST_EVENTS = {
+  /** A set changed (score, screens, sides, on air…). Payload: `matchEvent`. */
+  updated: "broadcast:match:updated",
+  /** A set was deleted. Payload: `{ matchId }`. */
+  deleted: "broadcast:match:deleted",
+} as const;
+
+/** Only what is on screen, plus the ids a listener needs. No owner, no start.gg id. */
+export function matchEvent(match: BroadcastMatch) {
+  const side = (s: BroadcastSide) => ({ name: s.name, sponsor: s.sponsor, score: s.score, losers: s.losers, chars: s.chars });
+  return {
+    matchId: match.id,
+    status: match.status,
+    live: Boolean(match.live),
+    eventTitle: match.eventTitle,
+    round: match.round,
+    firstTo: match.firstTo,
+    sideA: side(match.sideA),
+    sideB: side(match.sideB),
+    screens: match.screens,
   };
 }

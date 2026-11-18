@@ -1,0 +1,189 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-koe",
+  "name": "koe",
+  "description": "One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and templates, live inbox with web push, voice notes and stickers, AI relay, campaigns, and sales and collections teams",
+  "version": "0.1.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "specialized",
+  "maturity": "experimental",
+  "icon": "MessagesSquare",
+  "license": "MIT",
+  "kitsuden": ">=0.9.0",
+  "mount": {
+    "path": "/api/koe",
+    "router": "createKonKoe"
+  },
+  "entryPoint": "./index.ts",
+  "tables": [
+    {
+      "name": "koe_members",
+      "label": "koe members",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_teams",
+      "label": "koe teams",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_team_members",
+      "label": "koe team members",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_channels",
+      "label": "koe channels",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_contacts",
+      "label": "koe contacts",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_identities",
+      "label": "koe identities",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_conversations",
+      "label": "koe conversations",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_media",
+      "label": "koe media",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_messages",
+      "label": "koe messages",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_conversation_events",
+      "label": "koe conversation events",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_notes",
+      "label": "koe notes",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_templates",
+      "label": "koe templates",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_quick_replies",
+      "label": "koe quick replies",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_stickers",
+      "label": "koe stickers",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_consents",
+      "label": "koe consents",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_webhook_events",
+      "label": "koe webhook events",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_push_subscriptions",
+      "label": "koe push subscriptions",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_notices",
+      "label": "koe notices",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_config",
+      "label": "koe config",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_campaigns",
+      "label": "koe campaigns",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_campaign_recipients",
+      "label": "koe campaign recipients",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_sequences",
+      "label": "koe sequences",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_sequence_runs",
+      "label": "koe sequence runs",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_flows",
+      "label": "koe flows",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_promises",
+      "label": "koe promises",
+      "icon": "MessagesSquare"
+    },
+    {
+      "name": "koe_outcomes",
+      "label": "koe outcomes",
+      "icon": "MessagesSquare"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "icon": "MessagesSquare",
+    "defaultView": "koe",
+    "views": [
+      {
+        "id": "koe",
+        "type": "element",
+        "title": "koe",
+        "element": "koe-admin",
+        "src": "admin/koe-admin.js",
+        "icon": "MessagesSquare"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "permissions": {
+    "hosts": [
+      "graph.facebook.com",
+      "lookaside.fbsbx.com",
+      "*.fbcdn.net",
+      "*.cdninstagram.com",
+      "fcm.googleapis.com",
+      "*.push.services.mozilla.com",
+      "*.notify.windows.com",
+      "*.push.apple.com"
+    ]
+  },
+  "schema": {
+    "entry": "./koe.schema.ts",
+    "strategy": "sql"
+  },
+  "category": "business"
+}

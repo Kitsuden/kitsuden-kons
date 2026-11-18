@@ -87,6 +87,7 @@ use a kon has had, not how many features it has:
 | `kon-directory` | beta | 1.0.1 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.0.1 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.2.0 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
+| `kon-koe` | experimental | 0.1.0 | 1 | `/api/koe` | One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and… |
 | `kon-listings` | experimental | 0.1.0 | 1 | `/api/listings` | Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from… |
 | `kon-payments` | experimental | 1.2.0 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
 
@@ -98,14 +99,15 @@ use a kon has had, not how many features it has:
 | `kon-comments` | beta | 1.0.3 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
 | `kon-newsletter` | beta | 1.1.0 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
 | `kon-wiki` | beta | 1.1.4 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
-| `kon-chat` | experimental | 1.0.4 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, or public on a website answering from what… |
+| `kon-chat` | experimental | 1.1.0 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, public on a website answering from what you… |
+| `kon-dc` | experimental | 0.3.0 | 1 | `/api/dc` | Discord bots built from declarative blueprints: modules you switch on per server, slash commands over HTTP… |
 
 ### Gaming
 
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
 | `kon-autobattler` | beta | 1.0.2 | 1 | `/api/autobattler` | Autobattler compositions: units, traits with thresholds, items and board. TFT set included. |
-| `kon-broadcast` | beta | 1.0.5 | 1 | `/api/broadcast` | Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games… |
+| `kon-broadcast` | beta | 1.1.0 | 1 | `/api/broadcast` | Broadcast production for tournaments: scoreboard, versus, K.O., casters, standings and —by section— games… |
 | `kon-cardsim` | beta | 2.3.2 | 1 | `/api/cardsim` | Card simulator builder: data-defined games, validated decks, rooms with a clock and deterministic sessions… |
 | `kon-character-builder` | beta | 1.1.3 | 1 | `/api/builder` | Character builder engine: per-game definitions, validation, final stats and shareable build codes |
 | `kon-collection` | beta | 1.0.2 | 1 | `/api/collection` | What each reader already has: marks the records of an index that they have obtained and keeps count |

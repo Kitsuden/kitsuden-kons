@@ -86,16 +86,19 @@ import type { ContaDb } from "./types";
 // ═══════════════════════════════════════════════════════════════════════════
 
 const id = z.string().min(1).max(64);
+// Patterns end in `$(?!\n)`, not `$`: the same in JavaScript, but the generator Schemathesis uses reads
+// `$` the Python way (it also matches before a final newline), so a third of its values ended in "\n"
+// and were thrown away; with four patterns per line its health check failed on POST /conta/journals/validate.
 /** Amount as text, as the database stores it (numeric 19,4). */
-const amount = z.string().regex(/^\d{1,15}(\.\d{1,4})?$/, "Invalid amount");
-const signedAmount = z.string().regex(/^-?\d{1,15}(\.\d{1,4})?$/, "Invalid amount");
-const rate = z.string().regex(/^\d{1,9}(\.\d{1,10})?$/, "Invalid exchange rate");
-const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const amount = z.string().regex(/^[0-9]{1,15}(\.[0-9]{1,4})?$(?!\n)/, "Invalid amount");
+const signedAmount = z.string().regex(/^-?[0-9]{1,15}(\.[0-9]{1,4})?$(?!\n)/, "Invalid amount");
+const rate = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,10})?$(?!\n)/, "Invalid exchange rate");
+const date = z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$(?!\n)/);
 const metadata = z.record(z.string(), z.unknown());
 const text = (max: number) => z.string().max(max);
 
 const currencySchema = z.object({
-  code: z.string().regex(/^[A-Z]{3}$/),
+  code: z.string().regex(/^[A-Z]{3}$(?!\n)/),
   name: text(100).min(1),
   symbol: text(10).min(1),
   decimalPlaces: z.number().int().min(0).max(8).default(2),
@@ -144,7 +147,7 @@ const ledgerLineSchema = z.object({
   credit: amount.default("0"),
   currency: z
     .string()
-    .regex(/^[A-Z]{3}$/)
+    .regex(/^[A-Z]{3}$(?!\n)/)
     .default("USD"),
   exchangeRate: rate.default("1"),
   metadata: metadata.optional(),
@@ -1501,9 +1504,10 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "create-disbursement",
       summary: "Record a disbursement",
       description:
-        "Records an expense paid for a project: posts a journal (credit `paidFromAccountId`, debit account 1250 Disbursements Receivable, from the seed) and leaves the disbursement `pending`. 400 if an account or the project does not exist. Returns `{ disbursement, journal, lines }`. Write access to the ledger.",
+        "Records an expense paid for a project: posts a journal (credit `paidFromAccountId`, debit account 1250 Disbursements Receivable, from the seed) and leaves the disbursement `pending`. 400 if an account does not exist, 404 if the project does not. Returns `{ disbursement, journal, lines }`. Write access to the ledger.",
       input: { body: disbursementSchema },
       output: { status: 201, schema: WithData },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
     }),
     async (c, input) => {
       const body = input.body as z.infer<typeof disbursementSchema>;
