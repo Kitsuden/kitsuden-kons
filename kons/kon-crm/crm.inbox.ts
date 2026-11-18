@@ -194,12 +194,12 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       id: "add-mailbox",
       summary: "Start syncing one of your connected accounts",
       description:
-        "Adds the mailbox and/or calendar of `connectionId`, which must be YOUR active Google or Microsoft connection and cover `mail.read` (for mail) and `calendar.read` (for the calendar). Nothing is read until this. The first sync reads `backfillDays` back (30). 404 for a connection that is not yours, 409 when it is not active or already added, 422 when it does not cover what is asked. A person only.",
+        "Adds the mailbox and/or calendar of `connectionId`, which must be YOUR active Google or Microsoft connection and cover `mail.read` (for mail) and `calendar.read` (for the calendar). Nothing is read until this. The first sync reads `backfillDays` back (30). 404 for a connection that is not yours, 409 when it is not active or already added, 422 when it does not cover what is asked, 503 when this Kitsuden has no connections battery. A person only.",
       access: "session",
       permission: OWN,
       input: { body: AddMailbox },
       output: { schema: z.object({ data: Out, sync: z.string() }) },
-      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT", "KITSUDEN_E_UNAVAILABLE"],
     },
     async (c, input) => {
       const user = who(c);
@@ -413,7 +413,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       sensitive: true,
       input: { params: ParamId, body: Send },
       output: { schema: z.object({ data: Out }) },
-      errors: ["KITSUDEN_E_NOT_FOUND"],
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_BAD_GATEWAY"],
     },
     async (c, input) => {
       const m = await myMailbox(c.req.param("id"));

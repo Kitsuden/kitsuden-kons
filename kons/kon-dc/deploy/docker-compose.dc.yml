@@ -1,0 +1,90 @@
+# kon-dc — Compose overlay with profiles
+# ============================================================================
+# Add it on top of Kitsuden's docker-compose.yml (and your docker-compose.kons.yml, which installs
+# the kon into the API image). Compose resolves relative paths against the FIRST file's folder (the
+# Kitsuden checkout), so this file finds the kons checkout through KITSUDEN_KONS_DIR.
+#
+# Every Discord process is behind a profile: nothing here starts unless you ask for it.
+#
+#   (no profile)   the API gets the DISCORD_* settings: commands, buttons, modals, panels
+#   dc-gateway     + the Go gateway worker: member joins, messages, reactions
+#   dc-ai-local    + Ollama, for core agents that answer with a local model (no API key)
+#   dc             both of the above
+#
+#   docker compose -f docker-compose.yml -f docker-compose.kons.yml \
+#     -f ../kitsuden-kons/kons/kon-dc/deploy/docker-compose.dc.yml \
+#     --profile dc-gateway up -d
+#
+# Modules (welcome, leveling, ai…) are switched on and off per server in the API, not here: the
+# worker reads which intents they need and identifies again by itself.
+
+services:
+  kitsuden_api:
+    environment:
+      - DISCORD_APPLICATION_ID=${DISCORD_APPLICATION_ID:-}
+      - DISCORD_PUBLIC_KEY=${DISCORD_PUBLIC_KEY:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+      - DISCORD_DISABLED_MODULES=${DISCORD_DISABLED_MODULES:-}
+      # Blueprints that call other kons (the broadcast booth, a select fed by a kon): the bot's OWN
+      # agent key, with only the scopes those blueprints need (GET /api/dc/templates lists them).
+      - DISCORD_KITSUDEN_API_URL=${DISCORD_KITSUDEN_API_URL:-http://kitsuden_api:3000}
+      - DISCORD_KITSUDEN_API_TOKEN=${DISCORD_BOT_AGENT_KEY:-}
+
+  dc_gateway:
+    profiles: ["dc", "dc-gateway"]
+    build:
+      context: ${KITSUDEN_KONS_DIR:-../kitsuden-kons}/kons/kon-dc/gateway
+    image: ${DISCORD_GATEWAY_IMAGE:-kitsuden/dc-gateway:local}
+    # Built here, never pulled: it holds the bot token.
+    pull_policy: never
+    container_name: ${KITSUDEN_INSTANCE:-kitsuden}_dc_gateway
+    restart: unless-stopped
+    depends_on:
+      kitsuden_api:
+        condition: service_healthy
+    environment:
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:?set DISCORD_BOT_TOKEN}
+      - KITSUDEN_API_URL=http://kitsuden_api:3000
+      # An agent key with ONLY kon:dc:gateway-config and kon:dc:ingest-gateway-events.
+      - KITSUDEN_API_TOKEN=${DISCORD_GATEWAY_AGENT_KEY:?set DISCORD_GATEWAY_AGENT_KEY}
+      - DISCORD_SHARD_COUNT=${DISCORD_SHARD_COUNT:-0}
+      - DISCORD_SHARD_IDS=${DISCORD_SHARD_IDS:-}
+      - CONFIG_POLL_SECONDS=${DISCORD_CONFIG_POLL_SECONDS:-60}
+      # Go's collector: a soft memory ceiling, and collect more often instead of growing.
+      - GOMEMLIMIT=${DISCORD_GATEWAY_GOMEMLIMIT:-48MiB}
+      - GOGC=${DISCORD_GATEWAY_GOGC:-50}
+    # No published port: /healthz and /metrics stay on the internal network.
+    expose:
+      - "8081"
+    networks:
+      - kitsuden_net_prod
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${DISCORD_GATEWAY_MEM_LIMIT:-96m}
+    cpus: ${DISCORD_GATEWAY_CPUS:-0.5}
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "/dc-gateway", "-healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  dc_ollama:
+    profiles: ["dc", "dc-ai-local"]
+    image: ${DISCORD_OLLAMA_IMAGE:-ollama/ollama:0.12.6}
+    container_name: ${KITSUDEN_INSTANCE:-kitsuden}_dc_ollama
+    restart: unless-stopped
+    # Point the core at it with OLLAMA_BASE_URL=http://dc_ollama:11434 and give the agent that
+    # answers on Discord an Ollama model. Pull one once:
+    #   docker exec <instance>_dc_ollama ollama pull llama3.2
+    expose:
+      - "11434"
+    networks:
+      - kitsuden_net_prod
+    volumes:
+      - dc_ollama_models:/root/.ollama
+
+volumes:
+  dc_ollama_models:
