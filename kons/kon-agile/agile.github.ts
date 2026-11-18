@@ -122,7 +122,13 @@ export function githubOperations(
   const routes = registry();
   const { projectFor, projectToConfigure, issueFor } = access;
 
-  const webhookUrl = (id: string) => `${(ctx.config?.siteUrl ?? "").replace(/\/+$/, "")}/api/agile/github/webhook/${id}`;
+  /** The API's origin without trailing slashes (a loop, not a regex: CodeQL js/polynomial-redos). */
+  const origin = () => {
+    let url = ctx.config?.siteUrl ?? "";
+    while (url.endsWith("/")) url = url.slice(0, -1);
+    return url;
+  };
+  const webhookUrl = (id: string) => `${origin()}/api/agile/github/webhook/${id}`;
 
   async function repoToConfigure(c: Parameters<typeof projectFor>[0], repoId: string) {
     if (!isUuid(repoId)) throw AppError.notFound("Repository not found");
