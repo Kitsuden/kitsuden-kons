@@ -194,19 +194,20 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       id: "add-mailbox",
       summary: "Start syncing one of your connected accounts",
       description:
-        "Adds the mailbox and/or calendar of `connectionId`, which must be YOUR active Google or Microsoft connection and cover `mail.read` (for mail) and `calendar.read` (for the calendar). Nothing is read until this. The first sync reads `backfillDays` back (30). 404 for a connection that is not yours, 409 when it is not active or already added, 422 when it does not cover what is asked, 503 when this Kitsuden has no connections battery. A person only.",
+        "Adds the mailbox and/or calendar of `connectionId`, which must be YOUR active Google or Microsoft connection and cover `mail.read` (for mail) and `calendar.read` (for the calendar). Nothing is read until this. The first sync reads `backfillDays` back (30). 404 for a connection that is not yours, 409 when it is not active or already added, or when this Kitsuden has no connections battery, 422 when it does not cover what is asked. A person only.",
       access: "session",
       permission: OWN,
       input: { body: AddMailbox },
       output: { schema: z.object({ data: Out, sync: z.string() }) },
-      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT", "KITSUDEN_E_UNAVAILABLE"],
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
     },
     async (c, input) => {
       const user = who(c);
       if (!user?.id || user.role === "agent") throw AppError.forbidden("Adding a mailbox to sync is a person's decision");
       const body = input.body as z.infer<typeof AddMailbox>;
       const connections = connectionsOf(ctx);
-      if (!connections) throw new AppError("INTERNAL", "This Kitsuden has no connections battery", { status: 503, expose: true });
+      // A state of this install, not an outage: retrying will not help (409, like an inactive connection).
+      if (!connections) throw AppError.conflict("This Kitsuden has no connections battery");
       // As the caller: the core shows only their own.
       const connection = await connections.visible(KON, body.connectionId);
       if (!connection || connection.scope !== "user" || connection.ownerId !== user.id) throw AppError.notFound("Connection not found");

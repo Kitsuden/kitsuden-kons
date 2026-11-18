@@ -362,6 +362,19 @@ describe("people are kept apart", () => {
     configureQueue(null);
   });
 
+  it("without a connections battery, adding a mailbox is a 409 the caller can read, never a 5xx", async () => {
+    const ctx = (globalThis as { __inboxCtx?: { connections?: unknown } }).__inboxCtx!;
+    const saved = ctx.connections;
+    delete ctx.connections;
+    try {
+      const res = await request("a", "POST", "/inbox/mailboxes", { connectionId: connA });
+      expect(res.status).toBe(409);
+      expect(JSON.stringify(await res.json())).toContain("no connections battery");
+    } finally {
+      ctx.connections = saved;
+    }
+  });
+
   it("each person reads their own mail; the team reads only threads marked team", async () => {
     const mine = await mailboxOf(A, connA, "private");
     handlers = [gmail({ p1: gmailMessage("p1", { subject: "Private matter" }), s1: gmailMessage("s1", { subject: "Shared deal", thread: "shared" }) })];

@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-broadcast",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Broadcast kon for Kitsuden",
   "type": "module",
   "main": "./index.ts",
@@ -17,6 +17,7 @@
     "broadcast.routes.ts",
     "broadcast.schema.ts",
     "broadcast.sections.ts",
+    "broadcast.startgg.ts",
     "classifications",
     "graphics",
     "index.ts",
