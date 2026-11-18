@@ -53,7 +53,8 @@ env:
 jobs:
   kons:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Schemathesis grows with every kon (kon-koe alone adds ~8 minutes); 30 cancelled a run that had passed.
+    timeout-minutes: 45
 
     services:
       postgres:
