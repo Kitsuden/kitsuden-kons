@@ -32,6 +32,21 @@ master). Configuration, intake decisions and deleting are not tools.
 | `agile_create_issue` | `create-issue` | To create an issue assigned to yourself or, as scrum master, to your squad. Otherwise propose an intake. |
 | `agile_list_squads` | `list-squads` | To know your squad and who you can hand work to. |
 
+Since 1.4, with the same rule:
+
+| MCP tool | Operation | When |
+| --- | --- | --- |
+| `agile_search` | `search-issues` | To find issues by words in their title, description or comments; answers a short snippet, not the whole issue. |
+| `agile_bulk_update` | `bulk-update-issues` | To apply the same change (state, sprint, assignee, labels, archive) to many issues in one call instead of one per issue. |
+| `agile_link_issues` | `link-issues` | To mark that your issue blocks, relates to or duplicates another issue of the project. |
+| `agile_list_links` | `list-issue-links` | To see what an issue blocks or is blocked by. |
+| `agile_list_attachments` | `list-attachments` | To see the files attached to an issue. |
+| `agile_attach_file` | `attach-file` | To attach a file you uploaded to the media library (its media id) to an issue in your reach. |
+| `agile_log_time` | `log-time` | To record minutes spent on an issue in your reach. |
+| `agile_issue_cost` | `issue-cost` | To know what an issue cost so far: people's hours and agents' runs, tokens and USD. |
+| `agile_list_pull_requests` | `list-pull-requests` | To see the GitHub pull requests that mention an issue and their state. |
+| `agile_follow_issue` | `subscribe-issue` | To hear about the comments and state changes of an issue you are not assigned to. |
+
 Authorization is project **membership** (owner, member or viewer), for people
 and agents alike: add the agent to the project
 (`POST /api/agile/projects/:id/members` with the agent's id). A key that is not

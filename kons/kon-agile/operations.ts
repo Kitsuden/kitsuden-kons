@@ -91,6 +91,32 @@ export const AGENT_TOOLS: Record<string, { name: string; whenToUse: string }> = 
     whenToUse: "To create an issue assigned to yourself or, as scrum master, to your squad. Otherwise propose an intake.",
   },
   "list-squads": { name: "agile_list_squads", whenToUse: "To know your squad and who you can hand work to." },
+  // 1.4
+  "search-issues": {
+    name: "agile_search",
+    whenToUse: "To find issues by words in their title, description or comments; answers a short snippet, not the whole issue.",
+  },
+  "bulk-update-issues": {
+    name: "agile_bulk_update",
+    whenToUse: "To apply the same change (state, sprint, assignee, labels, archive) to many issues in one call instead of one per issue.",
+  },
+  "link-issues": {
+    name: "agile_link_issues",
+    whenToUse: "To mark that your issue blocks, relates to or duplicates another issue of the project.",
+  },
+  "list-issue-links": { name: "agile_list_links", whenToUse: "To see what an issue blocks or is blocked by." },
+  "list-attachments": { name: "agile_list_attachments", whenToUse: "To see the files attached to an issue." },
+  "attach-file": {
+    name: "agile_attach_file",
+    whenToUse: "To attach a file you uploaded to the media library (its media id) to an issue in your reach.",
+  },
+  "log-time": { name: "agile_log_time", whenToUse: "To record minutes spent on an issue in your reach." },
+  "issue-cost": {
+    name: "agile_issue_cost",
+    whenToUse: "To know what an issue cost so far: people's hours and agents' runs, tokens and USD.",
+  },
+  "list-pull-requests": { name: "agile_list_pull_requests", whenToUse: "To see the GitHub pull requests that mention an issue and their state." },
+  "subscribe-issue": { name: "agile_follow_issue", whenToUse: "To hear about the comments and state changes of an issue you are not assigned to." },
 };
 
 /** A registry of operations shaped like a router. */

@@ -1,12 +1,13 @@
 # kon-agile
 
 An issue tracker where people and AI agents work on the same board: projects, issues with keys,
-custom states, sprints, epics, initiatives, saved views and a dashboard. Agents join a project as
-members, work from a queue and write only on the issues in their reach.
+custom states, sprints, epics, initiatives, saved views and a dashboard, with attachments, full-text
+search, logged time and GitHub pull requests. Agents join a project as members, work from a queue and
+write only on the issues in their reach.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.3.4 | `/api/agile` | kon-media; core `auth` |
+| beta | business | 1.4.0 | `/api/agile` | kon-media; core `auth` |
 
 ## Install
 
@@ -44,6 +45,24 @@ variables are required. Once running, the kon starts a one-minute timer (`agile.
   assignments and hand-offs. Notifications stay inside the kon; nothing is emailed.
 - **Squads** (`agile_squads`, `agile_squad_members`), the **agent work queue**
   (`agile_agent_work`) and **agent schedules** (`agile_agent_schedules`).
+- **Attachments** (`agile_issue_attachments`, 1.4): a file of the core's media library hung on an
+  issue. Upload it to the media library first (the core's media routes), then attach its id. Removing the attachment leaves the file.
+- **Subscribers** (`agile_issue_subscribers`) and **reactions**: the creator, every assignee and every
+  commenter follow an issue and hear about its comments and state changes; anyone in the project may
+  follow or stop. Any member, viewers and agents too, reacts to a comment for itself.
+- **Bulk changes**: one request (or one MCP call) sets state, assignee, priority, sprint, epic,
+  initiative, estimate, target date, labels or archiving on up to 100 issues, all or nothing.
+- **Full-text search** over keys, titles, descriptions and comments (`tsvector`, migration 0006), in
+  the issue list, saved views and `GET /:projectId/search`, which answers a snippet per hit.
+- **Time** (`agile_time_entries`): minutes logged per person and issue, and each issue's **cost**: the
+  people's hours at `config.hourlyRateUsd` plus what agents reported (runs, tokens, USD).
+- **GitHub** (`agile_github_repos`, `agile_issue_pull_requests`): a connected repository posts its
+  pull requests; one that names an issue key is listed on the issue, and one that says `fixes KEY` and
+  is merged completes it. The webhook secret is stored sealed (`ctx.secrets`).
+- **Events for automation rules**: `agile:issue.created`, `.updated`, `.state_changed`, `.assigned`,
+  `.commented`, `agile:pull_request.linked` and `agile:agent_work`, declared for the core's rule
+  catalog, a mail template (`agile.issue-event`) and ready-made rules (`GET /rule-templates`) to email
+  a team or post to a webhook. The kon still never learns an account's email.
 
 Every table has forced row security by project membership.
 
@@ -208,10 +227,57 @@ who is not a member gets 404 for anything in the project.
 | `GET /api/agile/:projectId/timeline` | member | Timeline of a project |
 | `GET /api/agile/:projectId/dashboard` | member | Throughput, burn-up, breakdown, pulse |
 
+### Attachments, subscribers, reactions, bulk changes and search (1.4)
+
+| Route | Who | What it does |
+| --- | --- | --- |
+| `GET /api/agile/issues/:key/attachments` | member | List an issue's files |
+| `POST /api/agile/issues/:key/attachments` | writer, agent in reach | Attach a media file by `mediaId` (422 unknown, 409 twice) |
+| `DELETE /api/agile/issues/:key/attachments/:attachmentId` | writer, agent in reach | Unhook a file (it stays in the media library) |
+| `GET /api/agile/issues/:key/subscribers` | member | Who follows the issue, and whether the caller does |
+| `POST /api/agile/issues/:key/subscribe` | member (viewers and agents too) | Follow the issue |
+| `DELETE /api/agile/issues/:key/subscribe` | member | Stop following it |
+| `POST /api/agile/comments/:commentId/reactions` | member (viewers and agents too) | Toggle the caller's reaction (`emoji`) |
+| `POST /api/agile/:projectId/issues/bulk` | writer, agent in reach | Same change on up to 100 issues, all or nothing |
+| `GET /api/agile/:projectId/search` | member | Full-text search with a snippet per hit (`q`, `includeArchived`, `limit`) |
+
+### Time, cost, GitHub and rules (1.4)
+
+| Route | Who | What it does |
+| --- | --- | --- |
+| `GET /api/agile/issues/:key/time` | member | Time logged on an issue |
+| `POST /api/agile/issues/:key/time` | writer, agent in reach | Log the caller's minutes (1-1440, `spentOn`) |
+| `PATCH /api/agile/time/:entryId` | its author, or a person with write rights | Fix an entry |
+| `DELETE /api/agile/time/:entryId` | its author, or a person with write rights | Remove an entry |
+| `GET /api/agile/issues/:key/cost` | member | People's hours and cost, agents' runs, tokens and USD, and the total |
+| `GET /api/agile/:projectId/time` | member | Entries between `from` and `to`, totals per person |
+| `GET /api/agile/:projectId/github` | member | Connected repositories and their webhook URL (never the secret) |
+| `POST /api/agile/:projectId/github` | writer, never an agent | Connect `owner/name`; answers the webhook URL and secret once |
+| `PATCH /api/agile/github/:repoId` | writer, never an agent | Whether a merge completes the issue (`closeOnMerge`) |
+| `DELETE /api/agile/github/:repoId` | writer, never an agent | Disconnect a repository |
+| `GET /api/agile/issues/:key/pull-requests` | member | Pull requests that mention the issue |
+| `POST /api/agile/github/webhook/:repoId` | GitHub, signed | `pull_request` and `ping`; `X-Hub-Signature-256` required (401) |
+| `GET /api/agile/rule-templates` | signed in | The agile events and ready-made rules for the core's actions API |
+
+**Connecting GitHub.** `POST /api/agile/:projectId/github` with `{ "repo": "acme/web" }` answers
+`webhookUrl` and `webhookSecret`. In GitHub: Settings → Webhooks → Add webhook, that URL, content
+type `application/json`, that secret, event "Pull requests". The secret is not shown again. A pull
+request whose title, description or branch names `PLAT-12` is listed on PLAT-12; one that says
+`fixes PLAT-12` (or `closes`, `resolves`) and is merged moves it to the project's first completed
+state, unless that state's validations stop it. The server needs `KITSUDEN_SECRETS_KEY` (409 without
+it), and nothing is ever read from GitHub.
+
+**Email and webhooks.** The kon emits events; a person turns them into email or webhooks with an
+automation rule. `GET /api/agile/rule-templates` answers five rules (urgent issue, issue done, new
+comment, changes to a webhook, merged pull request) ready to post to the core's actions API once the project id
+and the address or URL are filled in. Events are delivered after commit and at most once, so the
+kon's own notifications and history stay the record.
+
 ## Who can do what
 
 Policies are in `agile.policy.ts`; per-request checks in `agile.access.ts`; row security in the
-migrations (`0001_members_and_rls.sql`, `0004_english_rls.sql`, `0005_planning_squads_and_agents.sql`).
+migrations (`0001_members_and_rls.sql`, `0004_english_rls.sql`, `0005_planning_squads_and_agents.sql`,
+`0006_attachments_time_github_search.sql`).
 
 | Actor | What it may do |
 | --- | --- |
@@ -221,7 +287,7 @@ migrations (`0001_members_and_rls.sql`, `0004_english_rls.sql`, `0005_planning_s
 | Project viewer | Read the project, propose intakes |
 | Project member | Viewer rights, plus write issues, configure planning, decide intakes |
 | Project owner (or human `admin`) | Member rights, plus edit the project and manage members |
-| Agent member | Read; write only on issues in its reach; propose intakes; claim and finish its work |
+| Agent member | Read; write only on issues in its reach (attachments, time and bulk changes too); propose intakes; claim and finish its work; follow issues and react; never connect a repository |
 
 An agent key reaches the routes only if it may act as a user (`user:act`, `admin`, or a scope
 starting with `agile:` or `kon:agile:`; policy `agile`, action `actAsUser`), and then only inside
@@ -233,9 +299,10 @@ does not exist or the caller is not a member. A member without the right for the
 
 ## Configuration
 
-No environment variables or global settings. Each project carries its own `config` (estimate
-type, time zone, week start, `autoAssign`, `autoArchiveDays`, `autoCloseCycles`), changed with
-`PATCH /api/agile/projects/:id`.
+No environment variables of its own. Each project carries its own `config` (estimate type, time
+zone, week start, `autoAssign`, `autoArchiveDays`, `autoCloseCycles`, `hourlyRateUsd`), changed with
+`PATCH /api/agile/projects/:id`. Connecting GitHub needs the core's `KITSUDEN_SECRETS_KEY`, and the
+webhook URL is built from the API's site URL (`ctx.config.siteUrl`).
 
 ## Agents and MCP
 
@@ -261,8 +328,18 @@ are MCP tools. Their names are set by the kon (`AGENT_TOOLS` in `operations.ts` 
 | `agile_handoff` | `handoff-issue` | `POST /api/agile/issues/:key/handoff` | yes |
 | `agile_create_issue` | `create-issue` | `POST /api/agile/:projectId/issues` | yes |
 | `agile_list_squads` | `list-squads` | `GET /api/agile/:projectId/squads` | no |
+| `agile_search` | `search-issues` | `GET /api/agile/:projectId/search` | no |
+| `agile_bulk_update` | `bulk-update-issues` | `POST /api/agile/:projectId/issues/bulk` | yes |
+| `agile_link_issues` | `link-issues` | `POST /api/agile/issues/:key/links` | yes |
+| `agile_list_links` | `list-issue-links` | `GET /api/agile/issues/:key/links` | no |
+| `agile_list_attachments` | `list-attachments` | `GET /api/agile/issues/:key/attachments` | no |
+| `agile_attach_file` | `attach-file` | `POST /api/agile/issues/:key/attachments` | yes |
+| `agile_log_time` | `log-time` | `POST /api/agile/issues/:key/time` | yes |
+| `agile_issue_cost` | `issue-cost` | `GET /api/agile/issues/:key/cost` | no |
+| `agile_list_pull_requests` | `list-pull-requests` | `GET /api/agile/issues/:key/pull-requests` | no |
+| `agile_follow_issue` | `subscribe-issue` | `POST /api/agile/issues/:key/subscribe` | yes |
 
-Configuration, intake decisions and deletes are REST only. No operation is marked sensitive
+Configuration (GitHub repositories included), intake decisions and deletes are REST only. No operation is marked sensitive
 beyond the default (every DELETE); with human approval on, those may come back
 `202 KITSUDEN_E_APPROVAL_REQUIRED`. An MCP example: [MCP_EXAMPLE.md](MCP_EXAMPLE.md). Details for
 agents: [AGENTS.md](AGENTS.md).
@@ -274,11 +351,13 @@ agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-agile-security.test.ts` | Anonymous, non-members, members, no IDOR between projects, RLS |
 | `tests/unit/kon-agile-teammates.test.ts` | Agent reach, scrum master, hand-offs, mentions, work queue, planning |
 | `tests/unit/agile-operations-mcp.test.ts` | Which operations are MCP tools, and membership through the real routes |
+| `tests/unit/kon-agile-plane-parity.test.ts` | 1.4: events and rule templates, subscribers, reactions, attachments, bulk changes, search, time and cost, signed GitHub webhooks |
 
 ```bash
 pnpm vitest run tests/unit/kon-agile-security.test.ts
 pnpm vitest run tests/unit/kon-agile-teammates.test.ts
 pnpm vitest run tests/unit/agile-operations-mcp.test.ts
+pnpm vitest run tests/unit/kon-agile-plane-parity.test.ts
 ```
 
 Admin panel: `pnpm build:admin kon-agile` rebuilds `admin/workspace.js`; `pnpm check:admin` runs

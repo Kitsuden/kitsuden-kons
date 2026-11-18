@@ -5,6 +5,16 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## Unreleased
 
+- kon-agile 1.4.0 closes most of the gap with Plane's open edition. Issues take attachments from the
+  media library, subscribers who hear about comments and state changes, and reactions on comments
+  from any member. One request changes up to 100 issues, all or nothing. Search is full text over
+  keys, titles, descriptions and comments, with a snippet per hit. People log time, and each issue
+  answers what it cost: hours at the project's `hourlyRateUsd` plus what agents reported. A connected
+  GitHub repository posts its pull requests through a signed webhook (secret sealed with
+  `ctx.secrets`); a merged one that says `fixes KEY` completes the issue. The kon declares
+  `agile:issue.*` events for automation rules, ships the `agile.issue-event` mail template and five
+  ready-made rules (`GET /api/agile/rule-templates`), and gains ten MCP tools. The agent rule holds
+  for all of it, in the routes and in row security (migration 0006).
 - The CRM, the shop, payments and the newsletter know about each other, through events and links, with
   none importing another (kon-crm 1.1.0, kon-ecommerce 1.2.0, kon-payments 1.2.0, kon-newsletter 1.1.0):
   - new event names `crm:contact.created`, `crm:deal.moved`, `crm:deal.won`, `crm:deal.lost`,

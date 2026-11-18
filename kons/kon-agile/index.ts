@@ -19,6 +19,7 @@ import { defineKonSdk } from "@kitsuden/engine";
 import type { KonContext, KonDefinition } from "@kitsuden/shared";
 import type { Hono } from "hono";
 
+import { AGILE_EVENTS, registerAgileMails } from "./agile.events";
 import { createAgileRouter, allAgileOperations, agileShared } from "./agile.routes";
 import { AGENT_TOOLS } from "./operations";
 
@@ -203,10 +204,16 @@ const definition = defineKonSdk({
 
   operations: (ctx: KonContext) => allAgileOperations(ctx),
 
+  // 1.4: the events rules can listen to (agile.events.ts), and the sealed column a key rotation
+  // must re-encrypt (the GitHub webhook secrets, agile.github.ts).
+  events: AGILE_EVENTS,
+  secretColumns: [{ table: "agile_github_repos", column: "webhook_secret" }],
+
   // Lifecycle hooks
   hooks: {
     onStartup: async (ctx) => {
       ctx.logger.info("📋 Agile kon initialized");
+      registerAgileMails();
 
       // Check main tables
       const requiredTables = [

@@ -80,9 +80,15 @@ describe("catalog: the tools come from the SDK registry", () => {
         "add-checklist-item",
         "handoff-issue",
         "create-issue",
+        // 1.4: still issue work, inside the agent's reach (agile.access.ts, migration 0006)
+        "bulk-update-issues",
+        "link-issues",
+        "attach-file",
+        "log-time",
+        "subscribe-issue",
       ].sort()
     );
-    for (const id of ["approve-intake", "delete-issue", "create-cycle", "create-squad", "update-project"]) {
+    for (const id of ["approve-intake", "delete-issue", "create-cycle", "create-squad", "update-project", "connect-github-repo", "disconnect-github-repo", "github-webhook", "delete-time"]) {
       expect(tools.some((x) => x.op.id === id)).toBe(false);
     }
   });
@@ -118,6 +124,7 @@ describe("through the real routes: members only", () => {
       "0003_english_names.sql",
       "0004_english_rls.sql",
       "0005_planning_squads_and_agents.sql",
+      "0006_attachments_time_github_search.sql",
     ]);
     const db = await dropToAppRole(client);
     const auth = testAuth();
