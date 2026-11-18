@@ -1,6 +1,6 @@
 /**
- * kon-collection and kon-analytics — personal data does not cross over, and public
- * data is not filled from outside
+ * kon-collection — personal data does not cross over, and public data is not filled
+ * from outside (analytics moved into Kitsuden: its tests are the core's)
  * ============================================================================
  *
  * Against PGlite. Security review of 2026-10-15.
@@ -25,11 +25,9 @@ const USERS: Record<string, { id: string; role: string }> = {
 };
 const DATASET = "22222222-2222-4222-8222-222222222222";
 const MADE_UP = "33333333-3333-4333-8333-333333333333";
-const GAME = "44444444-4444-4444-8444-444444444444";
 
 let client: PGlite;
 let collection: any;
-let analytics: any;
 let collectionModule: any;
 let registerPolicy: () => void;
 
@@ -56,15 +54,12 @@ beforeAll(async () => {
   client = new PGlite();
   for (const f of [
     "../../kons/kon-collection/migrations/0001_collection.sql",
-    "../../kons/kon-analytics/migrations/0000_analytics.sql",
   ]) {
     await client.exec(readFileSync(resolve(__dirname, f), "utf8"));
   }
   await client.exec(
     "CREATE TABLE data_sets (id uuid PRIMARY KEY, name text);" +
-      `INSERT INTO data_sets VALUES ('${DATASET}', 'Índice');` +
-      "CREATE TABLE games (id uuid PRIMARY KEY, name text);" +
-      `INSERT INTO games VALUES ('${GAME}', 'Juego');`
+      `INSERT INTO data_sets VALUES ('${DATASET}', 'Índice');`
   );
 
   const db = drizzle(client);
@@ -85,15 +80,11 @@ beforeAll(async () => {
   );
   collection.onError((err: unknown, c: any) => respondError(c, err));
 
-  const analyticsModule = await import("../../kons/kon-analytics/index");
-  analytics = analyticsModule.createKonAnalytics(
-    createTestKonContext({ db: { instance: db } as any })
-  );
 });
 
 beforeEach(async () => {
   registerPolicy();
-  await client.exec("DELETE FROM collection_marks; DELETE FROM analytics_views;");
+  await client.exec("DELETE FROM collection_marks;");
 });
 
 afterAll(async () => {
@@ -176,49 +167,5 @@ describe("collection: each one has their own", () => {
       (await request(collection, "bruno", "PUT", `/${DATASET}`, { entryKey: "k1", have: false }))
         .status
     ).toBe(200);
-  });
-});
-
-describe("analytics: no personal data and no inflation from what does not exist", () => {
-  const hit = (body: unknown, agent = "Mozilla/5.0") =>
-    analytics.request("/hit", {
-      method: "POST",
-      headers: { "content-type": "application/json", "user-agent": agent },
-      body: JSON.stringify(body),
-    });
-
-  test("a subject that does not exist creates no rows (and responds the same)", async () => {
-    const r = await hit({ type: "game", id: MADE_UP });
-    expect(r.status).toBe(204);
-    const n: any = await client.query("SELECT count(*)::int AS n FROM analytics_views");
-    expect(n.rows[0].n).toBe(0);
-  });
-
-  test("one that exists adds ONE view per request, whatever the body says", async () => {
-    await hit({ type: "game", id: GAME, views: 1000 });
-    const r: any = await client.query("SELECT views FROM analytics_views");
-    expect(r.rows).toEqual([{ views: 1 }]);
-  });
-
-  test("the table stores no IP, agent or anything that identifies", async () => {
-    const cols: any = await client.query(
-      "SELECT column_name FROM information_schema.columns WHERE table_name = 'analytics_views' ORDER BY column_name"
-    );
-    expect(cols.rows.map((c: any) => c.column_name)).toEqual([
-      "created_at",
-      "day",
-      "id",
-      "subject_id",
-      "subject_type",
-      "updated_at",
-      "views",
-    ]);
-  });
-
-  test("hit declares its own per-connection limit (the general one is for reading)", async () => {
-    const { kon } = await import("../../kons/kon-analytics/index");
-    const rule = kon.rateLimits?.find((r) => r.path === "/hit");
-    expect(rule).toBeDefined();
-    expect(rule!.limit).toBeLessThanOrEqual(60);
   });
 });

@@ -13,13 +13,6 @@
     "sensitive": 0,
     "cost": 0
   },
-  "kon-analytics": {
-    "operations": 3,
-    "before": 0,
-    "permission": 0,
-    "sensitive": 0,
-    "cost": 0
-  },
   "kon-autobattler": {
     "operations": 14,
     "before": 0,
