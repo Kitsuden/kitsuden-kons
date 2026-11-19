@@ -6,7 +6,7 @@ it.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.3 | `/api/streamers` | `kon-games`, `kon-media` (core: `auth`) |
+| beta | gaming | 1.1.0 | `/api/streamers` | `kon-games`, `kon-media` (core: `auth`) |
 
 ## Install
 
@@ -38,7 +38,7 @@ The kon does not call Twitch, YouTube or Kick itself. Live status comes in throu
 | Route | Who | What it does |
 | --- | --- | --- |
 | `GET /api/streamers` | anyone | Paginated list (`limit` default 50, max 200; `page`). Filters `platform`, `live=true`. `sort` is a column, `-` for descending (default `-followerCount`); an unknown column falls back to the default. |
-| `GET /api/streamers/live` | anyone | Up to 20 live streamers, most viewers first. |
+| `GET /api/streamers/live` | anyone | Live streamers, most viewers first: `limit` (1-20, default 20) and `offset`; `hasMore` says whether more are live. |
 | `GET /api/streamers/slug/:slug` | anyone | One streamer by slug, with `games` (`gameId`, `isPrimary`). |
 | `POST /api/streamers/sync/status` | staff | Batch of up to 500 updates matched by `platform` + `channelId`; sets `isLive`, `viewerCount`, `currentStreamTitle`, `thumbnailId` and `lastSyncedAt`. Unmatched channels are skipped. Returns `{ synced, total }`. |
 | `GET /api/streamers/:id` | anyone | One streamer by id. A malformed id is a 404. |

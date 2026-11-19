@@ -6,7 +6,7 @@ downloads area) call to decide whether a reader may see a piece of content.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| stable (tier `essential`) | core | 1.0.2 | `/api/members` | — (core `auth`; optional: kon-payments) |
+| stable (tier `essential`) | core | 1.0.3 | `/api/members` | — (core `auth`; optional: kon-payments) |
 
 ## Install
 
@@ -79,7 +79,7 @@ Reader portal (public):
 
 | Route | Who may call it | What it does |
 | --- | --- | --- |
-| `GET /api/members/tiers` | Anyone | Active, visible tiers ordered by level, with prices and benefits. |
+| `GET /api/members/tiers` | Anyone | Active, visible tiers ordered by level, with prices and benefits. Whole (declared `unpaginated`). |
 | `POST /api/members/signin` | Anyone | Body `{ email, name? }`. Creates the member if new and sends a sign-in link. Always answers `{ ok: true, message }`, whether or not the address exists; never returns the token. |
 | `POST /api/members/signin/verify` | Anyone holding a link | Consumes the token (`?token=` or `token` in the body), sets the reader cookie (httpOnly, `SameSite=Lax`, 60 days) and returns the public member. 400 without a token; 401 for an invalid, used or expired token (same error for all three). |
 | `GET /api/members/me` | Anyone | The reader of the cookie: public profile, `level` and the highest tier that level reaches. `{ data: null }` without a session. |

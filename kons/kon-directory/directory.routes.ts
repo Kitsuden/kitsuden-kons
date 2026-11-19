@@ -61,14 +61,18 @@ import {
   KON_ID,
   ListWithTotal,
   RowList,
+  RowPage,
   DepartmentParam,
   EmployeeParam,
   OrganizationParam,
   ON_THE_RECORD,
   query,
   manages,
+  offsetOnly,
+  pageOf,
   registry,
   text,
+  type Page,
 } from "./operations";
 
 registerDirectoryPolicy();
@@ -408,11 +412,13 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
       id: "list-organizations",
       summary: "List organizations",
       description:
-        "Active organizations by name (up to 500), with their logo URL and employee count. The structure of the directory is not personal data: anyone who reaches the directory sees it.",
+        "Active organizations by name, a page at a time (`limit` 1-500, default 500; `offset`; `hasMore` says there are more), with their logo URL and employee count. The structure of the directory is not personal data: anyone who reaches the directory sees it.",
       access: "public",
-      output: { schema: RowList },
+      input: { query: query(pageOf(500)) },
+      output: { schema: RowPage },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as Page;
       const list = await dbDe(c)
         .select({
           id: organizations.id,
@@ -427,10 +433,14 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
         })
         .from(organizations)
         .where(eq(organizations.isActive, true))
-        .orderBy(asc(organizations.name))
-        .limit(500);
+        .orderBy(asc(organizations.name), asc(organizations.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json({ docs: list.map((org) => ({ ...org, logoUrl: getLogoUrl(org.logoId) })) });
+      return c.json({
+        docs: list.slice(0, limit).map((org) => ({ ...org, logoUrl: getLogoUrl(org.logoId) })),
+        hasMore: list.length > limit,
+      });
     }
   );
 
@@ -538,17 +548,19 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
       id: "list-departments",
       summary: "List departments",
       description:
-        "Active departments by name (up to 1000). `organizationId` filters (uuid, else 400); `parentId` filters by parent department (`null` = top level).",
+        "Active departments by name, a page at a time (`limit` 1-1000, default 1000; `offset`; `hasMore` says there are more). `organizationId` filters (uuid, else 400); `parentId` filters by parent department (`null` = top level).",
       access: "public",
       input: {
         query: query({
           organizationId: text("Organization id (uuid)"),
           parentId: text("Parent department id (uuid), or `null` for top-level departments"),
+          ...pageOf(1000),
         }),
       },
-      output: { schema: RowList },
+      output: { schema: RowPage },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as Page;
       const orgId = uuidDeQuery(c.req.query("organizationId"), "organizationId");
       const parentId = c.req.query("parentId");
 
@@ -573,10 +585,11 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
         })
         .from(departments)
         .where(and(...conditions))
-        .orderBy(asc(departments.name))
-        .limit(1000);
+        .orderBy(asc(departments.name), asc(departments.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json({ docs: list });
+      return c.json({ docs: list.slice(0, limit), hasMore: list.length > limit });
     }
   );
 
@@ -708,17 +721,19 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
       id: "list-positions",
       summary: "List positions",
       description:
-        "Active positions by title (up to 1000). `organizationId` and `departmentId` filter (uuids, else 400).",
+        "Active positions by title, a page at a time (`limit` 1-1000, default 1000; `offset`; `hasMore` says there are more). `organizationId` and `departmentId` filter (uuids, else 400).",
       access: "public",
       input: {
         query: query({
           organizationId: text("Organization id (uuid)"),
           departmentId: text("Department id (uuid)"),
+          ...pageOf(1000),
         }),
       },
-      output: { schema: RowList },
+      output: { schema: RowPage },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as Page;
       const orgId = uuidDeQuery(c.req.query("organizationId"), "organizationId");
       const deptId = uuidDeQuery(c.req.query("departmentId"), "departmentId");
 
@@ -737,10 +752,11 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
         })
         .from(positions)
         .where(and(...conditions))
-        .orderBy(asc(positions.title))
-        .limit(1000);
+        .orderBy(asc(positions.title), asc(positions.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json({ docs: list });
+      return c.json({ docs: list.slice(0, limit), hasMore: list.length > limit });
     }
   );
 
@@ -788,7 +804,7 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
       id: "list-employees",
       summary: "List employees",
       description:
-        "Active employees by surname, each shown as the caller may see them: a public card for anyone (hidden profiles left out), plus work email, phone and timezone for colleagues of the same organization; HR sees every column. Filters: `organizationId`, `departmentId`, `positionId`, `managerId` (uuids, else 400), `remote=true`, `location`, `search` (by name; HR also by email), `status` (HR only, ignored for anyone else) and `limit` (1-100, default 50).",
+        "Active employees by surname, each shown as the caller may see them: a public card for anyone (hidden profiles left out), plus work email, phone and timezone for colleagues of the same organization; HR sees every column. Filters: `organizationId`, `departmentId`, `positionId`, `managerId` (uuids, else 400), `remote=true`, `location`, `search` (by name; HR also by email), `status` (HR only, ignored for anyone else). A page at a time: `limit` (1-100, default 50), `offset` skips rows and `hasMore` says there are more; `totalDocs` is the number on this page.",
       access: "optional",
       input: {
         query: query({
@@ -800,13 +816,16 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
           location: text("Exact location"),
           status: text("Employment status (HR only; ignored otherwise)"),
           search: text("Name contains (HR: also email)"),
-          limit: text("Max employees, 1-100 (default 50)"),
+          limit: text("Employees per page, 1-100 (default 50)"),
+          offset: offsetOnly,
         }),
       },
       output: { schema: ListWithTotal },
     },
-    async (c) => {
+    async (c, input) => {
       const query = c.req.query();
+      const { offset } = input.query as { offset: number };
+      const limit = limitOf(query.limit);
       const viewer = await viewerOf(c);
       const hr = isHr(viewer.user);
       const db = dbDe(c);
@@ -839,12 +858,15 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
         conditions.push(or(...fields)!);
       }
 
-      const empList = (await db
+      const read = (await db
         .select(hr ? { ...LIST_COLUMNS, ...HR_LIST_COLUMNS } : LIST_COLUMNS)
         .from(employees)
         .where(and(...conditions))
-        .orderBy(asc(employees.lastName), asc(employees.firstName))
-        .limit(limitOf(query.limit))) as ListRow[];
+        // The id breaks ties between namesakes, so pages neither repeat nor skip anyone.
+        .orderBy(asc(employees.lastName), asc(employees.firstName), asc(employees.id))
+        .limit(limit + 1)
+        .offset(offset)) as ListRow[];
+      const empList = read.slice(0, limit);
 
       const names = await namesOf(
         db,
@@ -857,7 +879,7 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
         departmentName: e.departmentId ? names.dept.get(e.departmentId) : null,
         positionTitle: e.positionId ? names.pos.get(e.positionId) : null,
       }));
-      return c.json({ docs, totalDocs: docs.length });
+      return c.json({ docs, totalDocs: docs.length, hasMore: read.length > limit });
     }
   );
 
@@ -1256,6 +1278,8 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
       description:
         "HR sees every document of a profile; the employee sees their own non-confidential ones; anyone else gets 404. Without a session, 401.",
       access: "optional",
+      unpaginated:
+        "The documents of one employee profile (contract, ID, certificates): a few dozen over a career, well under the 500 read.",
       input: { params: EmployeeParam },
       output: { schema: RowList },
       errors: ["KITSUDEN_E_UNAUTHENTICATED", "KITSUDEN_E_NOT_FOUND"],
@@ -1344,6 +1368,8 @@ export function directoryOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Up to 20 employees (by name; HR also by email) and 10 departments (by name or description) matching `q` (2 characters at least, else 400); `organizationId` narrows it. Employees come as the card the caller may see.",
       access: "optional",
+      unpaginated:
+        "A search box: the first 20 people and 10 departments, a fixed size the description states; list-employees with `search` is the full list.",
       input: {
         query: query({
           q: text("Text to search, at least 2 characters"),

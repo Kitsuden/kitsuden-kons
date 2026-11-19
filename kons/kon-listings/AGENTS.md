@@ -28,6 +28,8 @@ kinds of listing are files in `verticals/` and each portal's format is a file in
   do not retry.
 - Inquiries hold names, emails and phones (`sensitivity` in kon.json): never copy them anywhere
   the person did not ask for.
+- `listings__list-inquiries` answers 50 by default (`limit` up to 200), newest first; ask again
+  with `offset += limit` while `hasMore` is true.
 
 ## Map of the code
 

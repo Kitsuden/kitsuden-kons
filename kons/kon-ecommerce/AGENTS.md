@@ -81,6 +81,7 @@ kon-payments, delivery of files and license keys, discount codes and order e-mai
 | An `Idempotency-Key` is tied to the e-mail; the same key with another e-mail makes a new order. | `idempotencyFingerprint` | `security-shop.test.ts` |
 | The public order routes are rate limited, fail closed. | `index.ts` `rateLimits` | `security-shop.test.ts` |
 | Sending e-mails never waits for or breaks the change that caused it. | `shop.notify.ts` | review |
+| `list-my-orders`, `list-promotions` and `list-orders` page with `limit`/`offset` (default = the old caps, 100, 500 and 50; order date then id) and answer `hasMore`. `list-orders` keeps its lenient text `limit` (max 200). | `shop.routes.ts` | `tests/unit/kon-ecommerce-pagination.test.ts` |
 
 ## Changing it
 

@@ -9,7 +9,7 @@
 
 import { AppError, can } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import { z } from "@kitsuden/engine/zod";
 
 import { planCapture, type FormSubmission } from "./crm.capture";
@@ -18,7 +18,7 @@ import type { CrmDb } from "./crm.db";
 import { findDuplicates, normalizeEmail, planMerge, type ContactLike } from "./crm.dedupe";
 import { emitCrm } from "./crm.events";
 import { crmActivities, crmContacts, crmDeals, crmMergeRequests, crmPipelineStages, crmSuppressions } from "./crm.schema";
-import { DELETE, EDIT, VIEW, requiresEdit, type registry } from "./operations";
+import { DELETE, EDIT, VIEW, cappedPage, pageOfRows, requiresEdit, type Page, type registry } from "./operations";
 
 const Output = z.object({}).passthrough();
 const ParamId = z.object({ id: z.string().describe("Contact id") });
@@ -220,12 +220,23 @@ export function intakeOperations(routes: ReturnType<typeof registry>): void {
     {
       id: "list-suppressions",
       summary: "List the CRM exclusion list",
-      description: "Emails and domains that capture and import never bring in. Requires CRM view access.",
+      description:
+        "Emails and domains that capture and import never bring in, newest first, a page at a time (`limit` 1-1000, default 1000; `offset`; `hasMore` says there are more). Requires CRM view access.",
       access: "session",
       permission: VIEW,
+      input: { query: z.object(cappedPage(1000)).passthrough() },
       output: { schema: Output },
     },
-    async (c) => c.json({ data: await dbDe(c).select().from(crmSuppressions).limit(1000) })
+    async (c, input) => {
+      const { limit, offset } = input.query as Required<Page>;
+      const rows = await dbDe(c)
+        .select()
+        .from(crmSuppressions)
+        .orderBy(desc(crmSuppressions.createdAt), asc(crmSuppressions.kind), asc(crmSuppressions.value))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOfRows(rows, limit));
+    }
   );
 
   routes.post(
@@ -340,19 +351,27 @@ export function intakeOperations(routes: ReturnType<typeof registry>): void {
     {
       id: "list-merge-requests",
       summary: "List merges agents asked for",
-      description: "Pending first, newest first, up to 200. Requires CRM view access.",
+      description:
+        "Pending first, newest first, a page at a time (`limit` 1-200, default 200; `offset`; `hasMore` says there are more). Requires CRM view access.",
       access: "session",
       permission: VIEW,
+      input: { query: z.object(cappedPage(200)).passthrough() },
       output: { schema: Output },
     },
-    async (c) =>
-      c.json({
-        data: await dbDe(c)
-          .select()
-          .from(crmMergeRequests)
-          .orderBy(sql`${crmMergeRequests.status} = 'pending' DESC`, desc(crmMergeRequests.createdAt))
-          .limit(200),
-      })
+    async (c, input) => {
+      const { limit, offset } = input.query as Required<Page>;
+      const rows = await dbDe(c)
+        .select()
+        .from(crmMergeRequests)
+        .orderBy(
+          sql`${crmMergeRequests.status} = 'pending' DESC`,
+          desc(crmMergeRequests.createdAt),
+          asc(crmMergeRequests.id)
+        )
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOfRows(rows, limit));
+    }
   );
 
   routes.post(

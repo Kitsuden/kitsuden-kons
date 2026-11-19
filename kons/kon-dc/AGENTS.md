@@ -23,6 +23,9 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
   with the problems when settings do not fit.
 - `dc__delete-blueprint` and `dc__import` are sensitive. A write held for human approval answers
   `202 KITSUDEN_E_APPROVAL_REQUIRED`: report the proposal, do not retry.
+- `dc__list-guilds`, `dc__list-items` and `dc__list-blueprints` take an optional `limit` (1-500) and
+  `offset`; `dc__list-guild-schedules` takes `limit` (default 500) and `offset`. Each answers `hasMore`:
+  ask for the next page while it is true.
 - Never put a token or key in a blueprint or a module's settings: they are exported in clear.
 
 ## Map of the code

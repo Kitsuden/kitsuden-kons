@@ -115,6 +115,7 @@ export function formulasOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every formula system (a game's derived-stat formulas: how damage, defense… are computed) by name, with its stats. Public.",
       access: "public",
+      unpaginated: "One formula system per game a site covers: a short list read whole.",
       output: { schema: z.object({ data: z.array(SystemOut) }) },
       handle: async (_input, { c }) => {
         const rows = await repo(formulaSystems, { db }).orderBy("name").all();

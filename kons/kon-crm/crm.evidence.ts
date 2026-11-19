@@ -17,7 +17,7 @@
 
 import { AppError } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
-import { and, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import type { Context } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
@@ -28,7 +28,7 @@ import { entityByName } from "./crm.entities";
 import { emitCrm } from "./crm.events";
 import { readableFields } from "./crm.records";
 import { crmCompanies, crmContacts, crmEvidenceKinds, crmEvidencePolicy, crmObservations } from "./crm.schema";
-import { CONFIGURE, EDIT, VIEW, requiresEdit, type registry } from "./operations";
+import { CONFIGURE, EDIT, VIEW, pageOfRows, pageOffset, requiresEdit, type registry } from "./operations";
 
 /** The record columns an observation may fill. Money (`annualRevenue`) and links between records are not facts to observe. */
 export const OBSERVABLE = {
@@ -81,6 +81,7 @@ const ListQuery = z
     field: z.string().optional(),
     status: z.enum(["applied", "suggested", "confirmed", "accepted", "rejected"]).optional(),
     limit: z.string().optional().describe("1-200, default 100"),
+    offset: pageOffset,
   })
   .passthrough();
 
@@ -351,7 +352,7 @@ export function evidenceOperations(routes: ReturnType<typeof registry>): void {
       id: "list-observations",
       summary: "List what was observed",
       description:
-        "Newest first. `status=suggested` is the queue a person settles. Filters: `entityType`, `entityId`, `field`, `status`. Observations of fields you cannot read are left out. Requires CRM view access.",
+        "Newest first, a page at a time (`limit` 1-200, default 100; `offset` skips rows; `hasMore` says there are more). `status=suggested` is the queue a person settles. Filters: `entityType`, `entityId`, `field`, `status`. Observations of fields you cannot read are left out, so a page can hold fewer than `limit`: keep reading while `hasMore` is true. Requires CRM view access.",
       access: "session",
       permission: VIEW,
       input: { query: ListQuery },
@@ -361,6 +362,7 @@ export function evidenceOperations(routes: ReturnType<typeof registry>): void {
       const db = dbDe(c);
       const q = input.query;
       const limit = Math.min(Math.max(Number(q.limit) || 100, 1), 200);
+      const offset = Number(q.offset) || 0;
       const conditions: SQL[] = [];
       if (q.entityType) conditions.push(eq(crmObservations.entityType, q.entityType));
       if (q.entityId) conditions.push(eq(crmObservations.entityId, q.entityId));
@@ -370,9 +372,12 @@ export function evidenceOperations(routes: ReturnType<typeof registry>): void {
         .select()
         .from(crmObservations)
         .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(desc(crmObservations.observedAt))
-        .limit(limit);
-      return c.json({ data: await readable(db, rows) });
+        .orderBy(desc(crmObservations.observedAt), asc(crmObservations.id))
+        .limit(limit + 1)
+        .offset(offset);
+      // `hasMore` counts the rows read, before the hidden fields are left out.
+      const page = pageOfRows(rows, limit);
+      return c.json({ data: await readable(db, page.data), hasMore: page.hasMore });
     }
   );
 

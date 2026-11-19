@@ -54,7 +54,18 @@ import { presetOperations } from "./crm.presets";
 import { publicOperations } from "./crm.public";
 import { scoringOperations } from "./crm.scoring";
 import { workOperations } from "./crm.work";
-import { DELETE, CONFIGURE, EDIT, KON_ID, VIEW, requiresEdit, registry } from "./operations";
+import {
+  DELETE,
+  CONFIGURE,
+  EDIT,
+  KON_ID,
+  VIEW,
+  optionalPage,
+  pageOfRows,
+  requiresEdit,
+  registry,
+  type Page,
+} from "./operations";
 
 import {
   crmCompanies,
@@ -419,6 +430,8 @@ const Row = z.object({ id: z.string() }).passthrough();
 const Account = z.union([z.number(), z.string()]);
 const RowResponse = z.object({ data: Row }).passthrough();
 const RowsResponse = z.object({ data: z.array(Row) }).passthrough();
+/** A page of rows: `hasMore` says there are rows after this page. */
+const RowsPage = z.object({ data: z.array(Row), hasMore: z.boolean() }).passthrough();
 const ListResponse = z
   .object({
     data: z.array(Row),
@@ -1226,6 +1239,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
     "/pipelines",
     {
       id: "list-pipelines",
+      unpaginated: "The deal pipelines an admin set up: a handful per organization.",
       summary: "List CRM pipelines",
       description:
         "Deal pipelines, default first then by name (up to 500), without stages (see `get-pipeline`). Filter: `organizationId`. CRM team only.",
@@ -2582,6 +2596,7 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
     "/entity-configs",
     {
       id: "list-entities",
+      unpaginated: "The entity configurations of the CRM builder: one per entity type an installation defines.",
       summary: "List CRM entity configurations",
       description:
         "Entity configurations of the CRM builder (labels, field schema, default pipeline), newest-updated first. Filter: `konId`. CRM team only.",
@@ -2994,23 +3009,26 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
       id: "list-deal-documents",
       summary: "List a CRM deal's documents",
       description:
-        "Document records of the deal, newest first. An unknown deal gives an empty list. CRM team only.",
+        "Document records of the deal, newest first. Every one unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more. An unknown deal gives an empty list. CRM team only.",
       access: "session",
       permission: VIEW,
-      input: { params: ParamId },
-      output: { schema: RowsResponse },
+      input: { params: ParamId, query: z.object(optionalPage).passthrough() },
+      output: { schema: RowsPage },
     },
     async (c, input) => {
       try {
         const dealId = c.req.param("id");
+        const { limit, offset } = input.query as Page;
 
-        const documents = await dbDe(c)
+        const query = dbDe(c)
           .select()
           .from(crmDocuments)
           .where(eq(crmDocuments.dealId, dealId))
-          .orderBy(desc(crmDocuments.uploadedAt));
+          .orderBy(desc(crmDocuments.uploadedAt), desc(crmDocuments.id));
+        const documents =
+          limit === undefined ? await query.offset(offset) : await query.limit(limit + 1).offset(offset);
 
-        return c.json({ data: documents });
+        return c.json(pageOfRows(documents, limit));
       } catch (error) {
         if (error instanceof AppError) throw error;
         throwInputError(error);

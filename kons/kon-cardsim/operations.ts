@@ -32,7 +32,7 @@ export type Declaration = Omit<KonOperation, "method" | "route" | "handle">;
  * `c.req.param("id")` is `string` —as when each route typed its own— and not
  * `string | undefined`. What is validated is in `input.params`.
  */
-export type KonPath = "/:id/:slug/:code";
+export type KonPath = "/:id/:slug/:code/:ref";
 
 /** A handler of the old kind, with the validated input and the operation's context. */
 export type Handler = (
@@ -142,3 +142,49 @@ export const withData = <T extends z.ZodTypeAny>(data: T) =>
 /** Free-text query: whatever is not declared is ignored, as always. */
 export const query = <S extends z.ZodRawShape>(shape: S) => z.object(shape).passthrough();
 export const text = (that: string) => z.string().optional().describe(that);
+
+// ── Pages (api-contract, 2026-11-18) ─────────────────────────────────────────
+
+const offset = z.coerce.number().int().min(0).default(0).describe("Rows to skip.");
+export const HasMore = z
+  .boolean()
+  .describe("More rows after this page: ask again with `offset` + `limit`.");
+
+/**
+ * `limit` and `offset` of a list that used to stop at `cap` rows with no sign.
+ * The default is the old cap: a client that sends nothing gets what it always got.
+ */
+export const cappedPage = (cap: number) => ({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(cap)
+    .default(cap)
+    .describe(`Rows per page (1-${cap}). The default is the maximum, what the list always returned.`),
+  offset,
+});
+
+/** `limit` and `offset` of a list that returned everything: without `limit` it still does. */
+export const optionalPage = (max: number) => ({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(max)
+    .optional()
+    .describe(`Rows per page (1-${max}). Without it, every row, as always.`),
+  offset,
+});
+
+/** The validated `limit` (absent: no page) and `offset`. */
+export function pageOf(input: { query?: unknown }): { limit?: number; offset: number } {
+  const q = (input.query ?? {}) as { limit?: number; offset?: number };
+  return { limit: q.limit, offset: q.offset ?? 0 };
+}
+
+/** The page of the `limit + 1` rows read, and whether more follow. */
+export function cutPage<T>(rows: T[], limit: number | undefined): { rows: T[]; hasMore: boolean } {
+  const hasMore = limit !== undefined && rows.length > limit;
+  return { rows: hasMore ? rows.slice(0, limit) : rows, hasMore };
+}

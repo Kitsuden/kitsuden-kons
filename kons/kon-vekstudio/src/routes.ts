@@ -41,7 +41,7 @@ import {
   type AnyOperation,
 } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
@@ -191,7 +191,22 @@ async function proxyTo(target: string, c: Context): Promise<Response> {
 const ParamJob = z.object({
   jobId: z.string().describe("Gateway job id (letters, digits, _ and -, up to 64)"),
 });
-const LimitQuery = z.object({ limit: z.string().optional() }).passthrough();
+/**
+ * `limit` keeps its lenient parsing (text: a non-number is the default 100, a
+ * value out of 1-500 is clamped), so requests that got a page before still do.
+ * `offset` reaches the rows past it (api-contract, 2026-11-18).
+ */
+const LimitQuery = z
+  .object({
+    limit: z.string().optional(),
+    offset: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .default(0)
+      .describe("Documents to skip. The `X-Has-More` response header says whether more follow."),
+  })
+  .passthrough();
 /** A row of `ocr_documents`. */
 const DocumentRecord = z.object({ id: z.string(), jobId: z.string() }).passthrough();
 
@@ -381,26 +396,33 @@ export function vekstudioOperations(ctx: KonContext): AnyOperation[] {
       id: "list-documents",
       summary: "List OCR documents",
       description:
-        "The local mirror of OCR jobs (job id, file name, state, engine, confidence, linked KITSUDEN record, reviewed), oldest first. Admin sees every document; an editor only the ones they submitted. `limit` 1-500 (default 100). Admin or editor.",
+        "The local mirror of OCR jobs (job id, file name, state, engine, confidence, linked KITSUDEN record, reviewed), oldest first. Admin sees every document; an editor only the ones they submitted. In pages of `limit` (1-500, default 100) from `offset`; the response is the array and the `X-Has-More` header says whether more follow (a page shorter than `limit` is the last). Admin or editor.",
       access: "session",
       // It was `requireAuth` + `require("submit")`, before anything else.
       permission: TEAM_ONLY,
       input: { query: LimitQuery },
       output: { schema: z.array(DocumentRecord) },
     },
-    async (c) => {
+    async (c, input) => {
       const user = userValue(c)!;
       const request = Number.parseInt(c.req.query("limit") ?? "100", 10);
       const limit = Number.isFinite(request) ? Math.min(Math.max(request, 1), 500) : 100;
+      const { offset } = input.query as { offset: number };
       // Admin sees the whole queue; everyone else, only what they sent.
       const viewAll = await can(user, "operate", {}, "vekstudio");
       const rows = await dbInstance
         .select()
         .from(ocrDocuments)
         .where(viewAll ? undefined : eq(ocrDocuments.createdBy, user.id ?? ""))
-        .orderBy(ocrDocuments.createdAt)
-        .limit(limit);
-      return c.json(rows);
+        // The id breaks ties between jobs created in the same instant (a batch).
+        .orderBy(asc(ocrDocuments.createdAt), asc(ocrDocuments.id))
+        .limit(limit + 1)
+        .offset(offset);
+      // The body stays the bare array every client reads: whether more follow
+      // goes in a header (the core exposes `X-Has-More` through CORS).
+      const hasMore = rows.length > limit;
+      c.header("X-Has-More", String(hasMore));
+      return c.json(hasMore ? rows.slice(0, limit) : rows);
     }
   );
 

@@ -41,10 +41,14 @@ import {
   declareOp,
   KeyParam,
   ListWithTotal,
+  PagedList,
+  PageQuery,
   ProjectParam,
   REST_ONLY,
   Row,
   Success,
+  fetchPage,
+  pageOf,
   query,
   registry,
   text,
@@ -312,7 +316,10 @@ export function planningOperations(
 
   routes.get(
     "/:projectId/labels",
-    declare("list-labels", "List a project's labels", `Labels by name. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-labels", "List a project's labels", `Labels by name. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: the labels its owners and members define for its issues, a short set read whole for pickers.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const docs = await db.instance
@@ -409,7 +416,10 @@ export function planningOperations(
 
   routes.get(
     "/:projectId/states",
-    declare("list-states", "List a project's states", `The board's columns, in order. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-states", "List a project's states", `The board's columns, in order. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: the columns of its board, a handful set by its owners and always read whole.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const docs = await db.instance
@@ -564,7 +574,10 @@ export function planningOperations(
 
   routes.get(
     "/:projectId/estimates",
-    declare("list-estimates", "List a project's estimate scales", `Estimate systems (story points, t-shirt…). ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-estimates", "List a project's estimate scales", `Estimate systems (story points, t-shirt…). ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: its estimate scales (story points, t-shirt sizes), a few set by its owners.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const docs = await db.instance
@@ -634,7 +647,10 @@ export function planningOperations(
 
   routes.get(
     "/issues/:key/links",
-    declare("list-issue-links", "List an issue's links", `Links in both directions, each as seen from this issue (a \`blocks\` stored on the other issue reads \`blocked_by\` here), with the other issue's key, name and state. ${WHO_SEES}`, { params: KeyParam }, { schema: Docs }),
+    {
+      ...declare("list-issue-links", "List an issue's links", `Links in both directions, each as seen from this issue (a \`blocks\` stored on the other issue reads \`blocked_by\` here), with the other issue's key, name and state. ${WHO_SEES}`, { params: KeyParam }, { schema: Docs }),
+      unpaginated: "The links of ONE issue (blocks, relates to, duplicates), made one at a time by members: a few per issue.",
+    },
     async (c, input) => {
       const { issue } = await issueFor(c, input.params.key, "view");
       const rows = await db.instance
@@ -904,10 +920,10 @@ export function planningOperations(
 
   routes.get(
     "/modules/:moduleId/issues",
-    declare("list-module-issues", "List an epic's issues", `Issues whose module is this one, or that were added to it. ${WHO_SEES}`, { params: ModuleParam }, { schema: ListWithTotal }),
+    declare("list-module-issues", "List an epic's issues", `Issues whose module is this one, or that were added to it, oldest first. \`limit\` (1-500) and \`offset\` page them; without \`limit\`, all of them (\`hasMore\` says whether more remain). ${WHO_SEES}`, { params: ModuleParam, query: query(PageQuery) }, { schema: PagedList }),
     async (c, input) => {
       await configurable(c, agileModules, input.params.moduleId, "Module", "view");
-      const docs = await db.instance
+      const listing = db.instance
         .select({
           id: agileIssues.id,
           key: agileIssues.key,
@@ -921,8 +937,10 @@ export function planningOperations(
         .from(agileIssues)
         .leftJoin(agileStates, eq(agileIssues.stateId, agileStates.id))
         .where(inModule(input.params.moduleId))
-        .orderBy(asc(agileIssues.createdAt));
-      return c.json({ docs, totalDocs: docs.length });
+        .orderBy(asc(agileIssues.createdAt), asc(agileIssues.id))
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs, totalDocs: docs.length, hasMore });
     }
   );
 
@@ -1031,10 +1049,10 @@ export function planningOperations(
 
   routes.get(
     "/issues/:key/sub-issues",
-    declare("list-sub-issues", "List an issue's sub-issues", `Its children, oldest first, with their state. ${WHO_SEES}`, { params: KeyParam }, { schema: ListWithTotal }),
+    declare("list-sub-issues", "List an issue's sub-issues", `Its children, oldest first, with their state. \`limit\` (1-500) and \`offset\` page them; without \`limit\`, all of them (\`hasMore\` says whether more remain). ${WHO_SEES}`, { params: KeyParam, query: query(PageQuery) }, { schema: PagedList }),
     async (c, input) => {
       const { issue } = await issueFor(c, input.params.key, "view");
-      const docs = await db.instance
+      const listing = db.instance
         .select({
           id: agileIssues.id,
           key: agileIssues.key,
@@ -1049,8 +1067,10 @@ export function planningOperations(
         .from(agileIssues)
         .leftJoin(agileStates, eq(agileIssues.stateId, agileStates.id))
         .where(eq(agileIssues.parentId, issue.id))
-        .orderBy(asc(agileIssues.createdAt));
-      return c.json({ docs, totalDocs: docs.length });
+        .orderBy(asc(agileIssues.createdAt), asc(agileIssues.id))
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs, totalDocs: docs.length, hasMore });
     }
   );
 
@@ -1104,7 +1124,10 @@ export function planningOperations(
 
   routes.get(
     "/issues/:key/checklist",
-    declare("list-checklist", "Read an issue's checklist", `Its steps in order, with how many are done. ${WHO_SEES}`, { params: KeyParam }, { schema: Anything }),
+    {
+      ...declare("list-checklist", "Read an issue's checklist", `Its steps in order, with how many are done. ${WHO_SEES}`, { params: KeyParam }, { schema: Anything }),
+      unpaginated: "The steps of ONE issue's checklist, a short list read whole: `total` and `done` count every step.",
+    },
     async (c, input) => {
       const { issue } = await issueFor(c, input.params.key, "view");
       const docs = await db.instance
@@ -1196,7 +1219,10 @@ export function planningOperations(
 
   routes.get(
     "/:projectId/fields",
-    declare("list-custom-fields", "List a project's custom fields", `Definitions in order. Issue values live in \`props.customFields[key]\`. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-custom-fields", "List a project's custom fields", `Definitions in order. Issue values live in \`props.customFields[key]\`. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: the custom field definitions its owners set, read whole to validate and render issues.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const docs = await fieldsOf(db.instance, project.id);
@@ -1304,7 +1330,10 @@ export function planningOperations(
 
   routes.get(
     "/:projectId/initiatives",
-    declare("list-initiatives", "List a project's initiatives", `Each initiative with its issue counts (directly or through its modules, cancelled ones left out) and its pace: done share against elapsed share of [startDate, targetDate] → on_track, at_risk, off_track, done or no_dates. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-initiatives", "List a project's initiatives", `Each initiative with its issue counts (directly or through its modules, cancelled ones left out) and its pace: done share against elapsed share of [startDate, targetDate] → on_track, at_risk, off_track, done or no_dates. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "The few long-lived goals of one project, created by its owners and members (never agents), each read with its counts.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const rows = await db.instance

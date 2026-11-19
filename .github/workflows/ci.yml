@@ -16,6 +16,7 @@
 #   · `pnpm test:bun`         the kons that carry bun tests
 #   · migrations of ALL kons on a real Postgres, through Kitsuden's own runner
 #   · Schemathesis against the SDK operations of these kons (contract testing)
+#   · Kitsuden's contract rules (Spectral) on the same operations
 #
 # KITSUDEN_REF picks the Kitsuden version to test against (default: main).
 #
@@ -137,6 +138,13 @@ jobs:
 
       - name: Kon bun tests
         run: pnpm test:bun
+
+      # Kitsuden's contract rules (Spectral) on these kons' SDK operations: the core
+      # builds their OpenAPI from the declarations (no database) and lints it with its
+      # own ruleset (scripts/api-contract/ in Kitsuden). Blocking: every kon passes. A
+      # Kitsuden older than the ruleset is reported and skipped.
+      - name: Contract rules (Spectral)
+        run: KITSUDEN_DIR=.kitsuden node scripts/api-contract.mjs --github --summary="$GITHUB_STEP_SUMMARY"
 
       # The kons' SQL migrations, all of them, on a real Postgres, with the
       # same runner a Kitsuden server uses: each kon is "installed" by path

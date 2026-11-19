@@ -7,7 +7,7 @@ can optionally write journal entries into kon-conta.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 1.2.0 | `/api/payments` | — (optional: kon-conta) |
+| experimental | business | 1.2.1 | `/api/payments` | — (optional: kon-conta) |
 
 ## Install
 
@@ -57,7 +57,7 @@ Tables (from `kon.json`, created by `migrations/0000_initial.sql`):
 
 | Route | Who may call it | What it does |
 | --- | --- | --- |
-| `GET /api/payments/providers` | Anyone | Configured providers, and whether each supports the customer portal and cancelling. |
+| `GET /api/payments/providers` | Anyone | Configured providers, and whether each supports the customer portal and cancelling. Whole (declared `unpaginated`: four providers at most). |
 | `POST /api/payments/checkout` | The paying account | Body `{ provider, planId, successUrl, cancelUrl?, quantity?, metadata? }`. Opens a checkout for a plan in `PAYMENTS_ALLOWED_PLANS` and returns `{ url, … }`. The server adds the caller's `userId` to the metadata; client metadata may not use `userId`, `user_id`, `uid`, `owner_id` or `ownerId`. |
 | `POST /api/payments/webhook/:provider` | The provider (signed) | Verifies the signature (400 if invalid), applies the event once, emits `payment:<type>`. 404 for an unknown provider, 413 above 1 MB, 500 if applying fails so the provider retries, `{ ignored: true }` for events the kon does not handle. |
 | `GET /api/payments/subscription` | Any signed-in account | `{ hasAccess, subscriptions }` for the caller only. |

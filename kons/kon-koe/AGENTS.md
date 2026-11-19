@@ -19,6 +19,12 @@ media, an AI relay to kon-chat, and automation (flows, rule steps, campaigns, se
 - `koe__send-message` from an agent key is sent as the AI. It is refused (409, `details.koe: BOT_SILENCED`)
   in any conversation that is not in the `bot` state: a person has it, or it waits for one. Do not retry;
   leave a note (`koe__add-note`) or hand off (`koe__handoff-conversation` with a `summary`).
+- Long lists page: `koe__list-notes`, `koe__list-promises` and `koe__list-outcomes` take `limit` and `offset`
+  and answer `hasMore` (promises and outcomes default to 200 rows, notes to all of them); so do
+  `koe__list-contacts`, `koe__list-notices`, `koe__list-quick-replies`, `koe__list-stickers` and
+  `koe__list-campaigns`, with their own default `limit`. Keep asking with `offset += limit` while
+  `hasMore` is true. Configuration lists
+  (members, teams, channels, templates, flows, sequences) come whole.
 - Pass `idempotencyKey` (body) or `idempotency_key` (MCP) on sends you may repeat; the same key never sends
   twice.
 - Scopes: `koe:*` (or `kon:koe:*`) opens everything as a koe admin; a fine scope (`kon:koe:send-message`)

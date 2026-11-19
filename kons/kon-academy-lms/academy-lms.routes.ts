@@ -102,6 +102,9 @@ import {
   withRow,
   query,
   listing,
+  pagedListing,
+  optionalPage,
+  pageOf,
   text,
 } from "./schemas";
 import {
@@ -548,29 +551,37 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       id: "list-my-courses",
       summary: "List my assigned courses",
       description:
-        "Active courses assigned to you (directly or through one of your groups), each with its modules and topics (no quizzes), your progress percentage, and whether you completed it and its survey. Filter with status. Any signed-in account (an agent needs user:act or an academy-lms scope).",
+        "Active courses assigned to you (directly or through one of your groups), oldest first, each with its modules and topics (no quizzes), your progress percentage, and whether you completed it and its survey. Filter with status. Every course unless you send `limit` (1-500) and `offset`; `total` counts all that match and `hasMore` says whether more follow. Any signed-in account (an agent needs user:act or an academy-lms scope).",
       access: "session",
       permission: ANY_ACCOUNT,
       input: {
         query: query({
           status: text("all (default) | not-started | in-progress | completed"),
+          ...optionalPage(500),
         }),
       },
-      output: { schema: listing("courses") },
+      output: { schema: pagedListing("courses") },
     },
-    async (c) => {
+    async (c, input) => {
       const user = requireUser(c);
       const status = c.req.query("status") || "all"; // all, not-started, in-progress, completed
+      const { limit, offset } = pageOf(input);
 
       // Courses assigned to the user (directly or by group), active only.
       const coursesIds = await assignedCourses(user.id);
       if (coursesIds.length === 0) {
-        return c.json({ courses: [], total: 0 });
+        return c.json({ courses: [], total: 0, hasMore: false });
       }
-      const courses = await dbInstance
+      // A stable order (creation, then id), so pages neither repeat nor skip a course.
+      const assigned = await dbInstance
         .select()
         .from(courseTable)
-        .where(and(inArray(courseTable.id, coursesIds), eq(courseTable.active, true)));
+        .where(and(inArray(courseTable.id, coursesIds), eq(courseTable.active, true)))
+        .orderBy(asc(courseTable.createdAt), asc(courseTable.id));
+      // The status is known only after computing each course's progress, so a
+      // page is cut afterwards; without a status filter, before (the costly part).
+      const cutEarly = status === "all" && limit !== undefined;
+      const courses = cutEarly ? assigned.slice(offset, offset + limit) : assigned;
 
       const coursesWithProgress = await inSeries(courses, async (course: Course) => {
         const modules = await courseTree(course.id, false);
@@ -616,9 +627,19 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
         filteredCourses = coursesWithProgress.filter((c) => c.progressPercent === 100);
       }
 
+      if (cutEarly) {
+        return c.json({
+          courses: filteredCourses,
+          total: assigned.length,
+          hasMore: offset + limit < assigned.length,
+          status,
+        });
+      }
+      const end = limit === undefined ? filteredCourses.length : offset + limit;
       return c.json({
-        courses: filteredCourses,
+        courses: filteredCourses.slice(offset, end),
         total: filteredCourses.length,
+        hasMore: end < filteredCourses.length,
         status,
       });
     }
@@ -1189,7 +1210,7 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       id: "list-assignments",
       summary: "List course assignments",
       description:
-        "Course assignments, newest first, filtered by courseId, userId and/or groupId. Academy admins and supervisors (or a global admin) only.",
+        "Course assignments, newest first, filtered by courseId, userId and/or groupId. Every assignment unless you send `limit` (1-500) and `offset`; `total` counts all that match and `hasMore` says whether more follow. Academy admins and supervisors (or a global admin) only.",
       access: "session",
       permission: MANAGE,
       before: [withAcademyRole],
@@ -1198,11 +1219,13 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
           courseId: text("Course id"),
           userId: text("User id"),
           groupId: text("Group id"),
+          ...optionalPage(500),
         }),
       },
-      output: { schema: listing("assignments") },
+      output: { schema: pagedListing("assignments") },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = pageOf(input);
       const courseId = c.req.query("courseId");
       const userId = c.req.query("userId");
       const groupId = c.req.query("groupId");
@@ -1217,16 +1240,31 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
         groupId ? eq(assignmentTable.groupId, groupId) : undefined,
       ].filter((f) => f !== undefined);
 
-      const assignments = await dbInstance
+      const where = filters.length > 0 ? and(...filters) : undefined;
+      const selected = dbInstance
         .select()
         .from(assignmentTable)
-        .where(filters.length > 0 ? and(...filters) : undefined)
-        .orderBy(desc(assignmentTable.date));
+        .where(where)
+        // The id breaks ties, so pages neither repeat nor skip an assignment.
+        .orderBy(desc(assignmentTable.date), desc(assignmentTable.id))
+        .offset(offset)
+        .$dynamic();
+      // Without `limit`, every assignment, as before pages existed.
+      const rows = await (limit === undefined ? selected : selected.limit(limit + 1));
+      const hasMore = limit !== undefined && rows.length > limit;
+      const assignments = hasMore ? rows.slice(0, limit) : rows;
+      const total =
+        limit === undefined
+          ? assignments.length
+          : Number(
+              (await dbInstance.select({ n: count() }).from(assignmentTable).where(where))[0].n
+            );
 
       // The panel reads `courseId`; the column keeps its name in the table and in the filters.
       return c.json({
         assignments: assignments.map((a: { courseId: string }) => ({ ...a, courseId: a.courseId })),
-        total: assignments.length,
+        total,
+        hasMore,
       });
     }
   );
@@ -1362,6 +1400,8 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Active learning paths (optionally by category), newest first, each with its number of courses. Any signed-in account (an agent needs user:act or an academy-lms scope).",
       access: "session",
+      unpaginated:
+        "The active learning paths academy admins curate: a short catalogue, read whole.",
       permission: ANY_ACCOUNT,
       input: { query: query({ category: text("Category") }) },
       output: { schema: listing("learningPaths") },
@@ -1412,6 +1452,8 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Your learning path progress rows, each with its learning path, plus how many are completed, in progress and pending. Any signed-in account (an agent needs user:act or an academy-lms scope).",
       access: "session",
+      unpaginated:
+        "One learner's progress rows: at most one per learning path, and the counts need them all.",
       permission: ANY_ACCOUNT,
       output: { schema: listing("learningPaths") },
     },
@@ -1857,6 +1899,8 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Academy staff get every group with its members; anyone else gets only the groups they belong to, without the member list. Any signed-in account (an agent needs user:act or an academy-lms scope).",
       access: "session",
+      unpaginated:
+        "The assignment groups academy admins create (teams, departments), or the few a learner is in.",
       permission: ANY_ACCOUNT,
       output: { schema: listing("groups") },
     },
@@ -2066,23 +2110,39 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       id: "list-surveys",
       summary: "List surveys",
       description:
-        "Satisfaction surveys, newest first, optionally of one course. Academy admins and supervisors (or a global admin) only.",
+        "Satisfaction surveys, newest first, optionally of one course. Every survey unless you send `limit` (1-500) and `offset`; `total` counts all that match and `hasMore` says whether more follow. Academy admins and supervisors (or a global admin) only.",
       access: "session",
       permission: MANAGE,
       before: [withAcademyRole],
-      input: { query: query({ courseId: text("Course id") }) },
-      output: { schema: listing("surveys") },
+      input: { query: query({ courseId: text("Course id"), ...optionalPage(500) }) },
+      output: { schema: pagedListing("surveys") },
     },
-    async (c) => {
+    async (c, input) => {
       const courseId = c.req.query("courseId");
+      const { limit, offset } = pageOf(input);
 
-      const surveys = await dbInstance
+      const where = courseId ? eq(satisfactionSurveyTable.courseId, courseId) : undefined;
+      const selected = dbInstance
         .select()
         .from(satisfactionSurveyTable)
-        .where(courseId ? eq(satisfactionSurveyTable.courseId, courseId) : undefined)
-        .orderBy(desc(satisfactionSurveyTable.date));
+        .where(where)
+        // The id breaks ties, so pages neither repeat nor skip a survey.
+        .orderBy(desc(satisfactionSurveyTable.date), desc(satisfactionSurveyTable.id))
+        .offset(offset)
+        .$dynamic();
+      // Without `limit`, every survey, as before pages existed.
+      const rows = await (limit === undefined ? selected : selected.limit(limit + 1));
+      const hasMore = limit !== undefined && rows.length > limit;
+      const surveys = hasMore ? rows.slice(0, limit) : rows;
+      const total =
+        limit === undefined
+          ? surveys.length
+          : Number(
+              (await dbInstance.select({ n: count() }).from(satisfactionSurveyTable).where(where))[0]
+                .n
+            );
 
-      return c.json({ surveys, total: surveys.length });
+      return c.json({ surveys, total, hasMore });
     }
   );
 
@@ -2661,6 +2721,7 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The modules of a course with their topics and quiz (without questions). A course you are not assigned to is a 404. Any signed-in account (an agent needs user:act or an academy-lms scope).",
       access: "session",
+      unpaginated: "The modules of one course: the few chapters it is made of, in order.",
       permission: ANY_ACCOUNT,
       input: { params: ParamId("Course id") },
       output: { schema: listing("modules") },
@@ -4600,34 +4661,46 @@ export function academyOperations(ctx: KonContext): AnyOperation[] {
       id: "list-profiles",
       summary: "List academy profiles",
       description:
-        "Academy profiles (user id, academy role, active), newest first, optionally of one role. Academy admins and supervisors (or a global admin) only.",
+        "Academy profiles (user id, academy role, active), newest first, optionally of one role. Every profile unless you send `limit` (1-500) and `offset`; `total` counts all that match and `hasMore` says whether more follow. Academy admins and supervisors (or a global admin) only.",
       access: "session",
       permission: MANAGE,
       before: [withAcademyRole],
       input: {
         query: query({
           role: z.enum(trainingRoleEnum.enumValues).optional().describe("Academy role"),
+          ...optionalPage(500),
         }),
       },
-      output: { schema: listing("profiles") },
+      output: { schema: pagedListing("profiles") },
     },
-    async (c) => {
+    async (c, input) => {
       const role = c.req.query("role");
+      const { limit, offset } = pageOf(input);
 
-      const profiles = await dbInstance
+      const where = role
+        ? eq(
+            userProfileTable.trainingRole,
+            role as (typeof userProfileTable.trainingRole)["enumValues"][number]
+          )
+        : undefined;
+      const selected = dbInstance
         .select()
         .from(userProfileTable)
-        .where(
-          role
-            ? eq(
-                userProfileTable.trainingRole,
-                role as (typeof userProfileTable.trainingRole)["enumValues"][number]
-              )
-            : undefined
-        )
-        .orderBy(desc(userProfileTable.createdAt));
+        .where(where)
+        // The id breaks ties, so pages neither repeat nor skip a profile.
+        .orderBy(desc(userProfileTable.createdAt), desc(userProfileTable.id))
+        .offset(offset)
+        .$dynamic();
+      // Without `limit`, every profile, as before pages existed.
+      const rows = await (limit === undefined ? selected : selected.limit(limit + 1));
+      const hasMore = limit !== undefined && rows.length > limit;
+      const profiles = hasMore ? rows.slice(0, limit) : rows;
+      const total =
+        limit === undefined
+          ? profiles.length
+          : Number((await dbInstance.select({ n: count() }).from(userProfileTable).where(where))[0].n);
 
-      return c.json({ profiles, total: profiles.length });
+      return c.json({ profiles, total, hasMore });
     }
   );
 

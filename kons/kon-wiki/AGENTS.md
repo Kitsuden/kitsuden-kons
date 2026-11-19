@@ -18,9 +18,10 @@ are indexed in `wiki_links` for backlinks and wanted pages.
   - Everything: the kon-wide `wiki:*` (or `kon:wiki:*`).
   - Example editor key: `["kon:wiki:save-page", "kon:wiki:get-page", "kon:wiki:list-pages"]`.
 - **MCP tools** (`wiki__<operation>`):
-  - `wiki__list-wikis` `{ docs, total }`; `wiki__get-wiki` `{ data: wiki + pages }`;
+  - `wiki__list-wikis` `{ docs, total, hasMore }` (optional `limit`/`offset`); `wiki__get-wiki` `{ data: wiki + pages }`;
     `wiki__suggest-wiki` `{ slug, valid, reason }`.
-  - `wiki__list-pages` `{ wiki, docs, total }`; `wiki__get-page` `{ wiki, data, content, backlinks }`.
+  - `wiki__list-pages` `{ wiki, docs, total, hasMore }` (`limit` default 100, max 500; `offset`;
+    `total` is the page's size); `wiki__get-page` `{ wiki, data, content, backlinks }`.
   - `wiki__page-history` `{ data: [{ number, summary, createdAt, size }] }`.
   - `wiki__compare-revisions` `{ data: [{ op: keep|add|del, line }], stats: { added, removed } }`.
   - `wiki__requested-pages` `{ data: [{ slug, links }] }`.

@@ -25,6 +25,11 @@ What a caller sees of each profile depends on who they are (public card, colleag
 - MCP tools are `directory__<op>`; each returns the same JSON as its route (see the README's
   [HTTP API](README.md#http-api)): lists as `{ docs }`, creations as the new row (201), the org
   chart as `{ organizationId, roots, totalEmployees }`, the chain as `{ chain }`, stats as counts.
+- Paging: `list-organizations` (up to 500), `list-departments` and `list-positions` (up to 1000)
+  take `limit` and `offset` and answer `hasMore`; when it is `true`, ask again with
+  `offset + limit`. `list-employees` takes `limit` (1-100, default 50) and `offset` and answers
+  `hasMore` the same way (`totalDocs` is the count on that page). `search-directory` is a fixed top 20
+  people and 10 departments, and `list-employee-documents` returns one profile's documents whole.
 - `directory__offboard-employee` (`DELETE /api/directory/employees/:id`) is sensitive: it may
   come back `202 KITSUDEN_E_APPROVAL_REQUIRED`. Report the proposal and do not retry.
 - 404 means missing, or hidden from you: a hidden or inactive profile, someone else's documents,
@@ -85,5 +90,6 @@ What a caller sees of each profile depends on who they are (public card, colleag
 
 ```bash
 pnpm vitest run tests/unit/kon-directory-security.test.ts       # after any change here
+pnpm vitest run tests/unit/kon-directory-pagination.test.ts     # limit, offset, hasMore
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-directory"
 ```

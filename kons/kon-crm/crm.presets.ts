@@ -384,6 +384,7 @@ export function presetOperations(routes: ReturnType<typeof registry>, ctx?: KonC
     "/presets",
     {
       id: "list-presets",
+      unpaginated: "The ready-made setups shipped with the kon or in CRM_PRESETS_DIR: a fixed catalogue of files.",
       summary: "List the ready-made setups",
       description:
         "Each preset's id, name, description and `origin` (`shipped` with the kon, or `installation` from the folder in CRM_PRESETS_DIR; an installation preset with a shipped id replaces it). `problems` lists the files that were skipped and why. Requires CRM view access.",

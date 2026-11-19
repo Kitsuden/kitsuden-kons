@@ -20,6 +20,7 @@
 import { defineOperation, type AnyOperation } from "@kitsuden/engine";
 import type { OperationContext, ValidatedInput, KonOperation } from "@kitsuden/shared";
 import type { Context } from "hono";
+import type { PgSelect } from "drizzle-orm/pg-core";
 import { z } from "@kitsuden/engine/zod";
 
 export const KON_ID = "kon-agile";
@@ -199,10 +200,13 @@ export const Row = z.object({ id: z.string() }).passthrough();
 export const ListWithTotal = z
   .object({ docs: z.array(Row), totalDocs: z.number().int() })
   .passthrough();
+/** A list with an optional page (1.5): `hasMore` is false when the whole list came back. */
+export const PagedList = ListWithTotal.extend({ hasMore: z.boolean() }).passthrough();
 export const Members = z
   .object({
     docs: z.array(z.object({ userId: z.string(), role: z.string() }).passthrough()),
     totalDocs: z.number().int(),
+    hasMore: z.boolean(),
   })
   .passthrough();
 export const Success = z.object({ success: z.literal(true) });
@@ -213,6 +217,52 @@ export const ApprovedIntake = z
     intake: z.object({ id: z.string(), status: z.literal("accepted") }),
   })
   .passthrough();
+
+// ── Paging (1.5) ────────────────────────────────────────────────────────────
+//
+// The lists that grow with use take an OPTIONAL page: without `limit` they answer the whole
+// list, exactly as before 1.5 (`hasMore: false`); with it, at most `limit` rows from `offset`
+// and `hasMore` says whether there are more. `totalDocs` counts the rows of the answer, as in
+// `list-issues`.
+
+/** The query parameters of a list with an optional page. */
+export const PageQuery = {
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("Page size, 1-500. Without it the whole list comes back, as before 1.5"),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (use with `limit`)"),
+};
+
+export interface Page {
+  limit?: number;
+  offset: number;
+}
+
+/** The page asked for in a validated query (`PageQuery`). */
+export function pageOf(input: { query?: unknown }): Page {
+  const q = (input.query ?? {}) as { limit?: number; offset?: number };
+  return { limit: q.limit, offset: q.offset ?? 0 };
+}
+
+/**
+ * Runs a Drizzle select (`.$dynamic()`, with a stable order) for one page: one row more than
+ * `limit` tells whether there is a next page. Without `limit`, every row from `offset`.
+ */
+export async function fetchPage<Q extends PgSelect>(
+  qb: Q,
+  page: Page
+): Promise<{ docs: Awaited<Q>; hasMore: boolean }> {
+  if (page.limit === undefined) {
+    const docs = (await (page.offset > 0 ? qb.offset(page.offset) : qb)) as Awaited<Q>;
+    return { docs, hasMore: false };
+  }
+  const rows = (await qb.limit(page.limit + 1).offset(page.offset)) as Awaited<Q>;
+  return { docs: rows.slice(0, page.limit) as Awaited<Q>, hasMore: rows.length > page.limit };
+}
 
 /** Free-text query: whatever is not declared is ignored, as always. */
 export const query = <S extends z.ZodRawShape>(shape: S) => z.object(shape).passthrough();

@@ -162,21 +162,53 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
       id: "list-wikis",
       summary: "List wikis",
       description:
-        "Every wiki (one per game, read on the public site at /<game>/wiki/), most recently updated first, or only the wiki of `game` (a game uuid). Public.",
+        "Every wiki (one per game, read on the public site at /<game>/wiki/), most recently updated first, or only the wiki of `game` (a game uuid). Without `limit`, all of them (as always); with `limit` and `offset`, one page, and `hasMore` says whether there are more. `total` counts every matching wiki. Public.",
       access: "public",
-      input: { query: query({ game: text("Only the wiki of this game (uuid)") }) },
-      output: { schema: z.object({ docs: z.array(WikiOut), total: z.number().int() }) },
+      input: {
+        query: query({
+          game: text("Only the wiki of this game (uuid)"),
+          limit: z.coerce
+            .number()
+            .int()
+            .min(1)
+            .max(500)
+            .optional()
+            .describe("Wikis per page (1-500). Without it, every wiki."),
+          offset: z.coerce
+            .number()
+            .int()
+            .min(0)
+            .default(0)
+            .describe("Wikis to skip (with `limit`)."),
+        }),
+      },
+      output: {
+        schema: z.object({
+          docs: z.array(WikiOut),
+          total: z.number().int(),
+          hasMore: z.boolean(),
+        }),
+      },
     },
-    async (c) => {
+    async (c, input) => {
       const game = c.req.query("game");
+      const { limit, offset } = input.query as { limit?: number; offset: number };
+      const where = game ? eq(wikis.gameId, game) : undefined;
 
-      const rows = await db
-        .select()
-        .from(wikis)
-        .where(game ? eq(wikis.gameId, game) : undefined)
-        .orderBy(desc(wikis.updatedAt));
-
-      return c.json({ docs: rows as Wiki[], total: rows.length });
+      // The id breaks ties between wikis updated in the same instant.
+      const base = db.select().from(wikis).where(where).orderBy(desc(wikis.updatedAt), desc(wikis.id));
+      if (limit === undefined) {
+        // What the list always answered: every wiki.
+        const rows = await base;
+        return c.json({ docs: rows as Wiki[], total: rows.length, hasMore: false });
+      }
+      const rows = await base.limit(limit + 1).offset(offset);
+      const [{ value: total }] = await db.select({ value: count() }).from(wikis).where(where);
+      return c.json({
+        docs: rows.slice(0, limit) as Wiki[],
+        total: Number(total),
+        hasMore: rows.length > limit,
+      });
     }
   );
 
@@ -294,26 +326,39 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
       id: "list-pages",
       summary: "List the pages of a wiki",
       description:
-        "The page index of the wiki (slug, title, current revision, last update), most recently updated first; `limit` up to 500 (100 by default). Public.",
+        "The page index of the wiki (slug, title, current revision, last update), most recently updated first, in pages of `limit` (up to 500, 100 by default) from `offset`; `hasMore` says whether more pages follow and `total` is the size of this page. Public.",
       access: "public",
       input: {
         params: ParamWiki,
-        query: query({ limit: text("How many, up to 500 (100 by default)") }),
+        query: query({
+          limit: text("How many, up to 500 (100 by default)"),
+          offset: z.coerce
+            .number()
+            .int()
+            .min(0)
+            .default(0)
+            .describe("Pages to skip; `hasMore` says whether more follow."),
+        }),
       },
       output: {
         schema: z.object({
           wiki: WikiOut,
           docs: z.array(PageSummary),
-          total: z.number().int(),
+          total: z.number().int().describe("Pages in this response"),
+          hasMore: z.boolean().describe("More pages follow: ask with `offset` + `limit`"),
         }),
       },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const wiki = await wikiOfRoute(c);
       if (!wiki) return c.json({ error: "Wiki not found" }, 404);
 
-      const limit = Math.min(Number(c.req.query("limit")) || 100, 500);
+      // `limit` keeps its lenient parsing (a non-number is the default); rows past
+      // it were unreachable until `offset` (api-contract, 2026-11-18). At least 1:
+      // a negative `limit` reached Postgres as an error.
+      const limit = Math.max(Math.min(Number(c.req.query("limit")) || 100, 500), 1);
+      const { offset } = input.query as { offset: number };
 
       const rows = await db
         .select({
@@ -324,10 +369,14 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
         })
         .from(wikiPages)
         .where(eq(wikiPages.wikiId, wiki.id))
-        .orderBy(desc(wikiPages.updatedAt))
-        .limit(limit);
+        // The id breaks ties between pages updated in the same instant (an import).
+        .orderBy(desc(wikiPages.updatedAt), desc(wikiPages.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json({ wiki, docs: rows, total: rows.length });
+      const hasMore = rows.length > limit;
+      const docs = hasMore ? rows.slice(0, limit) : rows;
+      return c.json({ wiki, docs, total: docs.length, hasMore });
     }
   );
 

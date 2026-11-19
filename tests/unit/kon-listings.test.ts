@@ -341,6 +341,52 @@ describe("kon-listings: inquiries", () => {
   });
 });
 
+describe("kon-listings: the inquiries list pages (0.2.0)", () => {
+  let listing: { id: string };
+  const route = () => `/inquiries?listingId=${listing.id}`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- loose JSON answers
+  const get = async (path: string): Promise<any> => {
+    const res = await request("staff", "GET", path);
+    expect(res.status, path).toBe(200);
+    return res.json();
+  };
+  const ids = (docs: Array<{ id: string }>) => docs.map((d) => d.id);
+
+  beforeAll(async () => {
+    listing = await (await request("staff", "POST", "/", apartment({ status: "published", title: "Paged inquiries" }))).json();
+    for (const name of ["First", "Second", "Third"]) {
+      const res = await request("anon", "POST", `/${listing.id}/inquiries`, { name, email: `${name.toLowerCase()}@example.com`, message: "Hi" });
+      expect(res.status).toBe(202);
+    }
+  });
+
+  it("no parameters answer what they did, newest first, with hasMore false", async () => {
+    const all = await get(route());
+    expect(all.docs).toHaveLength(3);
+    expect(all.hasMore).toBe(false);
+    const times = all.docs.map((d: { createdAt: string }) => d.createdAt);
+    expect([...times].sort().reverse()).toEqual(times);
+  });
+
+  it("limit=1 has more; limit=1&offset=1 is the second row; the pages join to the whole list", async () => {
+    const all = await get(route());
+    const first = await get(`${route()}&limit=1`);
+    expect(ids(first.docs)).toEqual(ids(all.docs.slice(0, 1)));
+    expect(first.hasMore).toBe(true);
+
+    const second = await get(`${route()}&limit=1&offset=1`);
+    expect(ids(second.docs)).toEqual(ids(all.docs.slice(1, 2)));
+    expect(second.hasMore).toBe(true);
+
+    const last = await get(`${route()}&limit=2&offset=1`);
+    expect(ids(last.docs)).toEqual(ids(all.docs.slice(1)));
+    expect(last.hasMore).toBe(false);
+
+    expect((await request("staff", "GET", `${route()}&offset=-1`)).status).toBe(422);
+    expect(await get("/inquiries?listingId=not-a-uuid")).toEqual({ docs: [], hasMore: false });
+  });
+});
+
 describe("kon-listings: verticals and portals are data", () => {
   it("every shipped portal maps every shipped vertical, and all start unverified", () => {
     for (const portal of portals().values()) {

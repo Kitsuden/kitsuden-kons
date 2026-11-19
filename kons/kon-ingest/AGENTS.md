@@ -27,7 +27,8 @@ generate most operations; `ingest-document` is the kon's own.
   what it ingests (its identity is `owner_id`); without `ingest:*` it sees only its own rows.
 - `ingest-document` is not idempotent: each call stores and processes a new document. Pass
   `idempotency_key` (MCP) or `Idempotency-Key` (REST) if you may retry.
-- `search-chunks` answers 503 when the server has no embeddings provider. Chunks of a document that just
+- `search-chunks` returns the `limit` (1-50, default 10) closest chunks and is not paged: there is no
+  `offset`; refine `q` instead. It answers 503 when the server has no embeddings provider. Chunks of a document that just
   finished may not be searchable for a moment: embeddings are computed in the background.
 - Refused: both or neither of `content` and `contentBase64` (422); `content` over 7 MB; unsupported types
   end `failed` rather than erroring at upload.
@@ -36,7 +37,7 @@ generate most operations; `ingest-document` is the kon's own.
 
 | File | Responsibility |
 | --- | --- |
-| `index.ts` | The `ingest-document` operation (insert plus queue dispatch in one transaction), the generated model operations (with `create-document` also queuing the job), the kon definition (name, version, mount and tables read from `kon.json`), and the queue handler registered at startup. |
+| `index.ts` | The `ingest-document` operation (insert plus queue dispatch in one transaction), the kebab-case `describe-<model>-model` twins of the core's deprecated `/_model` routes, the `unpaginated` declaration of the semantic search (`withBoundedSearch`), the generated model operations (with `create-document` also queuing the job), the kon definition (name, version, mount and tables read from `kon.json`), and the queue handler registered at startup. |
 | `ingest.model.ts` | The `document` and `chunk` models: fields, owner access, semantics (1536 dimensions), statuses. |
 | `tables.ts` | Drizzle tables built from the models (`modelTable`). |
 | `job.ts` | `processDocument`: the queue job that extracts, chunks, saves and queues embeddings. |
@@ -56,6 +57,14 @@ generate most operations; `ingest-document` is the kon's own.
   "a document created with create-document is queued").
 - Deleting a document deletes its chunks in the same transaction (trigger in
   `migrations/0003_delete_chunks_with_document.sql`; test "deleting a document deletes its chunks").
+- `describe-document` (`/documents/_model`) and `describe-chunk` (`/chunks/_model`) are deprecated
+  (since 2026-11-18, sunset 2027-05-18) in favour of `describe-document-model` (`/documents/model`) and
+  `describe-chunk-model` (`/chunks/model`). `withKebabDescribe` in `index.ts` adds the twins right after
+  the core's operation (before `/:id`) and marks the old one in place: a copy would drop the models from
+  the core's model listing (`tests/unit/kon-ingest-model-route.test.ts`).
+- `search-chunks` is a nearest-neighbour top-k (`limit` 1-50, default 10) with no next page: it takes no
+  `offset` and declares `unpaginated` (`withBoundedSearch` in `index.ts`, set in place like the
+  deprecations; same test file). To find more, ask a better `q`.
 - The job is idempotent: it deletes the document's chunks before inserting them again (`job.ts`; test
   "is idempotent").
 - An unreadable document ends `failed` and the job returns without throwing; transient failures throw so the

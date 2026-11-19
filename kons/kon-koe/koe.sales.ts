@@ -32,6 +32,12 @@ export type PaymentPromise = typeof koePromises.$inferSelect;
 export const OUTCOME_KINDS = ["contacted", "no_answer", "promise", "paid", "refused", "wrong_number", "won", "lost", "follow_up"] as const;
 export type OutcomeKind = (typeof OUTCOME_KINDS)[number];
 
+/** A page of a list that used to stop at 200 rows with no sign: the default is still those 200. */
+const Page200 = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(200).describe("Rows per page (1-200). The default is the maximum, what the list always returned."),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+});
+
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const isRealDate = (s: string) => DATE.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
 
@@ -132,16 +138,18 @@ export const salesOperations: OperationsModule = (app, ctx) => {
     {
       id: "list-promises",
       summary: "Payment promises of a contact",
-      description: "Every promise of the conversation's contact (on any channel), newest first.",
+      description: "Every promise of the conversation's contact (on any channel), newest first. Paged with `limit` (1-200, default 200) and `offset`; `hasMore` says whether another page follows.",
       access: "session",
       permission: USE,
-      input: { params: ParamId },
+      input: { params: ParamId, query: Page200 },
       output: { schema: Output },
     },
     async (c, input, h) => {
       await requireMember(db(), h.user);
       const conv = await conversationOr404(db(), input.params.id);
-      return c.json({ data: await db().select().from(koePromises).where(eq(koePromises.contactId, conv.contactId)).orderBy(desc(koePromises.createdAt)).limit(200) });
+      const { limit, offset } = input.query as z.infer<typeof Page200>;
+      const rows = await db().select().from(koePromises).where(eq(koePromises.contactId, conv.contactId)).orderBy(desc(koePromises.createdAt), desc(koePromises.id)).limit(limit + 1).offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
@@ -201,16 +209,18 @@ export const salesOperations: OperationsModule = (app, ctx) => {
     {
       id: "list-outcomes",
       summary: "Outcomes of a conversation",
-      description: "The recorded outcomes of a conversation, newest first.",
+      description: "The recorded outcomes of a conversation, newest first. Paged with `limit` (1-200, default 200) and `offset`; `hasMore` says whether another page follows.",
       access: "session",
       permission: USE,
-      input: { params: ParamId },
+      input: { params: ParamId, query: Page200 },
       output: { schema: Output },
     },
     async (c, input, h) => {
       await requireMember(db(), h.user);
       await conversationOr404(db(), input.params.id);
-      return c.json({ data: await db().select().from(koeOutcomes).where(eq(koeOutcomes.conversationId, input.params.id)).orderBy(desc(koeOutcomes.createdAt)).limit(200) });
+      const { limit, offset } = input.query as z.infer<typeof Page200>;
+      const rows = await db().select().from(koeOutcomes).where(eq(koeOutcomes.conversationId, input.params.id)).orderBy(desc(koeOutcomes.createdAt), desc(koeOutcomes.id)).limit(limit + 1).offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 

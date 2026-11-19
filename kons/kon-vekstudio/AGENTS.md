@@ -17,7 +17,9 @@ links it to a Kitsuden record.
   scope opens only the documents the agent sent (404 on any other); every document needs a key that may
   `operate` (`admin`, `vekstudio:*`, `vekstudio:operate`). Every job and the global gateway routes: `vekstudio:*` or `admin`.
   Example key for an agent that files and lists its own jobs: `["vekstudio:submit"]`.
-- MCP tools: `vekstudio__list-documents` (`limit`; returns an array of rows), `vekstudio__get-document`
+- MCP tools: `vekstudio__list-documents` (`limit` 1-500, default 100, and `offset`, oldest first then id;
+  returns an array of rows: a page with `limit` rows may have more after it, and REST clients also get the
+  `X-Has-More` header), `vekstudio__get-document`
   (`jobId`; one row), `vekstudio__update-document` (`jobId`, body `{ entityType?, entityId?, reviewed? }`;
   the updated row), `vekstudio__get-health` (`{ kon, status }`). None is sensitive by default.
 - Submitting a document, reading results and live events go through the REST proxy, which is not an MCP

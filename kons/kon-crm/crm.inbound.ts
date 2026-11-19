@@ -31,14 +31,14 @@ import { createHmac, randomUUID, timingSafeEqual as nodeTimingSafeEqual } from "
 
 import { AppError, asSystem } from "@kitsuden/engine";
 import { createId } from "@paralleldrive/cuid2";
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "@kitsuden/engine/zod";
 
 import { dbDe } from "./crm.context";
 import { emitCrm } from "./crm.events";
 import type { CrmDb } from "./crm.db";
 import { crmActivities, crmContacts, crmDealContacts, crmDeals, crmInboundEmails } from "./crm.schema";
-import { CONFIGURE, requiresEdit, type registry } from "./operations";
+import { CONFIGURE, pageOfRows, pageOffset, requiresEdit, type registry } from "./operations";
 
 interface Address {
   email: string;
@@ -389,28 +389,36 @@ export function inboundOperations(routes: ReturnType<typeof registry>, root: () 
       id: "list-inbound-emails",
       summary: "List the emails copied to the CRM",
       description:
-        "Newest first: who sent each, whether it was `recorded` (with its activities and the addresses that matched no contact) or `rejected` and why. Also `setup`: which providers are configured and how many senders are allowed, never the secrets. Admin only.",
+        "Newest first, a page at a time (`limit` 1-500, default 100; `offset` skips rows; `hasMore` says there are more): who sent each, whether it was `recorded` (with its activities and the addresses that matched no contact) or `rejected` and why. Also `setup`: which providers are configured and how many senders are allowed, never the secrets. Admin only.",
       access: "session",
       permission: CONFIGURE,
       before: [requiresEdit],
-      input: { query: z.object({ status: z.enum(["recorded", "rejected"]).optional(), limit: z.string().optional() }) },
+      input: {
+        query: z.object({
+          status: z.enum(["recorded", "rejected"]).optional(),
+          limit: z.string().optional().describe("Rows per page, 1-500 (default 100)"),
+          offset: pageOffset,
+        }),
+      },
       output: { schema: z.object({}).passthrough() },
     },
     async (c, input) => {
       const env = process.env as Env;
       const limit = Math.min(Math.max(Number(input.query.limit) || 100, 1), 500);
-      const data = await dbDe(c)
+      const rows = await dbDe(c)
         .select()
         .from(crmInboundEmails)
         .where(input.query.status ? eq(crmInboundEmails.status, input.query.status) : undefined)
-        .orderBy(desc(crmInboundEmails.receivedAt))
-        .limit(limit);
+        .orderBy(desc(crmInboundEmails.receivedAt), asc(crmInboundEmails.id))
+        .limit(limit + 1)
+        .offset(input.query.offset);
+      const { data, hasMore } = pageOfRows(rows, limit);
       const providers = [
         ...(env.MAILGUN_WEBHOOK_SIGNING_KEY ? ["mailgun"] : []),
         ...(env.CRM_INBOUND_POSTMARK_TOKEN ? ["postmark"] : []),
         ...(env.CRM_INBOUND_SECRET ? ["generic"] : []),
       ];
-      return c.json({ data, setup: { providers, allowedSenders: allowedSenders(env).length, path: "/api/crm/public/inbound/<provider>" } });
+      return c.json({ data, hasMore, setup: { providers, allowedSenders: allowedSenders(env).length, path: "/api/crm/public/inbound/<provider>" } });
     }
   );
 }

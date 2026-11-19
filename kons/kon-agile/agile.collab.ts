@@ -89,7 +89,10 @@ export function collabOperations(
 
   routes.get(
     "/issues/:key/attachments",
-    declareOp("list-attachments", "List an issue's attachments", `Each file with its media id, name, type, size and who attached it, oldest first. The file is served by the media library. ${WHO_SEES}`, { params: KeyParam }, { schema: ListWithTotal }),
+    {
+      ...declareOp("list-attachments", "List an issue's attachments", `Each file with its media id, name, type, size and who attached it, oldest first. The file is served by the media library. ${WHO_SEES}`, { params: KeyParam }, { schema: ListWithTotal }),
+      unpaginated: "The files attached to ONE issue, each file once and attached one call at a time: a few per issue.",
+    },
     async (c, input) => {
       const { issue } = await issueFor(c, input.params.key, "view");
       const docs = await db.instance
@@ -160,7 +163,10 @@ export function collabOperations(
 
   routes.get(
     "/issues/:key/subscribers",
-    declareOp("list-subscribers", "Who follows an issue", `The members who hear about the issue's comments and state changes, and whether the caller is one of them. ${WHO_SEES}`, { params: KeyParam }, { schema: Subscribers }),
+    {
+      ...declareOp("list-subscribers", "Who follows an issue", `The members who hear about the issue's comments and state changes, and whether the caller is one of them. ${WHO_SEES}`, { params: KeyParam }, { schema: Subscribers }),
+      unpaginated: "The followers of ONE issue: at most the members of its project, once each, and `subscribed` reads all of them.",
+    },
     async (c, input) => {
       const { issue, user } = await issueFor(c, input.params.key, "view");
       const docs = await db.instance

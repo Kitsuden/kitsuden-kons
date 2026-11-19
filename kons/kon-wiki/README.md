@@ -6,7 +6,7 @@ keep a reference wiki for each game they cover.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.1.4 | `/api/wiki` | core `auth` |
+| beta | content | 1.2.0 | `/api/wiki` | core `auth` |
 
 ## Install
 
@@ -51,11 +51,11 @@ All paths are under `/api/wiki`. `:wiki` is the wiki slug, `:slug` the page slug
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/wiki/wikis` | anyone | All wikis, most recently updated first; `?game=<uuid>` for one game's wiki. `{ docs, total }`. |
+| `GET /api/wiki/wikis` | anyone | All wikis, most recently updated first; `?game=<uuid>` for one game's wiki. Optional `limit` (1-500) and `offset` give one page. `{ docs, total, hasMore }`: `total` counts every matching wiki; `hasMore` is `false` without `limit`, which still returns every wiki. |
 | `GET /api/wiki/wikis/suggestion` | anyone | Preview for a new wiki: `?slug=` or `?title=`, and `?game=`. Returns `{ slug, valid, reason }`. Creates nothing. |
 | `POST /api/wiki/wikis` | admin | Body `{ title, gameId, slug?, description? }`. Creates a wiki. `409` if the slug is taken or the game already has one (`field` says which); `400` if the slug is invalid. |
 | `GET /api/wiki/wikis/:wiki` | anyone | The wiki and its page count (`pages`). |
-| `GET /api/wiki/wikis/:wiki/pages` | anyone | Page index (slug, title, current revision, last update), newest first. `limit` up to 500, default 100. |
+| `GET /api/wiki/wikis/:wiki/pages` | anyone | Page index (slug, title, current revision, last update), newest first. `limit` up to 500, default 100, and `offset` for the next page. `{ wiki, docs, total, hasMore }`: `total` is the size of this page; `hasMore` says whether more pages follow. |
 | `GET /api/wiki/wikis/:wiki/pages/:slug` | anyone | `{ wiki, data, content, backlinks }`: the page, the content of its current revision and the slugs that link to it. |
 | `GET /api/wiki/wikis/:wiki/pages/:slug/history` | anyone | Up to 1,000 revisions, newest first: `number`, `summary`, `createdAt`, `size` (characters). No content, no author id. |
 | `GET /api/wiki/wikis/:wiki/pages/:slug/diff/:from/:to` | anyone | Line diff between two revision numbers: `data` (ops `keep`/`add`/`del` with the line) and `stats` (`added`, `removed`). |

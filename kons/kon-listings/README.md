@@ -5,7 +5,7 @@ inquiries from visitors, and the XML feeds portals such as Trovit and Mitula rea
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 0.1.0 | `/api/listings` | — |
+| experimental | business | 0.2.0 | `/api/listings` | — |
 
 A real estate agency keeps its properties here and shows them on its own site; a car dealer does
 the same with its stock; and both publish to aggregators without retyping anything. The kind of
@@ -78,6 +78,13 @@ broken; `GET /api/listings/feeds/:id/check` lists which and why.
 Search filters on `GET /api/listings`: `vertical`, `city`, `region`, `q` (words in the title),
 `priceMin`, `priceMax`, `attr` (one attribute, `operation:rent`), `sort` (`newest`, `price-asc`,
 `price-desc`), `limit` (up to 100) and `offset`.
+
+`GET /api/listings/inquiries` (team only) answers newest first: `listingId` filters, `limit`
+(1-200, default 50) and `offset` page it, and `hasMore` says whether another page follows.
+
+`GET /api/listings/verticals`, `/portals` and `/feeds` answer the whole list with no page size:
+they are declared `unpaginated` (the first two are the files in `verticals/` and `portals/`, and
+there is at most one feed per portal and vertical).
 
 ## Who can do what
 

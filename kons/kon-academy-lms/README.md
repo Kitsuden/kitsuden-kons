@@ -6,7 +6,7 @@ public verification, and Excel exports. For organisations that train their own s
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.1.2 | `/api/academy` | kon-media |
+| beta | business | 1.2.0 | `/api/academy` | kon-media |
 
 ## Install
 
@@ -58,11 +58,18 @@ any account; "manager" = global admin, academy administrator or academy supervis
 "administrator" = global admin or academy administrator. Bodies are validated with the old
 `zValidator` behaviour: an invalid body is a 400 with the zod result, unknown fields are dropped.
 
+**Pages (since 1.2.0).** `GET /courses`, `/assignments`, `/profiles` and `/surveys` take `limit`
+(1-500) and `offset`. Without `limit` they return every row, as before; with it, one page. They
+keep their item key and `total` (every row that matches, not only the page) and add `hasMore`:
+while it is `true`, ask again with `offset` + `limit`. `/courses` is ordered oldest first. The
+other lists (`/courses/:id/modules`, `/learning-paths`, `/learning-paths/mine`, `/groups`) are
+bounded and read whole.
+
 ### Learning (any signed-in account)
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/academy/courses` | signed in | Active courses assigned to me, with progress; filter `status` |
+| `GET /api/academy/courses` | signed in | Active courses assigned to me, oldest first, with progress; filter `status`; pages `limit`, `offset`, `hasMore` |
 | `GET /api/academy/courses/:id` | signed in | A course with modules, topics, files and quiz, and my progress (404 if not assigned) |
 | `GET /api/academy/courses/:id/modules` | signed in | Modules of a course |
 | `GET /api/academy/modules/:id` | signed in | A module with topics and quiz |
@@ -122,7 +129,7 @@ any account; "manager" = global admin, academy administrator or academy supervis
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/academy/profiles` | manager | Academy profiles; filter by role |
+| `GET /api/academy/profiles` | manager | Academy profiles; filter by role; pages `limit`, `offset`, `hasMore` |
 | `POST /api/academy/profiles` | administrator | Create a profile or update its role and notes |
 | `PUT /api/academy/profiles/:id/role` | administrator | Change a user's academy role |
 | `POST /api/academy/groups` | administrator | Create a group |
@@ -132,7 +139,7 @@ any account; "manager" = global admin, academy administrator or academy supervis
 | `DELETE /api/academy/groups/:id/members/:userId` | administrator | Remove a member |
 | `POST /api/academy/groups/:id/supervisors` | administrator | Add an extra supervisor |
 | `DELETE /api/academy/groups/:id/supervisors/:supervisorId` | administrator | Remove an extra supervisor |
-| `GET /api/academy/assignments` | manager | List assignments |
+| `GET /api/academy/assignments` | manager | List assignments; pages `limit`, `offset`, `hasMore` |
 | `GET /api/academy/assignments/:id` | manager | Assignment detail |
 | `POST /api/academy/assignments` | manager | Assign a course to a user or group (a supervisor only within their groups) |
 | `POST /api/academy/assignments/multiple` | manager | Assign several courses in bulk |
@@ -141,7 +148,7 @@ any account; "manager" = global admin, academy administrator or academy supervis
 | `POST /api/academy/learning-paths/:id/assign` | manager | Assign a learning path |
 | `GET /api/academy/learning-paths/:id/stats` | manager | Learning path statistics |
 | `GET /api/academy/courses/:id/stats` | manager | Course statistics |
-| `GET /api/academy/surveys` | manager | List surveys |
+| `GET /api/academy/surveys` | manager | List surveys; pages `limit`, `offset`, `hasMore` |
 | `GET /api/academy/surveys/stats` | manager | Survey statistics |
 | `GET /api/academy/surveys/:id` | manager | Survey detail |
 | `GET /api/academy/dashboard` | manager | Totals, hours, completion rate, alerts |
@@ -205,6 +212,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/security-academy.test.ts` | Course access by assignment, hidden answers, quiz limits, own progress, groups, academy roles, certificates |
 | `tests/unit/kon-academy-lms-agents-and-sync.test.ts` | Agent scopes in row security (forced RLS, non-superuser role) and user sync writing profiles |
 | `tests/unit/academy-without-relational-api.test.ts` | A course end to end: build, study, quiz, survey, certificate, learning path, management views |
+| `tests/unit/kon-academy-lms-pagination.test.ts` | Pages of my courses, assignments and profiles (`limit`, `offset`, `hasMore`, `total`) |
 | `kons/kon-academy-lms/tests/academy-lms.test.ts` | Services (PDF, Excel, media, user sync); runs on Bun |
 | `kons/kon-academy-lms/tests/run-tests.sh` | Manual smoke test against a running API with a session cookie |
 

@@ -39,6 +39,8 @@ function stubDb() {
     },
     orderBy: () => chain,
     limit: () => chain,
+    // Since 2026-11-18 the listing pages: it ends in `.limit().offset()`.
+    offset: () => chain,
     /**
      * Chainable AND awaitable.
      *

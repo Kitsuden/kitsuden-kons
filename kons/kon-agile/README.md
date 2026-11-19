@@ -7,7 +7,7 @@ write only on the issues in their reach.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.4.0 | `/api/agile` | kon-media; core `auth` |
+| beta | business | 1.5.0 | `/api/agile` | kon-media; core `auth` |
 
 ## Install
 
@@ -113,28 +113,46 @@ Every route needs a session. "Member" means any role in the project; "writer" an
 member; "owner" the project owner; a human `admin` account passes every project check. Someone
 who is not a member gets 404 for anything in the project.
 
+**Pages (1.5).** The lists that grow with use take an optional page: projects, members, comments,
+sub-issues, intakes, sprints, epics, an epic's issues and an issue's logged time. `limit` (1-500)
+and `offset` (default 0) return one page, and `hasMore: true` means another page follows. Without
+`limit` the whole list comes back as before, with `hasMore: false`. `totalDocs` counts the rows of
+the answer; `totalMinutes` on an issue's time always counts every entry. The other lists
+(configuration such as states, labels, fields, squads and schedules, and the few links,
+attachments, followers or pull requests of one issue) are bounded and come back whole; each says
+why in its OpenAPI `x-kitsuden-operation.unpaginated`. The issue list, the caller's notifications,
+the work queues (`/work/mine`, `/:projectId/work`) keep their own `limit` and default (issues 50,
+notifications 50, my work 20, project work 50) and take `offset` with `hasMore` too: oldest or
+newest first as before, then by id. Search is a top-k by relevance (`limit` 1-50) and is not paged:
+narrow it with more words. History keeps its own `limit`.
+
+**Deprecated (1.5).** `POST /api/agile/agile_intakes/:id/approve`, `.../decline` and
+`.../convert` have an underscore in the path. They keep working until 2027-05-18 and answer
+`Deprecation` and `Sunset` headers. Use `POST /api/agile/intakes/:intakeId/approve`, `/decline`
+and `/convert` instead (`/convert` is new in 1.5).
+
 ### Projects, members, issues and intakes
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/agile/projects` | signed in | Projects the caller is a member of |
+| `GET /api/agile/projects` | signed in | Projects the caller is a member of (`limit`, `offset`) |
 | `POST /api/agile/projects` | admin or editor | Create a project with five default states; the caller becomes owner |
 | `GET /api/agile/projects/:id` | member | Read a project |
 | `PATCH /api/agile/projects/:id` | owner | Details, lead, default assignee, archiving, automation |
-| `GET /api/agile/projects/:id/members` | member | List members |
+| `GET /api/agile/projects/:id/members` | member | List members (`limit`, `offset`) |
 | `POST /api/agile/projects/:id/members` | owner | Add or change a member (`isAgent: true` for an agent) |
 | `DELETE /api/agile/projects/:id/members/:userId` | owner | Remove a member (not the creator) |
 | `GET /api/agile/projects/:projectId/board` | member | The board: states with their issues and counts |
-| `GET /api/agile/:projectId/issues` | member | List issues (state, assignee, label, cycle, archived...) |
+| `GET /api/agile/:projectId/issues` | member | List issues (state, assignee, label, cycle, archived...; `limit`, `offset`) |
 | `POST /api/agile/:projectId/issues` | writer, agent in reach | Create an issue with the next key |
 | `GET /api/agile/issues/:key` | member | Read an issue by key |
 | `PATCH /api/agile/issues/:key` | writer, agent in reach | Update an issue |
 | `DELETE /api/agile/issues/:key` | writer, never an agent | Delete an issue with its comments, checklist and links |
 | `POST /api/agile/issues/:key/archive` | writer, agent in reach | Archive an issue |
 | `POST /api/agile/issues/:key/unarchive` | writer, agent in reach | Restore an archived issue |
-| `GET /api/agile/issues/:key/comments` | member | List comments |
+| `GET /api/agile/issues/:key/comments` | member | List comments (`limit`, `offset`) |
 | `POST /api/agile/issues/:key/comments` | writer, agent in reach | Comment; `mentions` notifies members |
-| `GET /api/agile/issues/:key/sub-issues` | member | List sub-issues |
+| `GET /api/agile/issues/:key/sub-issues` | member | List sub-issues (`limit`, `offset`) |
 | `GET /api/agile/issues/:key/activity` | member | An issue's history |
 | `GET /api/agile/issues/:key/links` | member | List links |
 | `POST /api/agile/issues/:key/links` | writer, agent in reach | Link two issues |
@@ -146,14 +164,15 @@ who is not a member gets 404 for anything in the project.
 | `DELETE /api/agile/issues/:key/checklist/:itemId` | writer, agent in reach | Delete a step |
 | `POST /api/agile/issues/:key/handoff` | writer, agent in reach | Hand an issue to another member with a note |
 | `GET /api/agile/:projectId/activity` | member | A project's history |
-| `GET /api/agile/:projectId/intakes` | member | The triage inbox |
+| `GET /api/agile/:projectId/intakes` | member | The triage inbox (`status`, `limit`, `offset`) |
 | `POST /api/agile/:projectId/intakes` | member (viewers and agents too) | Propose work; never creates an issue |
 | `POST /api/agile/intakes/:intakeId/approve` | writer, never an agent | Turn a pending intake into an issue |
 | `POST /api/agile/intakes/:intakeId/decline` | writer, never an agent | Decline a pending intake |
 | `POST /api/agile/intakes/:intakeId/duplicate` | writer, never an agent | Mark an intake as a duplicate |
-| `POST /api/agile/agile_intakes/:id/approve` | writer, never an agent | Approve (alias for the admin data grid row action) |
-| `POST /api/agile/agile_intakes/:id/decline` | writer, never an agent | Decline (grid alias) |
-| `POST /api/agile/agile_intakes/:id/convert` | writer, never an agent | Convert into an issue (grid alias) |
+| `POST /api/agile/intakes/:intakeId/convert` | writer, never an agent | Convert into an issue, same as approve (1.5) |
+| `POST /api/agile/agile_intakes/:id/approve` | writer, never an agent | Deprecated grid alias of `/intakes/:intakeId/approve` (until 2027-05-18) |
+| `POST /api/agile/agile_intakes/:id/decline` | writer, never an agent | Deprecated grid alias of `/intakes/:intakeId/decline` (until 2027-05-18) |
+| `POST /api/agile/agile_intakes/:id/convert` | writer, never an agent | Deprecated grid alias of `/intakes/:intakeId/convert` (until 2027-05-18) |
 
 ### Planning (configuration: owner or member, never an agent; reads: member)
 
@@ -176,18 +195,18 @@ who is not a member gets 404 for anything in the project.
 | `POST /api/agile/:projectId/fields` | writer | Create a custom field |
 | `PATCH /api/agile/fields/:fieldId` | writer | Update a custom field |
 | `DELETE /api/agile/fields/:fieldId` | writer | Delete a custom field |
-| `GET /api/agile/:projectId/cycles` | member | List sprints |
+| `GET /api/agile/:projectId/cycles` | member | List sprints (`limit`, `offset`) |
 | `POST /api/agile/:projectId/cycles` | writer | Create a sprint |
 | `GET /api/agile/cycles/:cycleId` | member | A sprint with its numbers |
 | `PATCH /api/agile/cycles/:cycleId` | writer | Update a sprint |
 | `POST /api/agile/cycles/:cycleId/complete` | writer | Close a sprint and carry over unfinished issues |
 | `DELETE /api/agile/cycles/:cycleId` | writer | Delete a sprint |
-| `GET /api/agile/:projectId/modules` | member | List epics |
+| `GET /api/agile/:projectId/modules` | member | List epics (`limit`, `offset`) |
 | `POST /api/agile/:projectId/modules` | writer | Create an epic |
 | `GET /api/agile/modules/:moduleId` | member | An epic with its progress |
 | `PATCH /api/agile/modules/:moduleId` | writer | Update an epic |
 | `DELETE /api/agile/modules/:moduleId` | writer | Delete an epic |
-| `GET /api/agile/modules/:moduleId/issues` | member | An epic's issues |
+| `GET /api/agile/modules/:moduleId/issues` | member | An epic's issues (`limit`, `offset`) |
 | `POST /api/agile/modules/:moduleId/issues` | writer | Add an issue to an epic |
 | `DELETE /api/agile/modules/:moduleId/issues/:key` | writer | Remove an issue from an epic |
 | `GET /api/agile/:projectId/initiatives` | member | List initiatives |
@@ -206,14 +225,14 @@ who is not a member gets 404 for anything in the project.
 | `DELETE /api/agile/squads/:squadId` | writer, never an agent | Delete a squad |
 | `POST /api/agile/squads/:squadId/members` | writer, never an agent | Add a squad member |
 | `DELETE /api/agile/squads/:squadId/members/:userId` | writer, never an agent | Remove a squad member |
-| `GET /api/agile/notifications` | signed in | The caller's notifications |
+| `GET /api/agile/notifications` | signed in | The caller's notifications (`unread`, `limit`, `offset`) |
 | `POST /api/agile/notifications/:notificationId/read` | signed in | Mark one read |
 | `POST /api/agile/notifications/read-all` | signed in | Mark all read |
-| `GET /api/agile/work/mine` | signed in | The caller's work queue |
+| `GET /api/agile/work/mine` | signed in | The caller's work queue (`status`, `limit`, `offset`) |
 | `POST /api/agile/work/:workId/claim` | the agent it is for | Start a piece of work |
 | `POST /api/agile/work/:workId/finish` | the agent it is for | Close a piece of work with its result and cost |
 | `POST /api/agile/:projectId/work` | writer, never an agent | Ask an agent member for something |
-| `GET /api/agile/:projectId/work` | member | A project's agent work and totals per agent |
+| `GET /api/agile/:projectId/work` | member | A project's agent work (`limit`, `offset`) and totals per agent |
 | `GET /api/agile/:projectId/schedules` | member | List agent schedules |
 | `POST /api/agile/:projectId/schedules` | writer, never an agent | Wake an agent every `intervalMinutes` (15 to 43200) |
 | `PATCH /api/agile/schedules/:scheduleId` | writer, never an agent | Change a schedule |
@@ -239,13 +258,13 @@ who is not a member gets 404 for anything in the project.
 | `DELETE /api/agile/issues/:key/subscribe` | member | Stop following it |
 | `POST /api/agile/comments/:commentId/reactions` | member (viewers and agents too) | Toggle the caller's reaction (`emoji`) |
 | `POST /api/agile/:projectId/issues/bulk` | writer, agent in reach | Same change on up to 100 issues, all or nothing |
-| `GET /api/agile/:projectId/search` | member | Full-text search with a snippet per hit (`q`, `includeArchived`, `limit`) |
+| `GET /api/agile/:projectId/search` | member | Full-text search with a snippet per hit (`q`, `includeArchived`, `limit`; top-k, not paged) |
 
 ### Time, cost, GitHub and rules (1.4)
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/agile/issues/:key/time` | member | Time logged on an issue |
+| `GET /api/agile/issues/:key/time` | member | Time logged on an issue (`limit`, `offset`; `totalMinutes` counts every entry) |
 | `POST /api/agile/issues/:key/time` | writer, agent in reach | Log the caller's minutes (1-1440, `spentOn`) |
 | `PATCH /api/agile/time/:entryId` | its author, or a person with write rights | Fix an entry |
 | `DELETE /api/agile/time/:entryId` | its author, or a person with write rights | Remove an entry |
@@ -352,12 +371,14 @@ agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-agile-teammates.test.ts` | Agent reach, scrum master, hand-offs, mentions, work queue, planning |
 | `tests/unit/agile-operations-mcp.test.ts` | Which operations are MCP tools, and membership through the real routes |
 | `tests/unit/kon-agile-plane-parity.test.ts` | 1.4: events and rule templates, subscribers, reactions, attachments, bulk changes, search, time and cost, signed GitHub webhooks |
+| `tests/unit/kon-agile-pagination.test.ts` | 1.5: optional pages (`limit`, `offset`, `hasMore`) on the lists that grow, the kebab-case convert route and the deprecated `/agile_intakes` aliases |
 
 ```bash
 pnpm vitest run tests/unit/kon-agile-security.test.ts
 pnpm vitest run tests/unit/kon-agile-teammates.test.ts
 pnpm vitest run tests/unit/agile-operations-mcp.test.ts
 pnpm vitest run tests/unit/kon-agile-plane-parity.test.ts
+pnpm vitest run tests/unit/kon-agile-pagination.test.ts
 ```
 
 Admin panel: `pnpm build:admin kon-agile` rebuilds `admin/workspace.js`; `pnpm check:admin` runs

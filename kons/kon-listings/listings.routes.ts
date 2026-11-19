@@ -363,6 +363,7 @@ export function listingsOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Each vertical (real-estate, vehicles, jobs) with the attributes a listing of that kind carries and what it needs before it can be published. Use it to build a form or a search filter.",
       access: "optional",
+      unpaginated: "The kinds of listing are the JSON files shipped in the kon's verticals/ folder.",
       output: { schema: z.object({ docs: z.array(z.object({}).passthrough()) }) },
       handle: async () => ({
         docs: [...verticals().values()].map(({ id, name, fields, publish }) => ({ id, name, fields, publish })),
@@ -377,6 +378,7 @@ export function listingsOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Each portal with the verticals it takes and whether its mapping was checked against the portal's own specification (`verified`). An unverified mapping follows the format integrators describe; confirm it with the portal before relying on it.",
       access: "session",
+      unpaginated: "The portals are the JSON files shipped in the kon's portals/ folder.",
       permission: { policy: { resource: FEED, action: "view" } },
       output: {
         schema: z.object({
@@ -401,6 +403,7 @@ export function listingsOperations(ctx: KonContext): AnyOperation[] {
       summary: "List the portal feeds",
       description: "Every feed with its public path. Give the portal your API's origin followed by `path`. Team only.",
       access: "session",
+      unpaginated: "At most one feed per portal and vertical (a UNIQUE constraint): a handful of rows.",
       permission: { policy: { resource: FEED, action: "view" } },
       output: { schema: z.object({ docs: z.array(Feed) }) },
       handle: async () => ({
@@ -591,25 +594,32 @@ export function listingsOperations(ctx: KonContext): AnyOperation[] {
       method: "GET",
       route: "/inquiries",
       summary: "What visitors asked",
-      description: "Newest first, optionally for one listing. Names, emails and phones: personal data. Team only.",
+      description:
+        "Newest first, optionally for one listing. `limit` (1-200, default 50) and `offset` page them; `hasMore` says whether another page follows. Names, emails and phones: personal data. Team only.",
       access: "session",
       permission: { policy: { resource: INQUIRY, action: "view" } },
       input: {
         query: z.object({
           listingId: z.string().optional(),
           limit: z.coerce.number().int().min(1).max(200).optional(),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
         }),
       },
-      output: { schema: z.object({ docs: z.array(Inquiry) }) },
+      output: { schema: z.object({ docs: z.array(Inquiry), hasMore: z.boolean() }) },
       handle: async ({ query }) => {
-        if (query.listingId !== undefined && !isUuid(query.listingId)) return { docs: [] };
+        if (query.listingId !== undefined && !isUuid(query.listingId)) return { docs: [], hasMore: false };
+        const limit = query.limit ?? 50;
         const rows = await db
           .select()
           .from(listingsInquiries)
           .where(query.listingId ? eq(listingsInquiries.listingId, query.listingId) : undefined)
-          .orderBy(desc(listingsInquiries.createdAt))
-          .limit(query.limit ?? 50);
-        return { docs: rows.map((r) => ({ ...r, createdAt: iso(r.createdAt) as string })) };
+          .orderBy(desc(listingsInquiries.createdAt), desc(listingsInquiries.id))
+          .limit(limit + 1)
+          .offset(query.offset);
+        return {
+          docs: rows.slice(0, limit).map((r) => ({ ...r, createdAt: iso(r.createdAt) as string })),
+          hasMore: rows.length > limit,
+        };
       },
     }),
 

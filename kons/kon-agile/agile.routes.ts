@@ -79,15 +79,18 @@ import {
   Row,
   ApprovedIntake,
   KON_ID,
-  ListWithTotal,
   Members,
   KeyParam,
+  PagedList,
+  PageQuery,
   ParamId,
   ParamIntake,
   TableIntakeParam,
   MemberParam,
   ProjectParam,
   REST_ONLY,
+  fetchPage,
+  pageOf,
   query,
   registry,
   text,
@@ -343,14 +346,14 @@ export function agileOperations(
       id: "list-projects",
       summary: "List my agile projects",
       description:
-        "The projects the caller is a member of (owner, member or viewer; admin: all), by name, with cover image URLs. `isArchived=true|false` filters. An agent key needs `user:act` or an agile scope to act as an account here.",
+        "The projects the caller is a member of (owner, member or viewer; admin: all), by name, with cover image URLs. `isArchived=true|false` filters. `limit` (1-500) and `offset` page it; without `limit`, all of them (`hasMore` says whether more remain). An agent key needs `user:act` or an agile scope to act as an account here.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
-      input: { query: query({ isArchived: text("`true` or `false`") }) },
-      output: { schema: ListWithTotal },
+      input: { query: query({ isArchived: text("`true` or `false`"), ...PageQuery }) },
+      output: { schema: PagedList },
     },
-    async (c) => {
+    async (c, input) => {
       const user = userValue(c);
       const query = c.req.query();
       const conditions: SQL[] = [];
@@ -366,7 +369,7 @@ export function agileOperations(
         if (visible) conditions.push(visible);
       }
 
-      const projects = await db.instance
+      const listing = db.instance
         .select({
           id: agileProjects.id,
           name: agileProjects.name,
@@ -382,10 +385,12 @@ export function agileOperations(
         })
         .from(agileProjects)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(asc(agileProjects.name));
+        .orderBy(asc(agileProjects.name), asc(agileProjects.id))
+        .$dynamic();
+      const { docs: projects, hasMore } = await fetchPage(listing, pageOf(input));
 
       const docs = projects.map((p) => ({ ...p, coverImage: buildCoverImageUrls(p.coverImageId) }));
-      return c.json({ docs, totalDocs: docs.length });
+      return c.json({ docs, totalDocs: docs.length, hasMore });
     }
   );
 
@@ -530,17 +535,17 @@ export function agileOperations(
       id: "list-project-members",
       summary: "List a project's members",
       description:
-        "User id and role (owner, member, viewer) of each member, oldest first. Only for members of the project (and admin); anyone else gets 404.",
+        "User id and role (owner, member, viewer) of each member, oldest first. `limit` (1-500) and `offset` page it; without `limit`, all of them (`hasMore` says whether more remain). Only for members of the project (and admin); anyone else gets 404.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
-      input: { params: ParamId },
+      input: { params: ParamId, query: query(PageQuery) },
       output: { schema: Members },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const { project } = await projectFor(c, c.req.param("id"), "view");
-      const docs = await db.instance
+      const listing = db.instance
         .select({
           userId: agileProjectMembers.userId,
           role: agileProjectMembers.role,
@@ -549,8 +554,10 @@ export function agileOperations(
         })
         .from(agileProjectMembers)
         .where(eq(agileProjectMembers.projectId, project.id))
-        .orderBy(asc(agileProjectMembers.createdAt));
-      return c.json({ docs, totalDocs: docs.length });
+        .orderBy(asc(agileProjectMembers.createdAt), asc(agileProjectMembers.userId))
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs, totalDocs: docs.length, hasMore });
     }
   );
 
@@ -734,17 +741,17 @@ export function agileOperations(
       id: "list-issue-comments",
       summary: "List an issue's comments",
       description:
-        "The comments of an issue, oldest first. Only for members of its project (and admin); anyone else gets 404.",
+        "The comments of an issue, oldest first. `limit` (1-500) and `offset` page them; without `limit`, all of them (`hasMore` says whether more remain). Only for members of its project (and admin); anyone else gets 404.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
-      input: { params: KeyParam },
-      output: { schema: z.object({ docs: z.array(Row) }).passthrough() },
+      input: { params: KeyParam, query: query(PageQuery) },
+      output: { schema: z.object({ docs: z.array(Row), hasMore: z.boolean() }).passthrough() },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const { issue } = await issueFor(c, c.req.param("key"), "view");
-      const comments = await db.instance
+      const listing = db.instance
         .select({
           id: agileComments.id,
           contentHtml: agileComments.contentHtml,
@@ -756,8 +763,10 @@ export function agileOperations(
         })
         .from(agileComments)
         .where(eq(agileComments.issueId, issue.id))
-        .orderBy(asc(agileComments.createdAt));
-      return c.json({ docs: comments });
+        .orderBy(asc(agileComments.createdAt), asc(agileComments.id))
+        .$dynamic();
+      const { docs: comments, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs: comments, hasMore });
     }
   );
 
@@ -1011,15 +1020,36 @@ export function agileOperations(
     },
     handleDuplicateIntake
   );
+  // 1.5: the kebab-case home of the DataExplorer's "convert" row action (it was only under
+  // `/agile_intakes/:id/convert`, a path with an underscore).
+  routes.post(
+    "/intakes/:intakeId/convert",
+    {
+      id: "convert-intake",
+      summary: "Convert an intake into an issue",
+      description:
+        "Same as POST /intakes/:intakeId/approve: turns a pending intake into an issue of its project and marks the intake accepted, signed by the caller. Owner or member of the project (viewer: 403; non-member: 404); an intake already decided is a 409.",
+      access: "session",
+      permission: ANY_ACCOUNT,
+      mcp: REST_ONLY,
+      input: { params: ParamIntake, body: approveSchema.optional(), validatesHandler: true },
+      output: { status: 201, schema: ApprovedIntake },
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
+    },
+    handleApproveIntake
+  );
 
-  // DataExplorer alias (full table name)
+  // DataExplorer aliases (full table name). Deprecated in 1.5: their path has an underscore;
+  // they keep working until the sunset, each pointing at its kebab-case twin.
+  const tableAliasSunset = { since: "2026-11-18", sunset: "2027-05-18" } as const;
   routes.post(
     "/agile_intakes/:id/approve",
     {
       id: "approve-table-intake",
       summary: "Approve an intake (DataExplorer alias)",
       description:
-        "Same as POST /intakes/:intakeId/approve, under the table name the admin DataExplorer uses for its row actions.",
+        "Same as POST /intakes/:intakeId/approve, under the table name the admin DataExplorer uses for its row actions. Deprecated: use POST /intakes/:intakeId/approve.",
+      deprecated: { ...tableAliasSunset, use: "approve-intake" },
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
@@ -1039,7 +1069,8 @@ export function agileOperations(
       id: "reject-table-intake",
       summary: "Decline an intake (DataExplorer alias)",
       description:
-        "Same as POST /intakes/:intakeId/decline, under the table name the admin DataExplorer uses for its row actions.",
+        "Same as POST /intakes/:intakeId/decline, under the table name the admin DataExplorer uses for its row actions. Deprecated: use POST /intakes/:intakeId/decline.",
+      deprecated: { ...tableAliasSunset, use: "reject-intake" },
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
@@ -1059,7 +1090,8 @@ export function agileOperations(
       id: "convert-table-intake",
       summary: "Convert an intake into an issue (DataExplorer alias)",
       description:
-        "Same as POST /intakes/:intakeId/approve (the DataExplorer's convert row action).",
+        "Same as POST /intakes/:intakeId/approve (the DataExplorer's convert row action). Deprecated: use POST /intakes/:intakeId/convert.",
+      deprecated: { ...tableAliasSunset, use: "convert-intake" },
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
@@ -1084,7 +1116,7 @@ export function agileOperations(
       id: "list-issues",
       summary: "List a project's issues",
       description:
-        "Issues of a project, oldest first, with their state; archived ones only with `includeArchived=true`. Filters (one value, or the plural with commas): `stateId(s)`, `stateGroup(s)`, `cycleId`, `moduleId`, `initiativeId`, `parentId` (uuids, else 400; `none` for no cycle/initiative/parent), `labelId(s)`, `assigneeId(s)`, `unassigned=true`, `type(s)`, `priority(ies)`, `targetFrom`/`targetTo`, `search` (name or key contains) and `limit` (1-200, default 50). Only for members (and admin); anyone else gets 404.",
+        "Issues of a project, oldest first, with their state; archived ones only with `includeArchived=true`. Filters (one value, or the plural with commas): `stateId(s)`, `stateGroup(s)`, `cycleId`, `moduleId`, `initiativeId`, `parentId` (uuids, else 400; `none` for no cycle/initiative/parent), `labelId(s)`, `assigneeId(s)`, `unassigned=true`, `type(s)`, `priority(ies)`, `targetFrom`/`targetTo`, `search` (name or key contains), `limit` (1-200, default 50) and `offset` (rows to skip; `hasMore` says whether more remain). Oldest first, then by id. Only for members (and admin); anyone else gets 404.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
@@ -1107,18 +1139,19 @@ export function agileOperations(
           targetFrom: text("Target date from (YYYY-MM-DD)"),
           targetTo: text("Target date to (YYYY-MM-DD)"),
           limit: text("Max issues, 1-200 (default 50)"),
+          offset: PageQuery.offset,
         }),
       },
-      output: { schema: ListWithTotal },
+      output: { schema: PagedList },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const { project } = await projectFor(c, c.req.param("projectId"), "view");
       const query = c.req.query();
       const conditions = issueConditions(project.id, filtersFromQuery(query));
       const limit = Math.min(Math.max(parseInt(query.limit || "50", 10) || 50, 1), 200);
 
-      const issues = await db.instance
+      const listing = db.instance
         .select({
           id: agileIssues.id,
           key: agileIssues.key,
@@ -1144,8 +1177,9 @@ export function agileOperations(
         .from(agileIssues)
         .leftJoin(agileStates, eq(agileIssues.stateId, agileStates.id))
         .where(and(...conditions))
-        .orderBy(asc(agileIssues.createdAt))
-        .limit(limit);
+        .orderBy(asc(agileIssues.createdAt), asc(agileIssues.id))
+        .$dynamic();
+      const { docs: issues, hasMore } = await fetchPage(listing, { limit, offset: pageOf(input).offset });
 
       return c.json({
         docs: issues.map((issue) => ({
@@ -1160,6 +1194,7 @@ export function agileOperations(
             : null,
         })),
         totalDocs: issues.length,
+        hasMore,
       });
     }
   );
@@ -1235,21 +1270,21 @@ export function agileOperations(
       id: "list-intakes",
       summary: "List a project's triage inbox",
       description:
-        "The intakes of a project, newest first; `status` (pending, accepted, declined, duplicate…) filters. Only for members (and admin); anyone else gets 404.",
+        "The intakes of a project, newest first; `status` (pending, accepted, declined, duplicate…) filters. `limit` (1-500) and `offset` page them; without `limit`, all of them (`hasMore` says whether more remain). Only for members (and admin); anyone else gets 404.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
-      input: { params: ProjectParam, query: query({ status: text("Intake status") }) },
-      output: { schema: ListWithTotal },
+      input: { params: ProjectParam, query: query({ status: text("Intake status"), ...PageQuery }) },
+      output: { schema: PagedList },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const { project } = await projectFor(c, c.req.param("projectId"), "view");
       const conditions: SQL[] = [eq(agileIntakes.projectId, project.id)];
       const statusFilter = eqEnum(agileIntakes.status, c.req.query("status"));
       if (statusFilter) conditions.push(statusFilter);
 
-      const intakes = await db.instance
+      const listing = db.instance
         .select({
           id: agileIntakes.id,
           title: agileIntakes.title,
@@ -1263,8 +1298,10 @@ export function agileOperations(
         })
         .from(agileIntakes)
         .where(and(...conditions))
-        .orderBy(desc(agileIntakes.createdAt));
-      return c.json({ docs: intakes, totalDocs: intakes.length });
+        .orderBy(desc(agileIntakes.createdAt), desc(agileIntakes.id))
+        .$dynamic();
+      const { docs: intakes, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs: intakes, totalDocs: intakes.length, hasMore });
     }
   );
 
@@ -1277,17 +1314,17 @@ export function agileOperations(
       id: "list-cycles",
       summary: "List a project's sprints",
       description:
-        "The cycles (sprints) of a project, latest start first. Only for members (and admin); anyone else gets 404.",
+        "The cycles (sprints) of a project, latest start first. `limit` (1-500) and `offset` page them; without `limit`, all of them (`hasMore` says whether more remain). Only for members (and admin); anyone else gets 404.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
-      input: { params: ProjectParam },
-      output: { schema: ListWithTotal },
+      input: { params: ProjectParam, query: query(PageQuery) },
+      output: { schema: PagedList },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const { project } = await projectFor(c, c.req.param("projectId"), "view");
-      const cycles = await db.instance
+      const listing = db.instance
         .select({
           id: agileCycles.id,
           name: agileCycles.name,
@@ -1298,8 +1335,10 @@ export function agileOperations(
         })
         .from(agileCycles)
         .where(eq(agileCycles.projectId, project.id))
-        .orderBy(desc(agileCycles.startDate));
-      return c.json({ docs: cycles, totalDocs: cycles.length });
+        .orderBy(desc(agileCycles.startDate), desc(agileCycles.id))
+        .$dynamic();
+      const { docs: cycles, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs: cycles, totalDocs: cycles.length, hasMore });
     }
   );
 
@@ -1345,17 +1384,17 @@ export function agileOperations(
       id: "list-modules",
       summary: "List a project's epics",
       description:
-        "The modules (epics) of a project, by name. Only for members (and admin); anyone else gets 404.",
+        "The modules (epics) of a project, by name. `limit` (1-500) and `offset` page them; without `limit`, all of them (`hasMore` says whether more remain). Only for members (and admin); anyone else gets 404.",
       access: "session",
       permission: ANY_ACCOUNT,
       mcp: REST_ONLY,
-      input: { params: ProjectParam },
-      output: { schema: ListWithTotal },
+      input: { params: ProjectParam, query: query(PageQuery) },
+      output: { schema: PagedList },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const { project } = await projectFor(c, c.req.param("projectId"), "view");
-      const modules = await db.instance
+      const listing = db.instance
         .select({
           id: agileModules.id,
           name: agileModules.name,
@@ -1365,8 +1404,10 @@ export function agileOperations(
         })
         .from(agileModules)
         .where(eq(agileModules.projectId, project.id))
-        .orderBy(asc(agileModules.name));
-      return c.json({ docs: modules, totalDocs: modules.length });
+        .orderBy(asc(agileModules.name), asc(agileModules.id))
+        .$dynamic();
+      const { docs: modules, hasMore } = await fetchPage(listing, pageOf(input));
+      return c.json({ docs: modules, totalDocs: modules.length, hasMore });
     }
   );
 

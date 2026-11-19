@@ -24,7 +24,7 @@ import {
   crmDocumentTemplates,
   crmSavedViews,
 } from "./crm.schema";
-import { CONFIGURE, EDIT, VIEW, requiresEdit, type registry } from "./operations";
+import { CONFIGURE, EDIT, VIEW, pageOfRows, pageOffset, requiresEdit, type registry } from "./operations";
 
 const Output = z.object({}).passthrough();
 const ParamId = z.object({ id: z.string().describe("Row id") });
@@ -52,6 +52,7 @@ const WorkQuery = z
     search: z.string().max(200).optional().describe("Subject contains this text"),
     include: z.enum(["deal"]).optional().describe("`deal` adds each task's deal title and its contact and company names"),
     limit: z.string().optional().describe("1-200 (default 100)"),
+    offset: pageOffset,
   })
   .passthrough();
 const AgendaQuery = z
@@ -177,7 +178,7 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
       id: "list-work",
       summary: "List the tasks to do",
       description:
-        "Tasks with `dueState` (`late`, `today`, `soon`, `later`, `none`, `done`), most urgent first, and the `total` for the same filters. `view`: `mine` (default), `team`, `unassigned` or `done`; also `dealId`, `kind` and `search`. `include=deal` adds `deal: { id, title, contactName, companyName }` so a list needs no call per row. `get-work-summary` gives the counts. Requires CRM view access.",
+        "Tasks with `dueState` (`late`, `today`, `soon`, `later`, `none`, `done`), most urgent first, a page at a time (`limit` 1-200, default 100; `offset` skips rows; `hasMore` says there are more), and the `total` for the same filters. `view`: `mine` (default), `team`, `unassigned` or `done`; also `dealId`, `kind` and `search`. `include=deal` adds `deal: { id, title, contactName, companyName }` so a list needs no call per row. `get-work-summary` gives the counts. Requires CRM view access.",
       access: "session",
       permission: VIEW,
       input: { query: WorkQuery },
@@ -196,12 +197,14 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
       if (input.query.kind) filters.push(eq(crmActivities.kind, input.query.kind));
       if (input.query.search) filters.push(ilike(crmActivities.subject, likePattern(input.query.search)));
       const db = dbDe(c);
-      const rows = await db
+      const read = await db
         .select()
         .from(crmActivities)
         .where(and(...filters))
-        .orderBy(asc(crmActivities.dueDate), desc(crmActivities.createdAt))
-        .limit(limit);
+        .orderBy(asc(crmActivities.dueDate), desc(crmActivities.createdAt), asc(crmActivities.id))
+        .limit(limit + 1)
+        .offset(input.query.offset);
+      const { data: rows, hasMore } = pageOfRows(read, limit);
       const [count] = await db.select({ total: sql<number>`count(*)::int` }).from(crmActivities).where(and(...filters));
       const deals = input.query.include === "deal" ? await dealSummaries(db, rows.map((r) => r.dealId)) : null;
       return c.json({
@@ -211,6 +214,7 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
           ...(deals ? { deal: (t.dealId && deals.get(t.dealId)) || null } : {}),
         })),
         total: count?.total ?? 0,
+        hasMore,
       });
     }
   );
@@ -295,6 +299,7 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
     "/deals/:id/contacts",
     {
       id: "list-deal-contacts",
+      unpaginated: "The people on one deal besides its main contact: a few per deal.",
       summary: "List the people on a deal",
       description: "Each linked contact with its `role`. The deal's main contact is its `contactId` and is listed too. Requires CRM view access.",
       access: "session",
@@ -371,6 +376,7 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
     "/views",
     {
       id: "list-saved-views",
+      unpaginated: "Saved filters: the caller's own and those the team shared, a few dozen.",
       summary: "List saved views",
       description: "Your own views and those shared with the team. Requires CRM view access.",
       access: "session",
@@ -426,6 +432,7 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
     "/document-templates",
     {
       id: "list-document-templates",
+      unpaginated: "Document templates an admin writes: tens per installation.",
       summary: "List document templates",
       description: "Active templates with their text; `include=all` adds the switched-off ones, so they can be switched on again. Requires CRM view access.",
       access: "session",

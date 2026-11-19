@@ -274,12 +274,39 @@ const ParamId = z.object({
 const BookingParam = z.object({ id: z.string().describe("Booking id (uuid)") });
 const BlockParam = z.object({ blackoutId: z.string().describe("Blackout id (uuid)") });
 
-const FreeQuery = z.object({}).passthrough();
-
 /** A row (room, service, booking, note, block): loose on purpose. */
 const Row = z.object({ id: z.string() }).passthrough();
 const RowList = z.object({ docs: z.array(Row) }).passthrough();
 const ListWithTotal = z.object({ docs: z.array(Row), totalDocs: z.number().int() }).passthrough();
+const HasMore = z.boolean().describe("More rows after this page: ask again with a larger `offset`.");
+const PagedRowList = z.object({ docs: z.array(Row), hasMore: HasMore }).passthrough();
+const PagedListWithTotal = z
+  .object({ docs: z.array(Row), totalDocs: z.number().int(), hasMore: HasMore })
+  .passthrough();
+
+/**
+ * `limit` and `offset` of a list that used to stop at `cap` rows with no sign
+ * (api-contract, 2026-11-18). The default is the old cap, so a client that sends
+ * nothing gets what it always got, now with `hasMore`.
+ */
+function pageQuery(cap: number) {
+  return {
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(cap)
+      .default(cap)
+      .describe(`Rows per page (1-${cap}). The default is the maximum, what the list always returned.`),
+    offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+  };
+}
+
+/** The validated `limit` and `offset` of `pageQuery`. */
+function pageOf(input: { query?: unknown }): { limit: number; offset: number } {
+  const { limit, offset } = (input.query ?? {}) as { limit: number; offset: number };
+  return { limit, offset };
+}
 
 function validId(id: string | undefined, that: string): string {
   if (!id || !isUuid(id)) throw AppError.notFound(`${that} not found`);
@@ -356,7 +383,7 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       id: "list-rooms",
       summary: "List bookable rooms",
       description:
-        "Active rooms ordered by name (up to 500), with cover and image URLs. Filters: `type`, `minCapacity`, `maxCapacity` and `features` (comma-separated feature keys that must be true). Public.",
+        "Active rooms ordered by name, with cover and image URLs, in pages of `limit` (1-500, default 500) from `offset`; `hasMore` says whether more follow. Filters: `type`, `minCapacity`, `maxCapacity` and `features` (comma-separated feature keys that must be true). Public.",
       access: "public",
       input: {
         query: z
@@ -365,13 +392,15 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
             minCapacity: z.string().optional(),
             maxCapacity: z.string().optional(),
             features: z.string().optional().describe("Comma-separated feature keys, max 20"),
+            ...pageQuery(500),
           })
           .passthrough(),
       },
-      output: { schema: ListWithTotal },
+      output: { schema: PagedListWithTotal },
     },
-    async (c) => {
+    async (c, input) => {
       const query = c.req.query();
+      const { limit, offset } = pageOf(input);
       const minCapacity = query.minCapacity ? Number.parseInt(query.minCapacity, 10) : null;
       const maxCapacity = query.maxCapacity ? Number.parseInt(query.maxCapacity, 10) : null;
       const features = (query.features?.split(",") ?? []).filter(Boolean).slice(0, 20);
@@ -407,11 +436,12 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
         })
         .from(rooms)
         .where(and(...conditions))
-        .orderBy(asc(rooms.name))
-        .limit(500);
+        .orderBy(asc(rooms.name), asc(rooms.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      const docs = roomList.map((room) => transformRoomImages(room));
-      return c.json({ docs, totalDocs: docs.length });
+      const docs = roomList.slice(0, limit).map((room) => transformRoomImages(room));
+      return c.json({ docs, totalDocs: docs.length, hasMore: roomList.length > limit });
     }
   );
 
@@ -421,13 +451,21 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       id: "get-room",
       summary: "Read a room",
       description:
-        "One room by id or slug, with its amenities and image URLs. With `include_bookings=true` it adds the next occupied slots: staff get the next 10 confirmed bookings (id, title, times, status); anyone else only start and end times. An inactive room is a 404 except for staff.",
+        "One room by id or slug, with its amenities and image URLs. With `includeBookings=true` it adds the next occupied slots: staff get the next 10 confirmed bookings (id, title, times, status); anyone else only start and end times. An inactive room is a 404 except for staff.",
       access: "optional",
       input: {
         params: ParamId,
         query: z
           .object({
-            include_bookings: z.string().optional().describe("`true` to add upcoming bookings"),
+            includeBookings: z.string().optional().describe("`true` to add upcoming bookings"),
+            // The old name, kept for clients that already send it: camelCase like
+            // every other query parameter of the API (api-contract, 2026-11-18).
+            include_bookings: z.string().optional().meta({
+              deprecated: true,
+              "x-sunset": "2027-05-18",
+              description:
+                "Deprecated since 2026-11-18, removed after 2027-05-18: use `includeBookings`.",
+            }),
           })
           .passthrough(),
       },
@@ -438,7 +476,8 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       const id = c.req.param("id");
       const user = userOf(c);
       const db = dbDe(c);
-      const includeBookings = c.req.query("include_bookings") === "true";
+      const includeBookings =
+        (c.req.query("includeBookings") ?? c.req.query("include_bookings")) === "true";
 
       const [room] = await db
         .select()
@@ -683,6 +722,8 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Active amenities (projector, whiteboard…) ordered by name, up to 500, optionally filtered by `category`. Public.",
       access: "public",
+      unpaginated:
+        "The amenity catalogue (projector, whiteboard…): a short lookup list for a picker, read whole.",
       input: {
         query: z.object({ category: z.string().optional() }).passthrough(),
       },
@@ -856,6 +897,7 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Slots every 30 minutes within the room's opening hours (UTC; 08:00-18:00 by default) for `date` (YYYY-MM-DD, today by default), each lasting `duration` minutes (15-1440, 60 by default), marked available or not. Says nothing about who booked. Public.",
       access: "public",
+      unpaginated: "The slots of one room for one day: at most 48 half-hour steps.",
       input: {
         params: ParamId,
         query: z
@@ -1412,23 +1454,27 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       id: "list-blackouts",
       summary: "Blackout periods of a room",
       description:
-        "Periods in which a room cannot be booked, ordered by start (up to 500). Staff also see the reason and who created them.",
+        "Periods in which a room cannot be booked (past ones included), ordered by start, in pages of `limit` (1-500, default 500) from `offset`; `hasMore` says whether more follow. Staff also see the reason and who created them.",
       access: "optional",
-      input: { params: ParamId },
-      output: { schema: RowList },
+      input: { params: ParamId, query: z.object(pageQuery(500)).passthrough() },
+      output: { schema: PagedRowList },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
       const id = validId(c.req.param("id"), "Room");
       const staff = isStaff(userOf(c));
-      const list = await dbDe(c)
+      const { limit, offset } = pageOf(input);
+      const rows = await dbDe(c)
         .select()
         .from(blackoutDates)
         .where(eq(blackoutDates.roomId, id))
-        .orderBy(asc(blackoutDates.startDate))
-        .limit(500);
+        .orderBy(asc(blackoutDates.startDate), asc(blackoutDates.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const list = rows.slice(0, limit);
 
       return c.json({
+        hasMore: rows.length > limit,
         docs: staff
           ? list
           : list.map((b) => ({
@@ -1527,16 +1573,17 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
       id: "list-my-reservations",
       summary: "My upcoming bookings",
       description:
-        "The caller's upcoming bookings (pending, confirmed or checked in, not yet ended), soonest first, with the room name. The user comes from the session; a `userId` in the query is ignored.",
+        "The caller's upcoming bookings (pending, confirmed or checked in, not yet ended), soonest first, with the room name, in pages of `limit` (1-200, default 200) from `offset`; `hasMore` says whether more follow. The user comes from the session; a `userId` in the query is ignored.",
       access: "session",
-      input: { query: FreeQuery },
-      output: { schema: RowList },
+      input: { query: z.object(pageQuery(200)).passthrough() },
+      output: { schema: PagedRowList },
     },
-    async (c) => {
+    async (c, input) => {
       const user = requireSession(c);
       const db = dbDe(c);
+      const { limit, offset } = pageOf(input);
 
-      const upcoming = await db
+      const rows = await db
         .select({
           id: bookings.id,
           roomId: bookings.roomId,
@@ -1553,8 +1600,10 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
             or(...OCCUPYING.map((s) => eq(bookings.status, s)))
           )
         )
-        .orderBy(asc(bookings.startTime))
-        .limit(200);
+        .orderBy(asc(bookings.startTime), asc(bookings.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const upcoming = rows.slice(0, limit);
 
       const roomIds = Array.from(new Set(upcoming.map((b) => b.roomId)));
       const roomData = roomIds.length
@@ -1574,6 +1623,7 @@ export function bookingOperations(ctx: KonContext): AnyOperation[] {
             roomCoverImageUrl: getMediaTransformUrl(roomInfo?.coverImageId, "thumbnail"),
           };
         }),
+        hasMore: rows.length > limit,
       });
     }
   );

@@ -309,6 +309,16 @@ function paging(page: ListPage, fallback = 50) {
   return { limit, page: current, offset: (current - 1) * limit };
 }
 
+/** `limit` and `offset` of a list that returns every row when `limit` is absent. */
+export type OptionalPage = { limit?: number; offset?: number };
+
+/** The page of `rows` (every row from `offset` without `limit`), and whether more follow it. */
+function slicePage<T>(rows: T[], page: OptionalPage): { rows: T[]; hasMore: boolean } {
+  const from = page.offset ?? 0;
+  if (page.limit === undefined) return { rows: rows.slice(from), hasMore: false };
+  return { rows: rows.slice(from, from + page.limit), hasMore: rows.length > from + page.limit };
+}
+
 /** Months in one period of each frequency: what moves the next date on and turns an amount into a monthly figure. */
 const RECURRING_MONTHS: Record<RecurringFrequency, number> = { monthly: 1, quarterly: 3, semiannual: 6, annual: 12 };
 
@@ -1731,8 +1741,11 @@ export class BillingService {
     });
   }
 
-  /** The balance per client, with the minimum agreed with each and the top-up it suggests. */
-  async clientFundsByClient() {
+  /**
+   * The balance per client, with the minimum agreed with each and the top-up it suggests,
+   * largest balance first. Every client unless `limit` asks for a page.
+   */
+  async clientFundsByClient(page: OptionalPage = {}) {
     const rows = await this.db
       .select({
         clientId: journals.counterpartyId,
@@ -1749,7 +1762,7 @@ export class BillingService {
         and(eq(accounts.isClientFundsAccount, true), eq(accounts.type, "liability"), inArray(journals.status, IN_THE_BOOKS))
       )
       .groupBy(journals.counterpartyId, counterparties.name, counterparties.fundsMinimum);
-    return rows
+    const clients = rows
       .map((r) => {
         const balance = d(r.balance);
         const minimum = d(r.minimum);
@@ -1764,12 +1777,18 @@ export class BillingService {
           lastMovement: r.lastMovement,
         };
       })
-      .sort((a, b) => d(b.balance).comparedTo(d(a.balance)));
+      // The client id breaks ties, so pages neither repeat nor skip a client.
+      .sort((a, b) => d(b.balance).comparedTo(d(a.balance)) || a.clientId.localeCompare(b.clientId));
+    const { rows: data, hasMore } = slicePage(clients, page);
+    return { data, hasMore };
   }
 
-  /** A client's statement, newest first. Running balances come from the first movement on. */
+  /**
+   * A client's statement, newest first, a page at a time (`limit`, 1000 by default, and
+   * `offset`). Running balances come from the first movement on, whatever the page.
+   */
   async clientFundsTransactions(
-    filter: { clientId?: string; dateFrom?: string; dateTo?: string; limit?: number } = {}
+    filter: { clientId?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number } = {}
   ) {
     const conditions: SQL[] = [
       eq(accounts.isClientFundsAccount, true),
@@ -1798,7 +1817,8 @@ export class BillingService {
       .innerJoin(accounts, eq(ledgerEntries.accountId, accounts.id))
       .leftJoin(counterparties, eq(journals.counterpartyId, counterparties.id))
       .where(and(...conditions))
-      .orderBy(asc(journals.date), asc(journals.createdAt));
+      // The entry id breaks ties, so pages neither repeat nor skip a movement.
+      .orderBy(asc(journals.date), asc(journals.createdAt), asc(ledgerEntries.id));
 
     const running = new Map<string, Decimal>();
     const movements = rows.map((row) => {
@@ -1814,10 +1834,14 @@ export class BillingService {
         balance: toDb(balance),
       };
     });
-    return movements
+    const newestFirst = movements
       .filter((m) => (!filter.dateFrom || m.date >= filter.dateFrom) && (!filter.dateTo || m.date <= filter.dateTo))
-      .reverse()
-      .slice(0, Math.min(Math.max(filter.limit ?? 1000, 1), 5000));
+      .reverse();
+    const { rows: data, hasMore } = slicePage(newestFirst, {
+      limit: Math.min(Math.max(filter.limit ?? 1000, 1), 5000),
+      offset: filter.offset ?? 0,
+    });
+    return { data, hasMore };
   }
 
   /** Bank = liability = sum of client balances. If they differ, money is misplaced. */
@@ -1919,8 +1943,14 @@ export class BillingService {
     return dayjs(recurringFee.nextDate).subtract(RECURRING_MONTHS[recurringFee.frequency], "month").format("YYYY-MM-DD");
   }
 
-  /** Each recurring fee with the quantity used in its current period, and the recurring revenue. */
-  async listRecurringFees(filter: { clientId?: string; active?: boolean; asOf?: string } = {}) {
+  /**
+   * Each recurring fee with the quantity used in its current period, and the recurring revenue.
+   * The summary covers every fee that matches the filter; with `limit` only that page's fees are
+   * listed (and their quantity used counted).
+   */
+  async listRecurringFees(
+    filter: { clientId?: string; active?: boolean; asOf?: string } & OptionalPage = {}
+  ) {
     const asOf = filter.asOf ?? today();
     const conditions: SQL[] = [];
     if (filter.clientId) conditions.push(eq(recurringFees.clientId, filter.clientId));
@@ -1930,12 +1960,18 @@ export class BillingService {
       .from(recurringFees)
       .innerJoin(counterparties, eq(recurringFees.clientId, counterparties.id))
       .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(asc(recurringFees.nextDate));
+      .orderBy(asc(recurringFees.nextDate), asc(recurringFees.id));
 
-    const data = [];
     let monthly = new Decimal(0);
     let due = 0;
-    for (const { recurringFee, clientName } of rows) {
+    for (const { recurringFee } of rows) {
+      if (recurringFee.isActive) monthly = monthly.plus(d(recurringFee.amount).dividedBy(RECURRING_MONTHS[recurringFee.frequency]));
+      if (recurringFee.isActive && recurringFee.nextDate <= asOf) due += 1;
+    }
+
+    const page = slicePage(rows, filter);
+    const data = [];
+    for (const { recurringFee, clientName } of page.rows) {
       let quantityUsed = "0.0000";
       if (recurringFee.projectId) {
         const [used] = await this.db
@@ -1952,11 +1988,13 @@ export class BillingService {
         quantityUsed = toDb(d(used?.quantity ?? 0));
       }
       const isDue = recurringFee.isActive && recurringFee.nextDate <= asOf;
-      if (recurringFee.isActive) monthly = monthly.plus(d(recurringFee.amount).dividedBy(RECURRING_MONTHS[recurringFee.frequency]));
-      if (isDue) due += 1;
       data.push({ ...recurringFee, clientName, quantityUsed, isDue });
     }
-    return { data, summary: { monthlyRecurring: toDb(monthly), dueCount: due, asOf } };
+    return {
+      data,
+      hasMore: page.hasMore,
+      summary: { monthlyRecurring: toDb(monthly), dueCount: due, asOf },
+    };
   }
 
   /** Bills one period of a recurring fee. The period is claimed first, so two calls at once bill it once. */
@@ -2083,8 +2121,12 @@ export class BillingService {
     return this.presentSuccessFee(row);
   }
 
-  /** The pipeline: each success fee with its amount if won, and that amount weighted by its probability. */
-  async listSuccessFees(filter: { clientId?: string; status?: SuccessFee["status"] } = {}) {
+  /**
+   * The pipeline: each success fee with its amount if won, and that amount weighted by its
+   * probability. The totals cover every open fee that matches the filter; with `limit` only that
+   * page's fees are listed.
+   */
+  async listSuccessFees(filter: { clientId?: string; status?: SuccessFee["status"] } & OptionalPage = {}) {
     const conditions: SQL[] = [];
     if (filter.clientId) conditions.push(eq(successFees.clientId, filter.clientId));
     if (filter.status) conditions.push(eq(successFees.status, filter.status));
@@ -2094,15 +2136,17 @@ export class BillingService {
       .innerJoin(counterparties, eq(successFees.clientId, counterparties.id))
       .innerJoin(projects, eq(successFees.projectId, projects.id))
       .where(conditions.length ? and(...conditions) : undefined)
-      .orderBy(asc(successFees.expectedDate));
-    const data = rows.map((r) => ({
+      .orderBy(asc(successFees.expectedDate), asc(successFees.id));
+    const all = rows.map((r) => ({
       ...this.presentSuccessFee(r.row),
       clientName: r.clientName,
       projectNumber: r.projectNumber,
     }));
-    const open = data.filter((c) => c.status === "open");
+    const open = all.filter((c) => c.status === "open");
+    const { rows: data, hasMore } = slicePage(all, filter);
     return {
       data,
+      hasMore,
       summary: {
         expectedFee: toDb(open.reduce((s, c) => s.plus(c.expectedFee), new Decimal(0))),
         weightedFee: toDb(open.reduce((s, c) => s.plus(c.weightedFee), new Decimal(0))),

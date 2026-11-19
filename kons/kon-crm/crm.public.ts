@@ -34,7 +34,7 @@ import {
   crmPipelineStages,
   crmPortalLinks,
 } from "./crm.schema";
-import { CONFIGURE, EDIT, requiresEdit, type registry } from "./operations";
+import { CONFIGURE, EDIT, cappedPage, pageOfRows, requiresEdit, type Page, type registry } from "./operations";
 
 const Output = z.object({}).passthrough();
 const ParamId = z.object({ id: z.string().min(1).max(100).describe("Row id") });
@@ -202,6 +202,7 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
     "/capture-forms",
     {
       id: "list-capture-forms",
+      unpaginated: "The forms an admin set up for the installation's websites: a handful.",
       summary: "List public capture forms",
       description: "The forms a website can post to, with their ids. Admin only.",
       access: "session",
@@ -379,13 +380,14 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
       id: "list-portal-links",
       summary: "List clients' portal links",
       description:
-        "Who has a link, until when, and whether it was revoked; filter by `contactId`. Never the token: it was shown once, when the link was made. Requires CRM edit access.",
+        "Who has a link, until when, and whether it was revoked, newest first, a page at a time (`limit` 1-500, default 500; `offset`; `hasMore` says there are more); filter by `contactId`. Never the token: it was shown once, when the link was made. Requires CRM edit access.",
       access: "session",
       permission: EDIT,
-      input: { query: z.object({ contactId: z.string().max(100).optional() }) },
+      input: { query: z.object({ contactId: z.string().max(100).optional(), ...cappedPage(500) }) },
       output: { schema: Output },
     },
     async (c, input) => {
+      const { limit, offset } = input.query as Required<Page>;
       const rows = await dbDe(c)
         .select({
           id: crmPortalLinks.id,
@@ -398,10 +400,15 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
         })
         .from(crmPortalLinks)
         .where(input.query.contactId ? eq(crmPortalLinks.contactId, input.query.contactId) : undefined)
-        .orderBy(desc(crmPortalLinks.createdAt))
-        .limit(500);
+        .orderBy(desc(crmPortalLinks.createdAt), asc(crmPortalLinks.id))
+        .limit(limit + 1)
+        .offset(offset);
       const now = Date.now();
-      return c.json({ data: rows.map((r) => ({ ...r, live: !r.revokedAt && r.expiresAt.getTime() > now })) });
+      const page = pageOfRows(rows, limit);
+      return c.json({
+        data: page.data.map((r) => ({ ...r, live: !r.revokedAt && r.expiresAt.getTime() > now })),
+        hasMore: page.hasMore,
+      });
     }
   );
 

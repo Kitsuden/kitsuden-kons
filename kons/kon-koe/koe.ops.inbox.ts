@@ -485,11 +485,29 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
 
   app.get(
     "/conversations/:id/notes",
-    { id: "list-notes", summary: "Internal notes", description: "Notes the team (and AI) left on a conversation. The contact never sees them.", access: "session", permission: USE, input: { params: ParamId }, output: { schema: Output } },
+    {
+      id: "list-notes",
+      summary: "Internal notes",
+      description: "Notes the team (and AI) left on a conversation, oldest first. The contact never sees them. Without `limit` every note comes back; with `limit` (1-500) and `offset` one page, and `hasMore` says whether another follows.",
+      access: "session",
+      permission: USE,
+      input: {
+        params: ParamId,
+        query: z.object({
+          limit: z.coerce.number().int().min(1).max(500).optional().describe("Rows per page (1-500). Without it, every note."),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
+      output: { schema: Output },
+    },
     async (c, input, h) => {
       await requireMember(db(), h.user);
       await conversationOr404(db(), input.params.id);
-      return c.json({ data: await db().select().from(koeNotes).where(eq(koeNotes.conversationId, input.params.id)).orderBy(asc(koeNotes.createdAt)) });
+      const { limit, offset } = input.query as { limit?: number; offset: number };
+      const query = db().select().from(koeNotes).where(eq(koeNotes.conversationId, input.params.id)).orderBy(asc(koeNotes.createdAt), asc(koeNotes.id));
+      if (limit === undefined) return c.json({ data: await query.offset(offset), hasMore: false });
+      const rows = (await query.limit(limit + 1).offset(offset)) as unknown[];
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
@@ -538,22 +556,30 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
     {
       id: "list-contacts",
       summary: "Find contacts",
-      description: "Contacts of the conversations you may see, by name, phone or email.",
+      description: "Contacts of the conversations you may see, by name, phone or email, most recently updated first. Paged with `limit` (1-100, default 30) and `offset`; `hasMore` says whether another page follows.",
       access: "session",
       permission: USE,
-      input: { query: z.object({ q: z.string().max(200).optional(), limit: z.coerce.number().int().min(1).max(100).default(30) }) },
+      input: {
+        query: z.object({
+          q: z.string().max(200).optional(),
+          limit: z.coerce.number().int().min(1).max(100).default(30),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
       output: { schema: Output },
     },
     async (c, input, h) => {
       await requireMember(db(), h.user);
       const like = input.query.q ? `%${input.query.q.replace(/[%_]/g, "")}%` : null;
+      const { limit, offset } = input.query;
       const rows = await db()
         .select()
         .from(koeContacts)
         .where(like ? or(ilike(koeContacts.displayName, like), ilike(koeContacts.phone, like), ilike(koeContacts.email, like)) : undefined)
-        .orderBy(desc(koeContacts.updatedAt))
-        .limit(input.query.limit);
-      return c.json({ data: rows });
+        .orderBy(desc(koeContacts.updatedAt), desc(koeContacts.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
@@ -720,16 +746,24 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
     {
       id: "list-notices",
       summary: "My notices",
-      description: "Assignments, mentions, waiting conversations, closing windows, channel problems. Newest first.",
+      description: "Assignments, mentions, waiting conversations, closing windows, channel problems. Newest first. Paged with `limit` (1-100, default 30) and `offset`; `hasMore` says whether another page follows.",
       access: "session",
       permission: USE,
-      input: { query: z.object({ unread: z.coerce.boolean().optional(), limit: z.coerce.number().int().min(1).max(100).default(30) }) },
+      input: {
+        query: z.object({
+          unread: z.coerce.boolean().optional(),
+          limit: z.coerce.number().int().min(1).max(100).default(30),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
       output: { schema: Output },
     },
     async (c, input, h) => {
       const me = await requireMember(db(), h.user);
       const where = [eq(koeNotices.userId, me.userId), ...(input.query.unread ? [isNull(koeNotices.readAt)] : [])];
-      return c.json({ data: await db().select().from(koeNotices).where(and(...where)).orderBy(desc(koeNotices.createdAt)).limit(input.query.limit) });
+      const { limit, offset } = input.query;
+      const rows = await db().select().from(koeNotices).where(and(...where)).orderBy(desc(koeNotices.createdAt), desc(koeNotices.id)).limit(limit + 1).offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
