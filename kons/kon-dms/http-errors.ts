@@ -17,14 +17,22 @@
 import { AppError, respondError } from "@kitsuden/engine";
 import type { Context } from "hono";
 
-function postgresCode(err: unknown): string | undefined {
+/** The Postgres error inside `err` (drizzle wraps it in `cause`), if there is one. */
+function postgresError(err: unknown): { code: string; detail?: string } | undefined {
   let actual: unknown = err;
   for (let i = 0; i < 4 && actual && typeof actual === "object"; i++) {
     const code = (actual as { code?: unknown }).code;
-    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) return code;
+    if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) {
+      const detail = (actual as { detail?: unknown }).detail;
+      return { code, detail: typeof detail === "string" ? detail : undefined };
+    }
     actual = (actual as { cause?: unknown }).cause;
   }
   return undefined;
+}
+
+function postgresCode(err: unknown): string | undefined {
+  return postgresError(err)?.code;
 }
 
 /** By name and shape, not by `instanceof`: two copies of the engine do not share a class. */
@@ -42,6 +50,13 @@ export function translateError(err: unknown): unknown {
     case "23505":
       return AppError.conflict("A record with that data already exists");
     case "23503":
+      // The same code covers both directions of a foreign key. Deleting a
+      // record that others still point at (a client with projects or
+      // invoices) said «It refers to a record that does not exist», the
+      // opposite of what happened. The detail only goes to the branch, never out.
+      if (/is still referenced/i.test(postgresError(err)?.detail ?? "")) {
+        return AppError.conflict("Other records still use it: remove or reassign them first");
+      }
       return AppError.badRequest("It refers to a record that does not exist");
     case "22P02":
     case "22007":
