@@ -178,7 +178,14 @@ jobs:
         run: |
           KITSUDEN_KONS=$(for d in ../../../kons/kon-*; do printf '%s=%s,' "$(basename "$d")" "$(cd "$d" && pwd)"; done)
           export KITSUDEN_KONS
-          bun run scripts/schemathesis.ts --only-installed --baseline="$GITHUB_WORKSPACE/schemathesis-baseline.json"
+          # Left out: POST /api/dc/blueprints and PATCH /api/dc/blueprints/{id}. Their body is
+          # the recursive blueprint definition (templates and steps that nest), and
+          # Schemathesis's coverage phase never finishes on it: on 2026-11-20 it sent
+          # ~280,000 requests to that one operation until the job timed out. `--solo` filters
+          # by path, so GET and DELETE on those paths go too. Remove this once the core's
+          # runner keeps recursive bodies out of the coverage phase.
+          bun run scripts/schemathesis.ts --only-installed --baseline="$GITHUB_WORKSPACE/schemathesis-baseline.json" \
+            '--solo=^(?!/api/dc/blueprints(/\{id\})?$)'
 
       - name: Upload Schemathesis report
         if: always()
