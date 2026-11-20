@@ -1,24 +1,39 @@
 {
   "name": "@kitsuden/kon-cardsim",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Card simulator builder: games defined by data, deterministic sessions with replay, a deck showcase and a hand generator",
   "type": "module",
   "main": "./index.ts",
   "files": [
     "AGENTS.md",
+    "Board.svelte",
+    "ImageSourcesPanel.svelte",
     "README.md",
+    "TableBoard.svelte",
+    "cardsim.arbiter.ts",
+    "cardsim.board.i18n.ts",
     "cardsim.dataset.ts",
     "cardsim.deck.ts",
     "cardsim.decklist.ts",
     "cardsim.engine.ts",
     "cardsim.goldfish.ts",
+    "cardsim.images.client.ts",
+    "cardsim.images.controller.ts",
+    "cardsim.images.ts",
+    "cardsim.placeholder.ts",
     "cardsim.policy.ts",
     "cardsim.presets.ts",
     "cardsim.rating.ts",
+    "cardsim.relay.ts",
+    "cardsim.render.ts",
     "cardsim.schema.ts",
     "cardsim.seed.ts",
+    "cardsim.solo.ts",
     "cardsim.statecache.ts",
+    "cardsim.table.client.ts",
+    "cardsim.table.i18n.ts",
     "cardsim.types.ts",
+    "cardsim.zip.ts",
     "deckshow.policy.ts",
     "deckshow.routes.ts",
     "deckshow.schema.ts",
@@ -44,7 +59,8 @@
     "deckshow",
     "handlab",
     "tcg",
-    "goldfish"
+    "goldfish",
+    "byod"
   ],
   "license": "MIT",
   "devDependencies": {
@@ -53,7 +69,8 @@
   "peerDependencies": {
     "hono": "^4.7.0",
     "drizzle-orm": "^0.45.0",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "svelte": "^5.0.0"
   },
   "kitsuden": {
     "type": "kon",
@@ -67,6 +84,18 @@
     "./motor": "./cardsim.engine.ts",
     "./presets": "./cardsim.presets.ts",
     "./decklist": "./cardsim.decklist.ts",
+    "./images": "./cardsim.images.client.ts",
+    "./images/controller": "./cardsim.images.controller.ts",
+    "./solo": "./cardsim.solo.ts",
+    "./board": "./Board.svelte",
+    "./board/sources": "./ImageSourcesPanel.svelte",
+    "./board/texts": "./cardsim.board.i18n.ts",
+    "./table": "./cardsim.table.client.ts",
+    "./relay": "./cardsim.relay.ts",
+    "./render": "./cardsim.render.ts",
+    "./arbiter": "./cardsim.arbiter.ts",
+    "./board/table": "./TableBoard.svelte",
+    "./board/table/texts": "./cardsim.table.i18n.ts",
     "./package.json": "./package.json"
   },
   "repository": {
@@ -76,5 +105,10 @@
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0"
+  },
+  "peerDependenciesMeta": {
+    "svelte": {
+      "optional": true
+    }
   }
 }

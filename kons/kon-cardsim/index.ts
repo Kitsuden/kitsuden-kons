@@ -39,7 +39,7 @@ import {
   type AnyOperation,
 } from "@kitsuden/engine";
 import { readDatasetCatalog, type KonContext } from "@kitsuden/shared";
-import { and, eq, ilike } from "drizzle-orm";
+import { and, eq, ilike, inArray, isNull } from "drizzle-orm";
 import type { Hono } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
@@ -68,11 +68,20 @@ import {
   cardsimCards,
   cardsimDecks,
   cardsimGames,
+  cardsimImagePrefs,
   cardsimMatches,
   cardsimQueue,
   cardsimRatings,
   cardsimSessions,
 } from "./cardsim.schema.js";
+import {
+  GameKeySchema,
+  ImageModeSchema,
+  ImagePrefsSchema,
+  ImageSourceSchema,
+  stripCardImages,
+} from "./cardsim.images.js";
+import { authorizeTableChannel, playersChannel, tableChannel, type TableEvent } from "./cardsim.relay.js";
 import { SessionStateCache } from "./cardsim.statecache.js";
 import { newRandomSecret, seedOf, usedSubseeds } from "./cardsim.seed.js";
 import {
@@ -106,6 +115,7 @@ export * from "./cardsim.decklist.js";
 export * from "./cardsim.rating.js";
 export * from "./cardsim.goldfish.js";
 export * from "./cardsim.statecache.js";
+export * from "./cardsim.images.js";
 export * from "./deckshow.schema.js";
 export * from "./handlab.schema.js";
 export * from "./handlab.definition.js";
@@ -181,6 +191,12 @@ const SubmitAction = z.object({
   /** Seat from which one acts. Checked against `seats`. */
   seat: z.number().int().min(0).max(7),
   action: z.record(z.string(), z.unknown()),
+  /**
+   * How many actions the client had seen. If the table has moved since (the opponent played, or
+   * this same action already went through and the response was lost), the action is refused with
+   * a 409 instead of being applied on a table the player did not see — or applied twice.
+   */
+  expectActionCount: z.number().int().min(0).optional(),
 });
 
 const UndoRequest = z.object({ toActionCount: z.number().int().min(0) });
@@ -383,6 +399,36 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
   const queue = () => repo(cardsimQueue, { db });
 
   const asSystem = ctx.db.asSystem ?? (<T>(fn: () => Promise<T>) => fn());
+
+  /**
+   * The table's realtime relay (cardsim.relay.ts). What travels is WHAT HAPPENED — a join, an
+   * action number, an undo request — never a card, a deck or an image: each client asks again for
+   * its own seat's view (`get-session`), which is where `viewFor` keeps the secrets.
+   *
+   * Fire-and-forget: a host without realtime (tests, a host with no WebSocket) just has nobody
+   * listening, and the clients fall back to polling.
+   */
+  const relay = (sessionId: string, event: TableEvent, channel = tableChannel(sessionId)) => {
+    try {
+      ctx.realtime.broadcast(channel, event);
+    } catch {
+      /* nobody listening */
+    }
+  };
+
+  /**
+   * Who may LISTEN to a table: its players always; anyone else only if the room admits
+   * spectators. The players' channel (shared image links) is for seated players only. Read as the
+   * system: the authorizer runs outside any request.
+   */
+  const realtime = ctx.realtime as unknown as {
+    channels?: (
+      authorize: (rest: string, user: { id: string | null; role: string | null }) => Promise<boolean>
+    ) => void;
+  };
+  realtime.channels?.((rest, user) =>
+    authorizeTableChannel(rest, user, (id) => asSystem(() => repo(cardsimSessions, { db }).find(id)))
+  );
 
   /**
    * A deck by its id, for whoever requests it.
@@ -604,9 +650,180 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
 
       const start = (page - 1) * pageSize;
       return c.json({
-        data: rows.slice(start, start + pageSize),
+        // In a `byod` game no card names an image (cardsim.images.ts).
+        data: rows.slice(start, start + pageSize).map((r) => stripCardImages(r, game.imageMode)),
         meta: { total: rows.length, page, pageSize, pages: Math.ceil(rows.length / pageSize) },
       });
+    }
+  );
+
+  /**
+   * Names and data of specific cards. A table's view carries card ids only; the board asks here
+   * for the ones it is showing, instead of downloading a catalog of thousands.
+   */
+  app.post(
+    "/games/:slug/cards/lookup",
+    {
+      id: "lookup-cards",
+      summary: "Get specific cards of a game by id",
+      description:
+        "Up to 200 card ids → each card's name and data (cost, type, color…), in the order asked; unknown ids are left out. In a `byod` game no card names an image. Public, read-only.",
+      access: "optional",
+      readOnly: true,
+      input: {
+        params: ParamSlug,
+        body: z.object({ ids: z.array(z.string().min(1).max(120)).min(1).max(200) }).strict(),
+      },
+      output: { schema: withData(z.array(z.object({ cardId: z.string() }).passthrough())) },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
+    },
+    async (c, input) => {
+      const game = await games()
+        .filter({ slug: c.req.param("slug") })
+        .first();
+      if (!game) return c.json({ error: "Not found" }, 404);
+      const { ids } = input.body as { ids: string[] };
+      const wanted = [...new Set(ids)];
+      const rows = await cards()
+        .where(and(eq(cardsimCards.gameId, game.id), inArray(cardsimCards.cardId, wanted))!)
+        .all();
+      const byId = new Map(rows.map((r) => [r.cardId, r]));
+      return c.json({
+        data: wanted
+          .map((id) => byId.get(id))
+          .filter((r): r is NonNullable<typeof r> => Boolean(r))
+          .map((r) =>
+            stripCardImages({ cardId: r.cardId, name: r.name, imageUrl: r.imageUrl, data: r.data }, game.imageMode)
+          ),
+      });
+    }
+  );
+
+  /**
+   * Who brings the card images. In `byod` no response of the kon names an image: each player
+   * brings their own in the browser (`./images`). The rows keep their `imageUrl`, so switching
+   * back to `hosted` needs no re-import.
+   */
+  app.put(
+    "/games/:slug/image-mode",
+    {
+      id: "set-image-mode",
+      summary: "Set who brings a game's card images",
+      description:
+        "`hosted`: card responses carry `imageUrl` (the default). `byod` (bring your own data): no response names an image or an image field, and each player brings their own images in the browser; the stored `imageUrl`s are kept, so switching back needs no re-import. Editorial: admin/editor, or an agent with cardsim:manageCatalog.",
+      access: "session",
+      permission: CATALOG,
+      sensitive: true,
+      input: {
+        params: ParamSlug,
+        body: z.object({ imageMode: ImageModeSchema }).strict(),
+      },
+      output: { schema: withData(Row) },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
+    },
+    async (c, input) => {
+      const game = await games()
+        .filter({ slug: c.req.param("slug") })
+        .first();
+      if (!game) return c.json({ error: "Not found" }, 404);
+      const { imageMode } = input.body as { imageMode: "hosted" | "byod" };
+      const [row] = await games()
+        .filter({ id: game.id })
+        .update({ imageMode, updatedAt: new Date() });
+      return c.json({ data: row });
+    }
+  );
+
+  // ── A person's image sources ──────────────────────────────────────────────
+  //
+  // Settings only: the ORDER of their sources and the links they typed. Never an image, a path or
+  // a file (cardsim.images.ts). Personal: RLS isolates the rows by owner, and every query below
+  // also filters by the caller, so a missing RLS context still shows nobody else's.
+
+  const prefs = () => repo(cardsimImagePrefs, { db });
+  const GameKeyParam = z.object({ gameKey: GameKeySchema.describe("Game slug (cardsim or site)") });
+  const PREFS_OUTPUT = z
+    .object({ gameKey: z.string(), sources: z.array(Obj), updatedAt: z.unknown().nullable() })
+    .passthrough();
+
+  app.get(
+    "/image-prefs/:gameKey",
+    {
+      id: "get-image-prefs",
+      summary: "Get my card image sources for a game",
+      description:
+        "Your image sources for a game, in the order the board tries them (folders, zips, URL templates, per-card links, community packs). Links and names only: images never reach the server. An empty list if you have none. A person with a session, or an agent with cardsim:get-image-prefs.",
+      access: "session",
+      permission: ANY_ACCOUNT,
+      input: { params: GameKeyParam },
+      output: { schema: withData(PREFS_OUTPUT) },
+    },
+    async (c, input) => {
+      const user = userOf(c);
+      if (!user?.id) return c.json({ error: "Unauthorized" }, 401);
+      const { gameKey } = input.params as { gameKey: string };
+      const row = await prefs().filter({ ownerId: user.id, gameKey }).first();
+      return c.json({
+        data: { gameKey, sources: row?.sources ?? [], updatedAt: row?.updatedAt ?? null },
+      });
+    }
+  );
+
+  app.put(
+    "/image-prefs/:gameKey",
+    {
+      id: "put-image-prefs",
+      summary: "Save my card image sources for a game",
+      description:
+        "Replaces your image sources for a game (at most 20, tried in this order). Kinds: `folder`, `zip`, `dropped` (stored by name only: the files stay in the browser), `template` (an https link with {id} or {name}), `cardUrls` (card → https link, at most 2000), `pack` (the https link of a community pack). Links must be https to a public host. Idempotent. A person with a session, or an agent with cardsim:put-image-prefs.",
+      access: "session",
+      permission: ANY_ACCOUNT,
+      idempotent: true,
+      input: { params: GameKeyParam, body: ImagePrefsSchema },
+      output: { schema: withData(PREFS_OUTPUT) },
+      errors: ["KITSUDEN_E_FORBIDDEN"],
+    },
+    async (c, input, h) => {
+      const user = userOf(c);
+      if (!user?.id) return c.json({ error: "Unauthorized" }, 401);
+      if (!(await h.can({ id: "", ownerId: user.id }, "update"))) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+      const { gameKey } = input.params as { gameKey: string };
+      const { sources } = input.body as z.infer<typeof ImagePrefsSchema>;
+      const existing = await prefs().filter({ ownerId: user.id, gameKey }).first();
+      const updatedAt = new Date();
+      const row = existing
+        ? (await prefs().filter({ id: existing.id }).update({ sources, updatedAt }))[0]
+        : await prefs().create({ ownerId: user.id, gameKey, sources, updatedAt });
+      return c.json({ data: { gameKey, sources: row.sources, updatedAt: row.updatedAt } });
+    }
+  );
+
+  app.delete(
+    "/image-prefs/:gameKey",
+    {
+      id: "delete-image-prefs",
+      summary: "Forget my card image sources for a game",
+      description:
+        "Deletes your image sources for a game. The images cached in your browser are not touched (the board clears those). A person with a session, or an agent with cardsim:delete-image-prefs.",
+      access: "session",
+      permission: ANY_ACCOUNT,
+      // Your own settings, rebuilt in a minute from the board: nothing of anyone else's is lost.
+      sensitive: false,
+      input: { params: GameKeyParam },
+      output: { status: 204 },
+      errors: ["KITSUDEN_E_FORBIDDEN"],
+    },
+    async (c, input, h) => {
+      const user = userOf(c);
+      if (!user?.id) return c.json({ error: "Unauthorized" }, 401);
+      if (!(await h.can({ id: "", ownerId: user.id }, "delete"))) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+      const { gameKey } = input.params as { gameKey: string };
+      await prefs().filter({ ownerId: user.id, gameKey }).delete();
+      return c.body(null, 204);
     }
   );
 
@@ -1665,7 +1882,7 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
         });
       stateCache.forget(id);
 
-      ctx.realtime.broadcast(`cardsim:session:${id}`, { type: "join", seat, full });
+      relay(id, { type: "join", seat, full });
       return c.json({ data: { seat, seats, status: full ? "playing" : "open" } });
     }
   );
@@ -1722,7 +1939,7 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
         updatedAt: new Date(),
       });
     await finishSession(session.id, state);
-    ctx.realtime.broadcast(`cardsim:session:${session.id}`, { type: "timeout", seat: active });
+    relay(session.id, { type: "timeout", seat: active });
     return active;
   }
 
@@ -1823,12 +2040,19 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       const { session, game } = loaded;
 
       const user = userOf(c);
-      const { seat, action } = input.body as z.infer<typeof SubmitAction>;
+      const { seat, action, expectActionCount } = input.body as z.infer<typeof SubmitAction>;
 
       // One only acts from one's own seat: without this, a player could
       // send actions "of the opponent" and empty their hand.
       if (!user || session.seats[seat] !== user.id) {
         return c.json({ error: "That seat is not yours" }, 403);
+      }
+
+      if (expectActionCount !== undefined && expectActionCount !== session.actions.length) {
+        return c.json(
+          { error: "The table moved since you looked", stale: true, actionCount: session.actions.length },
+          409
+        );
       }
 
       // Time is checked BEFORE applying: a play that arrives late arrives
@@ -1881,7 +2105,15 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
 
         // It is broadcast to the table: each client recomputes ITS view. The action is
         // sent, not the state — it is what makes synchronization cheap.
-        ctx.realtime.broadcast(`cardsim:session:${id}`, { type: "action", action: submitted });
+        // What happened, not the action: a client never needs the action's contents, it asks for
+        // its own view. That keeps every secret behind `viewFor`, including the spectators'.
+        relay(id, {
+          type: "action",
+          actionCount: actions.length,
+          actionType: submitted.type,
+          by: seat,
+          finished: Boolean(state.result),
+        });
 
         return c.json({
           data: viewFor(state, seat),
@@ -1952,7 +2184,7 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
         await sessions()
           .filter({ id })
           .update({ undoRequest: { by: seat, toActionCount } });
-        ctx.realtime.broadcast(`cardsim:session:${id}`, {
+        relay(id, {
           type: "undoRequest",
           by: seat,
           toActionCount,
@@ -1985,7 +2217,7 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
           updatedAt: new Date(),
         });
       stateCache.forget(id);
-      ctx.realtime.broadcast(`cardsim:session:${id}`, { type: "undo", toActionCount });
+      relay(id, { type: "undo", toActionCount });
       return c.json({ data: viewFor(state, seat), actionCount: actions.length });
     }
   );
@@ -2011,8 +2243,47 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       const seat = seatOf(session.seats, userOf(c));
       if (seat === -1) return c.json({ error: "You are not seated in this game" }, 403);
       await sessions().filter({ id }).update({ undoRequest: null });
-      ctx.realtime.broadcast(`cardsim:session:${id}`, { type: "undoCancelled" });
+      relay(id, { type: "undoCancelled" });
       return c.body(null, 204);
+    }
+  );
+
+  /**
+   * A player offers their image source to the other player: a link template or a community pack
+   * they chose. It goes ONLY to the players' channel, and the other side has to accept it by hand —
+   * nothing is added to anyone's sources on its own. Local sources (a folder, a zip) cannot be
+   * shared: their files never leave the player's browser.
+   */
+  app.post(
+    "/sessions/:id/share-source",
+    {
+      id: "share-image-source",
+      summary: "Offer your image source to the other players",
+      description:
+        "Sends one of your image sources (`template` or `pack`, an https link to a public host) to the other seated players, who see it as an offer they may accept. Nothing is stored and spectators do not receive it. Folders, zips and per-card links cannot be shared. Seated players only.",
+      access: "session",
+      permission: ANY_ACCOUNT,
+      sensitive: false,
+      input: { params: ParamId, body: z.object({ source: ImageSourceSchema }).strict() },
+      output: { status: 202, schema: withData(z.object({ shared: z.boolean() }).passthrough()) },
+      errors: ["KITSUDEN_E_NOT_FOUND"],
+    },
+    async (c, input) => {
+      const id = c.req.param("id");
+      const session = await sessions().find(id);
+      if (!session) return c.json({ error: "Not found" }, 404);
+      const seat = seatOf(session.seats, userOf(c));
+      if (seat === -1) return c.json({ error: "You are not seated in this game" }, 403);
+      const { source } = input.body as { source: z.infer<typeof ImageSourceSchema> };
+      if (source.kind !== "template" && source.kind !== "pack") {
+        return c.json({ error: "Only link templates and community packs can be shared" }, 422);
+      }
+      relay(
+        id,
+        { type: "sourceShared", by: seat, source: { kind: source.kind, label: source.label, url: source.url } },
+        playersChannel(id)
+      );
+      return c.json({ data: { shared: true } }, 202);
     }
   );
 
@@ -2077,13 +2348,15 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       id: "request-rematch",
       summary: "Start a rematch",
       description:
-        "Same table, same decks and seats, new seed. In an undecided match it counts as the next game; after a decided match it is a friendly game. Seated players of a finished game only (409 if not finished).",
+        "Same table, same decks and seats, new seed. In an undecided match it counts as the next game; after a decided match it is a friendly game. Once per game: when the other player already started it, you get that one (200). Seated players of a finished game only (409 if not finished).",
       access: "session",
       permission: ANY_ACCOUNT,
       input: { params: ParamId },
       output: {
         status: 201,
         schema: withData(z.object({ id: z.string(), gameIndex: z.number() }).passthrough()),
+        otherStatuses: [200 as const],
+        description: "Created (201), or the rematch the other player already started (200)",
       },
       errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
     },
@@ -2099,6 +2372,12 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       // A rematch of an ALREADY decided match does not add to that match: if it did,
       // every rematch would move the Elo again (two accounts in agreement could
       // inflate their ranking through rematches and concessions).
+      // The other player already started it: join that one (both press "rematch").
+      if (session.rematchId) {
+        const existing = await sessions().find(session.rematchId);
+        if (existing) return c.json({ data: { id: existing.id, gameIndex: existing.gameIndex } }, 200);
+      }
+
       const parent = session.matchId ? await matches().find(session.matchId) : null;
       const matchId = parent && parent.status !== "finished" ? parent.id : null;
 
@@ -2118,7 +2397,23 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
         status: "playing",
         ownerId: session.ownerId,
       });
-      ctx.realtime.broadcast(`cardsim:session:${session.id}`, {
+
+      // Claimed only if nobody claimed it meanwhile: two presses at the same instant both create a
+      // row, and the one that loses deletes its own and joins the winner's.
+      const claimed = await db
+        .update(cardsimSessions)
+        .set({ rematchId: row.id })
+        .where(and(eq(cardsimSessions.id, session.id), isNull(cardsimSessions.rematchId)))
+        .returning({ id: cardsimSessions.id });
+      if (claimed.length === 0) {
+        await sessions().filter({ id: row.id }).delete();
+        const winner = await sessions().find(session.id);
+        const existing = winner?.rematchId ? await sessions().find(winner.rematchId) : null;
+        if (existing) return c.json({ data: { id: existing.id, gameIndex: existing.gameIndex } }, 200);
+        return c.json({ error: "Could not start the rematch" }, 409);
+      }
+
+      relay(session.id, {
         type: "rematch",
         sessionId: row.id,
       });

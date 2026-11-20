@@ -5,7 +5,8 @@
   },
   "include": [
     "*.ts",
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "*.svelte"
   ],
   "exclude": [
     "node_modules",

@@ -37,6 +37,7 @@ import {
   GoldfishError,
   type GoldfishQuery,
 } from "./cardsim.goldfish.js";
+import { stripCardImages } from "./cardsim.images.js";
 import { cardsimCards, cardsimDecks, cardsimGames } from "./cardsim.schema.js";
 import "./deckshow.policy.js";
 import { deckshowEntries, deckshowLikes } from "./deckshow.schema.js";
@@ -388,7 +389,8 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
 
       const start = (page - 1) * pageSize;
       return c.json({
-        data: rows.slice(start, start + pageSize),
+        // In a `byod` game no card names an image (cardsim.images.ts).
+        data: rows.slice(start, start + pageSize).map((r) => stripCardImages(r, game.imageMode)),
         meta: { total: rows.length, page, pageSize, pages: Math.ceil(rows.length / pageSize) },
       });
     }
@@ -481,14 +483,17 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
         const hydrate = (ids: string[]) =>
           ids.map((id) => {
             const card = index.get(id);
-            return {
-              cardId: id,
-              // An id that is not in the catalog does not break the hand: it comes out with no
-              // name or picture, which is honest information about the deck.
-              name: card?.name ?? id,
-              imageUrl: card?.imageUrl ?? null,
-              data: card?.data ?? {},
-            };
+            return stripCardImages(
+              {
+                cardId: id,
+                // An id that is not in the catalog does not break the hand: it comes out with no
+                // name or picture, which is honest information about the deck.
+                name: card?.name ?? id,
+                imageUrl: card?.imageUrl ?? null,
+                data: card?.data ?? {},
+              },
+              resolved.game.imageMode
+            );
           });
 
         return c.json({
@@ -693,13 +698,18 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
           id: section.id,
           name: section.name,
           total: list.length,
-          cards: [...counts.entries()].map(([cardId, count]) => ({
-            count,
-            cardId,
-            name: index.get(cardId)?.name ?? cardId,
-            imageUrl: index.get(cardId)?.imageUrl ?? null,
-            data: index.get(cardId)?.data ?? {},
-          })),
+          cards: [...counts.entries()].map(([cardId, count]) =>
+            stripCardImages(
+              {
+                count,
+                cardId,
+                name: index.get(cardId)?.name ?? cardId,
+                imageUrl: index.get(cardId)?.imageUrl ?? null,
+                data: index.get(cardId)?.data ?? {},
+              },
+              game.imageMode
+            )
+          ),
         };
       });
 

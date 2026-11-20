@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import type { Action, GameDefinition, GameResult } from "./cardsim.engine.js";
+import type { ImageSource, ImageMode } from "./cardsim.images.js";
 
 /**
  * CardSim — games, cards, decks, rooms, matches and ranking
@@ -53,6 +54,13 @@ export const cardsimGames = pgTable(
     catalogDatasetId: text("catalog_dataset_id"),
     /** Dataset field that carries the `card_id`. `null` = the row id. */
     catalogIdField: text("catalog_id_field"),
+
+    /**
+     * `hosted`: card responses carry `imageUrl`. `byod`: they never name an image and each player
+     * brings their own (`cardsim.images.ts`). The rows keep their `imageUrl` either way, so
+     * switching back needs no re-import.
+     */
+    imageMode: text("image_mode").$type<ImageMode>().default("hosted").notNull(),
 
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -180,6 +188,13 @@ export const cardsimSessions = pgTable(
     undoRequest: jsonb("undo_request").$type<{ by: number; toActionCount: number } | null>(),
 
     /**
+     * The rematch this game already started, if any. Both players press "rematch" at the end;
+     * without this, each press opened its own new game and the two players sat at different
+     * tables (migration 0014).
+     */
+    rematchId: text("rematch_id"),
+
+    /**
      * State epoch. It goes up when the action prefix stops describing
      * this game: on UNDO (which truncates) and on SITTING (which changes the
      * decks). Everything else only adds actions, and from there it can continue.
@@ -258,6 +273,27 @@ export const cardsimQueue = pgTable(
   ]
 );
 
+/**
+ * Where a person's card images come from, per game: the ORDER of their sources and the links
+ * they typed. PERSONAL (`owner_id`, RLS in migration 0013): it says which sites someone reads.
+ *
+ * Never an image, a path or a file: a folder or a zip is stored as "there is one, called X".
+ * `game_key` is a cardsim slug OR a site's own game slug, because the board also runs games that
+ * are not published here (it plays in the browser).
+ */
+export const cardsimImagePrefs = pgTable(
+  "cardsim_image_prefs",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    ownerId: text("owner_id").notNull(),
+    gameKey: text("game_key").notNull(),
+    sources: jsonb("sources").$type<ImageSource[]>().default([]).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("cardsim_image_prefs_owner_game_idx").on(t.ownerId, t.gameKey)]
+);
+
+export type CardsimImagePrefs = typeof cardsimImagePrefs.$inferSelect;
 export type CardsimGame = typeof cardsimGames.$inferSelect;
 export type CardsimCard = typeof cardsimCards.$inferSelect;
 export type CardsimDeck = typeof cardsimDecks.$inferSelect;
