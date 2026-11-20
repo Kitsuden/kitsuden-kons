@@ -51,6 +51,42 @@ export const withRow = (key: string) =>
 export const listing = (key: string, row: z.ZodTypeAny = Row) =>
   z.object({ [key]: z.array(row), total: z.number() }).passthrough();
 
+/**
+ * `{ <key>: [rows], total, hasMore }` for listings with pages (api-contract,
+ * 2026-11-18): `total` counts every row that matches, not only this page's.
+ */
+export const pagedListing = (key: string, row: z.ZodTypeAny = Row) =>
+  z
+    .object({
+      [key]: z.array(row),
+      total: z.number(),
+      hasMore: z
+        .boolean()
+        .describe("More rows after this page: ask again with `offset` + `limit`."),
+    })
+    .passthrough();
+
+/**
+ * `limit` and `offset` of a list that returned every row: without `limit` it
+ * still does, so a client that sends nothing gets what it always got.
+ */
+export const optionalPage = (max: number) => ({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(max)
+    .optional()
+    .describe(`Rows per page (1-${max}). Without it, every row, as always.`),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+});
+
+/** The validated `limit` (absent: no page) and `offset` of `optionalPage`. */
+export function pageOf(input: { query?: unknown }): { limit?: number; offset: number } {
+  const q = (input.query ?? {}) as { limit?: number; offset?: number };
+  return { limit: q.limit, offset: q.offset ?? 0 };
+}
+
 /** Free-text query: whatever is not declared is ignored, as always. */
 export const query = <S extends z.ZodRawShape>(shape: S) => z.object(shape).passthrough();
 export const text = (that: string) => z.string().optional().describe(that);

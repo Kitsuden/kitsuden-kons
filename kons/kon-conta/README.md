@@ -7,7 +7,7 @@ books in Kitsuden, whatever it sells.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.3 | `/api/conta` | — (core `auth`) |
+| beta | business | 1.1.0 | `/api/conta` | — (core `auth`) |
 
 ## Install
 
@@ -88,17 +88,17 @@ All routes except `GET /api/conta` need a session and an accounting role. "view"
 | `DELETE /api/conta/permissions/:userId` | admin | Revoke a role |
 | `GET /api/conta/currencies` | view | List currencies |
 | `POST /api/conta/currencies` | write | Create a currency |
-| `GET /api/conta/accounts` | view | List accounts |
+| `GET /api/conta/accounts` | view | List accounts; `limit` (1-1000, default 500), `offset`, `hasMore` |
 | `GET /api/conta/accounts/:id` | view | Account detail |
 | `POST /api/conta/accounts` | write | Create an account |
 | `PATCH /api/conta/accounts/:id` | write | Edit an account |
 | `DELETE /api/conta/accounts/:id` | write | Deactivate an account |
-| `GET /api/conta/counterparties` | view | List counterparties |
+| `GET /api/conta/counterparties` | view | List counterparties; `limit` (1-500, default 100), `offset`, `hasMore` |
 | `GET /api/conta/counterparties/:id` | view | Counterparty detail |
 | `POST /api/conta/counterparties` | write | Create a counterparty |
 | `PATCH /api/conta/counterparties/:id` | write | Edit a counterparty |
 | `DELETE /api/conta/counterparties/:id` | write | Delete a counterparty |
-| `GET /api/conta/projects` | view | List projects |
+| `GET /api/conta/projects` | view | List projects; `limit` (1-500, default 100), `offset`, `hasMore` |
 | `GET /api/conta/projects/:id` | view | Project detail |
 | `POST /api/conta/projects` | write | Create a project |
 | `PATCH /api/conta/projects/:id` | write | Edit a project |
@@ -119,7 +119,7 @@ All routes except `GET /api/conta` need a session and an accounting role. "view"
 | `POST /api/conta/journals/:id/reverse` | write | Reverse a posted journal with a counter-entry |
 | `GET /api/conta/t-account/:accountId` | view | T-account view of one account |
 | `GET /api/conta/client-funds/balance` | view | Balance of a client funds account (`accountId`, optional `projectId`) |
-| `GET /api/conta/disbursements` | view | List disbursements |
+| `GET /api/conta/disbursements` | view | List disbursements; `limit` (1-200, default 50), `offset`, `hasMore` |
 | `GET /api/conta/disbursements/:id` | view | Disbursement detail |
 | `POST /api/conta/disbursements` | write | Record a disbursement (Dr disbursements receivable, Cr the paying account) |
 | `POST /api/conta/disbursements/:id/bill` | write | Bill a disbursement on its own |
@@ -161,15 +161,15 @@ All routes except `GET /api/conta` need a session and an accounting role. "view"
 | `POST /api/conta/client-funds/deposits` | write | Receive client funds |
 | `POST /api/conta/client-funds/disbursements` | write | Pay out of client funds |
 | `POST /api/conta/client-funds/refunds` | write | Return funds to a client |
-| `GET /api/conta/client-funds` | view | Funds per client, minimum, top-up to ask for |
-| `GET /api/conta/client-funds/transactions` | view | Client funds statement with running balance |
+| `GET /api/conta/client-funds` | view | Funds per client, largest first, minimum, top-up to ask for; optional `limit` (1-500), `offset`, `hasMore` |
+| `GET /api/conta/client-funds/transactions` | view | Client funds statement with running balance; `limit` (1-5000, default 1000), `offset`, `hasMore` |
 | `GET /api/conta/client-funds/reconciliation` | view | Three-way check: bank = liability = sum of clients |
-| `GET /api/conta/recurring-fees` | view | List recurring fees |
+| `GET /api/conta/recurring-fees` | view | List recurring fees; optional `limit` (1-500), `offset`, `hasMore` (the summary covers every fee) |
 | `POST /api/conta/recurring-fees` | write | Create a recurring fee (monthly, quarterly, semiannual, annual) |
 | `PATCH /api/conta/recurring-fees/:id` | write | Edit or pause a recurring fee |
 | `POST /api/conta/recurring-fees/run` | write | Bill every recurring fee that is due |
 | `POST /api/conta/recurring-fees/:id/bill` | write | Bill one recurring fee now |
-| `GET /api/conta/success-fees` | view | List success fees |
+| `GET /api/conta/success-fees` | view | List success fees; optional `limit` (1-500), `offset`, `hasMore` (the totals cover every open fee) |
 | `POST /api/conta/success-fees` | write | Create a success fee |
 | `PATCH /api/conta/success-fees/:id` | write | Edit a success fee |
 | `POST /api/conta/success-fees/:id/settle` | write | Settle a success fee as won or lost |
@@ -266,6 +266,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-conta-reads.test.ts` | Bridge, invoice and journal reads, income statement, settings, attention, recurring fees |
 | `tests/unit/kon-conta-billing.test.ts` | Work, invoices, payments, client funds, fees, bank, reports, closed periods, labels, bridge, upgrade from 0006 |
 | `tests/unit/kon-crm-conta-bridge.test.ts` | The bridge as kon-crm uses it |
+| `tests/unit/kon-conta-pagination.test.ts` | `limit`, `offset` and `hasMore` on client funds, recurring and success fees, accounts, counterparties, projects, disbursements and the client funds statement |
 
 ```bash
 pnpm vitest run tests/unit/kon-conta-security.test.ts
@@ -273,6 +274,7 @@ pnpm vitest run tests/unit/kon-conta-agents.test.ts
 pnpm vitest run tests/unit/kon-conta-reads.test.ts
 pnpm vitest run tests/unit/kon-conta-billing.test.ts
 pnpm vitest run tests/unit/kon-crm-conta-bridge.test.ts
+pnpm vitest run tests/unit/kon-conta-pagination.test.ts
 ```
 
 ## License

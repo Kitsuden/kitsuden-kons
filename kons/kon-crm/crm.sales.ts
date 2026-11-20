@@ -42,7 +42,7 @@ import type { CrmDb } from "./crm.db";
 import { formatNumber, nextNumber } from "./crm.entities";
 import { emitCrm } from "./crm.events";
 import { crmContacts, crmDealLines, crmDeals, crmQuotes, crmSalesTargets, type QuoteLine } from "./crm.schema";
-import { CONFIGURE, EDIT, VIEW, type registry } from "./operations";
+import { CONFIGURE, EDIT, VIEW, cappedPage, pageOfRows, type Page, type registry } from "./operations";
 
 // ── Arithmetic ──────────────────────────────────────────────────────────────
 
@@ -260,6 +260,7 @@ export function salesOperations(routes: ReturnType<typeof registry>): void {
     "/deals/:id/lines",
     {
       id: "list-deal-lines",
+      unpaginated: "The product lines of one deal, with totals computed over all of them: a few dozen at most.",
       summary: "What a deal sells",
       description: "The deal's product lines in order, with their frozen unit price, discount, tax and total (cents), and the deal's totals. 404 if the deal does not exist or is not visible to you.",
       access: "session",
@@ -370,6 +371,7 @@ export function salesOperations(routes: ReturnType<typeof registry>): void {
     "/deals/:id/quotes",
     {
       id: "list-quotes",
+      unpaginated: "The quotes of one deal: a handful of revisions.",
       summary: "A deal's quotes",
       description: "The deal's quotes, newest first, with status, totals and what accepting them set in motion. CRM team only.",
       access: "session",
@@ -583,14 +585,22 @@ export function salesOperations(routes: ReturnType<typeof registry>): void {
     {
       id: "list-targets",
       summary: "Sales targets",
-      description: "Targets per person and period, newest period first. CRM team only.",
+      description:
+        "Targets per person and period, newest period first, a page at a time (`limit` 1-500, default 500; `offset`; `hasMore` says there are more). CRM team only.",
       access: "session",
       permission: VIEW,
+      input: { query: z.object(cappedPage(500)).passthrough() },
       output: { schema: Out },
     },
-    async (c) => {
-      const rows = await dbDe(c).select().from(crmSalesTargets).orderBy(sql`${crmSalesTargets.periodStart} DESC`).limit(500);
-      return c.json({ data: rows });
+    async (c, input) => {
+      const { limit, offset } = input.query as Required<Page>;
+      const rows = await dbDe(c)
+        .select()
+        .from(crmSalesTargets)
+        .orderBy(sql`${crmSalesTargets.periodStart} DESC`, asc(crmSalesTargets.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOfRows(rows, limit));
     }
   );
 

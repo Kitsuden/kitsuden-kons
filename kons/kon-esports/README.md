@@ -8,7 +8,7 @@ organizers and the people who play.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.5 | `/api/esports` | `kon-games`, `kon-media` (core: `auth`) |
+| beta | gaming | 1.1.0 | `/api/esports` | `kon-games`, `kon-media` (core: `auth`) |
 
 ## Install
 
@@ -53,16 +53,23 @@ elimination, DQ), `roundrobin.ts`, `swiss.ts` (pairing by score, tiebreakers wit
 any signed-in account (an agent needs `actAsUser`, see below). "guest link" means the personal
 token of a guest registration.
 
+**Pages (since 1.1.0).** `list-players`, `list-teams`, `list-sets` and `list-tournaments` take
+`limit` and `offset`. Their body is still the bare array clients read, so whether more rows follow
+is the `X-Has-More` response header (`true`/`false`); a page shorter than `limit` is also the last
+one. Without `limit`, players and teams come up to 500 (the old cap), tournaments up to 50 and
+sets all of them, as before. `list-scene-matches` (`/pro-matches`) answers an object, so its
+`hasMore` goes in the body next to `docs`.
+
 Players and teams:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/esports/players` | anyone | Up to 500 players, newest first; `?search=` by alias. Account ids only for staff. |
+| `GET /api/esports/players` | anyone | Players, newest first; `?search=` by alias. Pages: `limit` (1-500, default 500) and `offset`; the `X-Has-More` header says whether more follow. Account ids only for staff. |
 | `GET /api/esports/players/:id` | anyone | A player and their teams. |
 | `POST /api/esports/players` | staff | Create a player profile. |
 | `PATCH /api/esports/players/:id` | staff | Edit a player. |
 | `DELETE /api/esports/players/:id` | staff | Delete a player; 409 if a tournament still references them. |
-| `GET /api/esports/teams` | anyone | Up to 500 teams; `?search=` by name. Account ids only for staff. |
+| `GET /api/esports/teams` | anyone | Teams, newest first; `?search=` by name. Pages: `limit` (1-500, default 500) and `offset`, `X-Has-More` header. Account ids only for staff. |
 | `GET /api/esports/teams/:id` | anyone | A team with captain and members. |
 | `POST /api/esports/teams` | staff | Create a team with optional captain and `memberIds`. |
 | `PATCH /api/esports/teams/:id` | staff | Edit a team; `memberIds` replaces the whole roster. |
@@ -72,7 +79,7 @@ Tournaments:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/esports/tournaments` | anyone | Newest first (`limit` default 50, max 200), text filter on the title. Drafts only for staff. |
+| `GET /api/esports/tournaments` | anyone | Newest first, text filter on the title. Pages: `limit` (default 50, max 200) and `offset`; the `X-Has-More` header says whether more follow. Drafts only for staff. |
 | `POST /api/esports/tournaments` | staff | Create a tournament (starts as `Draft` unless `status` says otherwise). |
 | `GET /api/esports/tournaments/:id` | anyone | A tournament with its participants. Contact data and private answers only for staff. A draft is a 404 from outside. |
 | `PATCH /api/esports/tournaments/:id` | staff | Edit status, formats, registration window and rules, roster sizes, and other writable fields. |
@@ -83,7 +90,7 @@ Sets and brackets:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/esports/matches` | anyone | Sets by round and order, optionally of one tournament. Sets of drafts only for staff. |
+| `GET /api/esports/matches` | anyone | Sets by round and order, optionally of one tournament (`tournamentId`). Every set unless you send `limit` (1-500) and `offset`; `X-Has-More` header. Sets of drafts only for staff. |
 | `GET /api/esports/matches/tournament/:tournamentId` | anyone | Every set of a tournament. |
 | `GET /api/esports/matches/:id` | anyone | One set with both participants and the winner. |
 | `POST /api/esports/matches/tournament/:tournamentId/generate` | staff | Seed the approved participants and build the bracket (or pair Swiss round 1). Optional `format`, `seeding`, `shuffleSeed`. Regenerating replaces the bracket. Sets the tournament `InProgress`. |
@@ -111,7 +118,7 @@ Check-in and phases:
 | `POST /api/esports/participant/:participantId/check-in` | the participant's account, or staff | Check in while the window is open. Repeating keeps the first time. |
 | `DELETE /api/esports/participant/:participantId/check-in` | staff | Remove a check-in. |
 | `POST /api/esports/tournament/:id/check-in/resolve` | staff | Drop (before the bracket) or disqualify (after) whoever did not check in. Without `confirm: true` it only returns the plan. |
-| `GET /api/esports/tournament/:id/phases` | anyone | The phase plan in order, with status. |
+| `GET /api/esports/tournament/:id/phases` | anyone | The phase plan in order, with status (read whole: a handful of phases). |
 | `POST /api/esports/tournament/:id/phases` | staff | Replace the plan with `phases` or the FGC `template`. A plan with warnings needs `force: true`. |
 | `POST /api/esports/phase/:phaseId/start` | staff | Draw the phase into groups and generate each group's bracket. |
 | `POST /api/esports/phase/:phaseId/advance` | staff | Close the phase and seed the next one with those who advance. |
@@ -156,7 +163,7 @@ Stations, streams and the notice inbox:
 | Route | Who | What it does |
 | --- | --- | --- |
 | `POST /api/esports/tournament/:id/stations` | staff | Create a station (a setup or an online lobby with access details). |
-| `GET /api/esports/tournament/:id/stations` | staff | Stations with their access details. |
+| `GET /api/esports/tournament/:id/stations` | staff | Stations with their access details (read whole: one tournament's places to play). |
 | `POST /api/esports/match/:matchId/station` | staff | Assign a station (or `null`) and notify both players. |
 | `GET /api/esports/match/:matchId/where` | account | A set's station; the access details only for its two players and staff. |
 | `POST /api/esports/tournament/:id/streams` | staff | Add a channel (twitch, youtube or kick), public or for registered viewers. |
@@ -171,7 +178,7 @@ Scene calendar, leaderboard and imports:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/esports/pro-matches` | anyone | Other teams' matches for a blog calendar: live and scheduled by default, `order=recent` for results; filters `status`, `game`, `days`, `limit` (1 to 100). |
+| `GET /api/esports/pro-matches` | anyone | Other teams' matches for a blog calendar: live and scheduled by default, `order=recent` for results; filters `status`, `game`, `days`. Pages: `limit` (1 to 100, default 12) and `offset`; the body adds `hasMore` next to `docs` and `totalDocs` (this page's size). |
 | `POST /api/esports/pro-matches` | admin, editor, or `esports:editScene` | Add a calendar match (links must be http(s); unknown fields are a 422). |
 | `PATCH /api/esports/pro-matches/:id` | same | Edit a calendar match. |
 | `DELETE /api/esports/pro-matches/:id` | same | Remove a calendar match. |
@@ -252,6 +259,7 @@ operation (`delete-player`, `delete-team`, `delete-tournament`, `delete-set`,
 | `tests/unit/esports-custom-fields.test.ts` | Custom registration fields. |
 | `tests/unit/esports-importers.test.ts`, `esports-battlefy-import.test.ts` | start.gg, Matcherino and Battlefy imports. |
 | `tests/unit/esports-draft-listing.test.ts`, `esports-malformed-ids.test.ts` | Hidden drafts; malformed ids are 404. |
+| `tests/unit/esports-pagination.test.ts` | Pages of `list-players`, `list-teams`, `list-sets`, `list-tournaments` (`limit`, `offset`, `X-Has-More`) and `list-scene-matches` (`hasMore`). |
 
 ```bash
 pnpm vitest run tests/unit/esports-authz.test.ts

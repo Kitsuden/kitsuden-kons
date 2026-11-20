@@ -28,6 +28,13 @@ agent opening the whole kon) manage rooms and every booking. Human docs: [README
   query parameters go flat; the body goes whole under `body`. Reads return `{ docs, totalDocs }`
   or a single row; writes return the row written; deletes return `{ success, id }` or
   `{ success }`.
+- **Pages.** `list-rooms` and `list-blackouts` (1-500, default 500) and `list-my-reservations`
+  (1-200, default 200) take `limit` and `offset` and add `hasMore` next to `docs`: while it is
+  `true`, ask again with `offset` + `limit`. `list-services` and `list-room-slots` are read whole
+  (`unpaginated`: a lookup list, and at most 48 slots of one day). `list-reservations` keeps its
+  own `limit` (max 100) and `offset`.
+- **`get-room`** takes `includeBookings=true`; `include_bookings` is the deprecated old name
+  (since 2026-11-18, removed after 2027-05-18).
 - **Approval.** `booking__delete-room` and `booking__delete-blackout` are DELETE operations,
   sensitive by default. With human approval on, they (and any operation an admin marks) come back
   `202 KITSUDEN_E_APPROVAL_REQUIRED`: report the proposal, do not retry.
@@ -112,5 +119,6 @@ agent opening the whole kon) manage rooms and every booking. Human docs: [README
 pnpm vitest run tests/unit/kon-booking-security.test.ts      # after any change to routes, policy or migrations
 pnpm vitest run tests/unit/kon-booking-agent-delete-room.test.ts  # delete-room policy, anonymous reads
 pnpm vitest run tests/unit/booking-slots-timezone.test.ts    # after touching list-room-slots
+pnpm vitest run tests/unit/kon-booking-pagination.test.ts    # pages (limit, offset, hasMore), includeBookings
 pnpm vitest run tests/unit/effective-agents-in-kons.test.ts  # after touching isStaff or RLS
 ```

@@ -332,8 +332,27 @@ export function tierlistOperations(ctx: KonContext): AnyOperation[] {
       route: "/templates",
       summary: "List tier list templates",
       description:
-        "Every editorial template (the site's published tier lists), most recently updated first: id, slug, title and version. Use the slug to read, place, sync or fork one.",
+        "Every editorial template (the site's published tier lists), most recently updated first: id, slug, title and version. Without `limit`, all of them (as always); with `limit` and `offset`, one page, and `hasMore` says whether there are more. Use the slug to read, place, sync or fork one.",
       access: "public",
+      input: {
+        query: z
+          .object({
+            limit: z.coerce
+              .number()
+              .int()
+              .min(1)
+              .max(500)
+              .optional()
+              .describe("Templates per page (1-500). Without it, every template."),
+            offset: z.coerce
+              .number()
+              .int()
+              .min(0)
+              .default(0)
+              .describe("Templates to skip (with `limit`)."),
+          })
+          .passthrough(),
+      },
       output: {
         schema: z.object({
           data: z.array(
@@ -344,15 +363,21 @@ export function tierlistOperations(ctx: KonContext): AnyOperation[] {
               version: z.string().nullable(),
             })
           ),
+          hasMore: z.boolean(),
         }),
       },
-      handle: async () => {
-        const rows = await repo(tierLists, { db })
+      handle: async (input) => {
+        const { limit, offset } = input.query as { limit?: number; offset: number };
+        // The id breaks ties between templates updated in the same instant.
+        const query = repo(tierLists, { db })
           .filter({ kind: "template" })
-          .orderBy("-updatedAt")
-          .all();
+          .orderBy("-updatedAt", "id");
+        // Without `limit`, every template: what the list always answered.
+        const rows = limit === undefined ? await query.all() : await query.limit(limit + 1).offset(offset).all();
+        const page = limit === undefined ? rows : rows.slice(0, limit);
         return {
-          data: rows.map((r) => ({ id: r.id, slug: r.slug, title: r.title, version: r.version })),
+          data: page.map((r) => ({ id: r.id, slug: r.slug, title: r.title, version: r.version })),
+          hasMore: limit !== undefined && rows.length > limit,
         };
       },
     }),

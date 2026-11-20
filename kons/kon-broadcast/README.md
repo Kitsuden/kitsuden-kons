@@ -6,7 +6,7 @@ telemetry. For production teams who run the stream of an event.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.1.0 | `/api/broadcast` | — (core: `auth`; optional: `kon-esports`) |
+| beta | gaming | 1.1.1 | `/api/broadcast` | — (core: `auth`; optional: `kon-esports`) |
 
 ## Install
 
@@ -88,7 +88,7 @@ Public (OBS has no session):
 | `GET /api/broadcast/overlay/:id` | What the set overlay paints, the channel to subscribe to and a `revision`. Never includes the owner, timestamps or external ids. |
 | `GET /api/broadcast/live/overlay/:gameId` | The per-game overlay state and its channel. Section `games`. |
 | `GET /api/broadcast/classifications` | Classification packs and the game profiles each adds. Section `standings`. |
-| `GET /api/broadcast/champions` | The character roster in display order. Section `catalog`. |
+| `GET /api/broadcast/champions` | The character roster in display order, whole (declared `unpaginated`). Section `catalog`. |
 | `POST /api/broadcast/games/:id/ingest/push` | Receives a raw Riot Live Client frame from the local agent, authenticated by the `X-Broadcast-Ingest-Token` header, not a session. An unknown game and a wrong token give the same 401. Section `live`. |
 
 Sets (a session is required; "owner or admin" routes answer 404 to anyone else):
@@ -117,7 +117,7 @@ Games, draft and telemetry (session; owner or admin unless noted):
 | Route | Section | What it does |
 | --- | --- | --- |
 | `POST /api/broadcast/matches/:id/games` | games | Add the next game (up to the best-of); sides alternate unless `sideAFirst` is sent. |
-| `GET /api/broadcast/matches/:id/games` | games | The set's games in order, without ingest tokens. Anyone who may view the set. |
+| `GET /api/broadcast/matches/:id/games` | games | The set's games in order, without ingest tokens, whole (declared `unpaginated`: up to the best-of). Anyone who may view the set. |
 | `GET /api/broadcast/games/:id` | games | One game without its ingest token. Anyone who may view its set. |
 | `POST /api/broadcast/games/:id/draft` | draft | Pick or ban `championId` in the current turn (`null` skips a ban). A Fearless violation is a 409. |
 | `POST /api/broadcast/games/:id/draft/undo` | draft | Revert the last pick or ban. |

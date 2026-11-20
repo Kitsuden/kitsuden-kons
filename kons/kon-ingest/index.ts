@@ -99,6 +99,49 @@ function processesOnCreate(op: AnyOperation): AnyOperation {
 const MODELS = [document, chunk];
 const KON_ID = "kon-ingest";
 
+/** When the core's `/<plural>/_model` routes were deprecated here, and when they may go. */
+const MODEL_ROUTE_DEPRECATION = { since: "2026-11-18", sunset: "2027-05-18" } as const;
+
+/**
+ * The core generates `describe-<model>` at `/<plural>/_model`, which is not a
+ * kebab-case path. Each one gets a kebab-case twin at `/<plural>/model`
+ * (`describe-<model>-model`, same handler), declared right after it and so
+ * before `/<plural>/:id`, and the old one is marked deprecated in favour of it.
+ * Both keep working until the sunset.
+ *
+ * The old operation is changed IN PLACE, not copied: the core finds a kon's
+ * models by the identity of their `describe-*` operation (`operationModel`),
+ * and a copy would drop them from `GET /api/models`.
+ */
+function withKebabDescribe(ops: AnyOperation[]): AnyOperation[] {
+  return ops.flatMap((op) => {
+    const old = op.route.match(/^\/([a-z0-9-]+)\/_model$/);
+    if (op.method !== "GET" || !old) return [op];
+    const id = `${op.id}-model`;
+    const twin = defineOperation({ ...op, id, route: `/${old[1]}/model`, deprecated: undefined });
+    Object.assign(op, { deprecated: { ...MODEL_ROUTE_DEPRECATION, use: id } });
+    return [op, twin];
+  });
+}
+
+/**
+ * The core's semantic search of a model (`search-<plural>`, `/<plural>/search`) is a
+ * nearest-neighbour top-k: the `limit` (1-50, default 10) closest rows by embedding
+ * distance. There is no next page to ask for, so it says so (`unpaginated`) instead of
+ * taking an offset. Changed IN PLACE for the same reason as `withKebabDescribe`.
+ */
+function withBoundedSearch(ops: AnyOperation[]): AnyOperation[] {
+  for (const op of ops) {
+    if (op.method === "GET" && /^\/[a-z0-9-]+\/search$/.test(op.route) && op.id.startsWith("search-")) {
+      Object.assign(op, {
+        unpaginated:
+          "Returns the best N matches by meaning (limit 1-50, default 10): a nearest-neighbour search is narrowed with a better `q`, not paged.",
+      });
+    }
+  }
+  return ops;
+}
+
 // defineModelsKon, spelled out so that `create-document` can queue the job.
 const base = defineKonSdk({
   id: KON_ID,
@@ -107,7 +150,12 @@ const base = defineKonSdk({
   description: "Extracts, chunks and embeds documents for semantic search (PDF and OCR optional).",
   mountPath: manifest.mount.path,
   tables: [...manifest.tables],
-  operations: [...MODELS.flatMap((m) => modelOperations(KON_ID, m)).map(processesOnCreate), ingest],
+  operations: [
+    ...withBoundedSearch(withKebabDescribe(MODELS.flatMap((m) => modelOperations(KON_ID, m)))).map(
+      processesOnCreate
+    ),
+    ingest,
+  ],
   hooks: {
     onStartup: async (ctx: KonContext) => {
       queue.handle(INGEST_QUEUE, (job) => processDocument(job, ctx), { concurrency: 1 });

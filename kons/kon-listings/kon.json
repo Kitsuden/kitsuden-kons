@@ -3,7 +3,7 @@
   "id": "kon-listings",
   "name": "Listings",
   "description": "Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from visitors, and the XML feeds portals such as Trovit and Mitula read.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "sdk": 1,
   "maturity": "experimental",
   "category": "business",
@@ -19,22 +19,41 @@
       "name": "listings_items",
       "label": "Listings",
       "icon": "Package",
-      "searchableFields": ["title", "reference", "city"],
-      "filterableFields": ["vertical", "status", "city"]
+      "searchableFields": [
+        "title",
+        "reference",
+        "city"
+      ],
+      "filterableFields": [
+        "vertical",
+        "status",
+        "city"
+      ]
     },
     {
       "name": "listings_feeds",
       "label": "Portal feeds",
       "icon": "Package",
-      "searchableFields": ["portal"],
-      "filterableFields": ["portal", "vertical", "enabled"]
+      "searchableFields": [
+        "portal"
+      ],
+      "filterableFields": [
+        "portal",
+        "vertical",
+        "enabled"
+      ]
     },
     {
       "name": "listings_inquiries",
       "label": "Inquiries",
       "icon": "Package",
-      "searchableFields": ["name", "email"],
-      "filterableFields": ["listing_id"]
+      "searchableFields": [
+        "name",
+        "email"
+      ],
+      "filterableFields": [
+        "listing_id"
+      ]
     }
   ],
   "sensitivity": {
@@ -70,7 +89,9 @@
   },
   "dependencies": {
     "kons": [],
-    "core": ["auth"]
+    "core": [
+      "auth"
+    ]
   },
   "schema": {
     "entry": null,

@@ -24,6 +24,17 @@ scrum master) and proposes everything else as an intake a person decides. Human 
   `agile_handoff`, `agile_create_issue`, `agile_list_squads`. Every other operation is REST only.
   Lists return `{ docs, totalDocs }`; single reads and writes return the row; the board returns
   states with their issues and counts per group.
+- **Pages (1.5).** Lists that grow (projects, members, comments, sub-issues, intakes, cycles,
+  modules, an epic's issues, an issue's time) take optional `limit` (1-500) and `offset` and add
+  `hasMore`. Without `limit` they answer the whole list with `hasMore: false`, as before; with it,
+  keep asking with `offset += limit` while `hasMore` is true. `totalDocs` is the rows of that
+  answer, not of the whole list. The other lists are bounded and say why in their
+  `unpaginated` declaration. `list-issues`, `list-notifications`, `list-my-work` and
+  `list-project-work` keep their own `limit` and default and take `offset` with `hasMore` (same
+  order, id as tiebreaker). `search-issues` is a top-k re-ranked in code and declares
+  `unpaginated`; the histories keep their own `limit`.
+- **Deprecated (1.5):** `POST /agile_intakes/:id/{approve,decline,convert}` (sunset 2027-05-18).
+  Use `/intakes/:intakeId/approve`, `/decline` or `/convert` (operation `convert-intake`, new).
 - **A run:** `agile_my_work` → `agile_claim_work` (once; a second claim is 409, someone else's
   work 403) → work on the issue → `agile_finish_work` with `done`, `failed` or `cancelled`, the
   result, run id, tokens and cost.
@@ -56,7 +67,7 @@ scrum master) and proposes everything else as an intake a person decides. Human 
 | --- | --- |
 | `index.ts` | `defineKonSdk` definition; starts and stops the one-minute `tick` timer; admin view list |
 | `kon.json` | Manifest: id, version, mount, tables, enums, admin views, MCP tool list, dependencies |
-| `operations.ts` | `KON_ID`, `AGENT_TOOLS` (MCP names), `registry()`, `ANY_ACCOUNT`, `REST_ONLY`, `declareOp`, shared schemas |
+| `operations.ts` | `KON_ID`, `AGENT_TOOLS` (MCP names), `registry()`, `ANY_ACCOUNT`, `REST_ONLY`, `declareOp`, shared schemas; paging (1.5): `PageQuery`, `PagedList`, `pageOf`, `fetchPage` |
 | `agile.operations.ts` | `get-board` and `propose-intake` (`agile_read_board`, `agile_submit_intake`) |
 | `agile.routes.ts` | Projects, members, issues, comments, intakes, cycles and modules lists; `agileShared`, `allAgileOperations`, `createAgileRouter` |
 | `agile.planning.ts` | Labels, states, estimates, links, cycles, modules, delete/archive, sub-issues, history, checklists, custom fields, initiatives |
@@ -108,6 +119,11 @@ scrum master) and proposes everything else as an intake a person decides. Human 
   leaves the kon again. Guard: "GitHub pull requests".
 - **Reactions go through `agile_toggle_reaction`** (migration 0006), so a viewer reacts without the
   right to edit a comment. Guard: "reactions".
+- **A list that grows pages, one that is bounded says why** (1.5). A `list-*`/`search-*` GET either
+  takes `PageQuery` and answers through `fetchPage` (stable order with the id as tiebreaker, no
+  `limit` = the whole list and `hasMore: false`, so old clients see no change), or declares
+  `unpaginated` with the reason (`pnpm api:lint`, `scripts/api-contract.mjs`). Guard:
+  `tests/unit/kon-agile-pagination.test.ts`.
 - **The kon never learns an email.** Notifications out of the kon are automation rules a person
   writes on the `agile:*` events (`agile.events.ts`).
 
@@ -133,4 +149,5 @@ pnpm vitest run tests/unit/kon-agile-security.test.ts     # routes, membership, 
 pnpm vitest run tests/unit/kon-agile-teammates.test.ts    # agent reach, squads, queue, planning
 pnpm vitest run tests/unit/agile-operations-mcp.test.ts   # after touching AGENT_TOOLS or agile.operations.ts
 pnpm vitest run tests/unit/kon-agile-plane-parity.test.ts # 1.4: attachments, bulk, search, time, GitHub, events
+pnpm vitest run tests/unit/kon-agile-pagination.test.ts   # 1.5: optional pages, convert-intake, deprecated aliases
 ```

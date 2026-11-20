@@ -26,6 +26,12 @@ import { streamTurn } from "./chat.stream";
 import { widgetScript } from "./chat.widget";
 import { CONFIGURE, USE, registry } from "./operations";
 
+/** A page of a list that used to stop at 200 rows with no sign: the default is still those 200. */
+const Page200 = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(200).describe("Rows per page (1-200). The default is the maximum, what the list always returned."),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+});
+
 const Output = z.object({}).passthrough();
 const ParamId = z.object({ id: z.string().min(1).max(100).describe("Row id") });
 const ParamSlug = z.object({ slug: z.string().min(1).max(60).describe("The bot's slug") });
@@ -172,6 +178,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
       description: "Every bot with its agent, audience, members, tool group, limits, prices and budget. Admin only.",
       access: "session",
       permission: CONFIGURE,
+      unpaginated: "The chatbots an admin configured: a handful per installation, each one a channel to an agent.",
       output: { schema: Output },
     },
     async (c) => c.json({ data: await db().select().from(chatBots).orderBy(desc(chatBots.createdAt)) })
@@ -256,20 +263,30 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "list-chatbot-knowledge",
       summary: "List what a chatbot knows",
-      description: "Its documents (not conversations' attachments) with how many chunks each has and whether they have embeddings. Admin only.",
+      description:
+        "Its documents (not conversations' attachments) with how many chunks each has and whether they have embeddings, newest first. Without `limit` every document; with `limit` (1-500) and `offset` one page, and `hasMore` says whether another follows. Admin only.",
       access: "session",
       permission: CONFIGURE,
-      input: { params: ParamId },
+      input: {
+        params: ParamId,
+        query: z.object({
+          limit: z.coerce.number().int().min(1).max(500).optional().describe("Rows per page (1-500). Without it, every document."),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
       output: { schema: Output },
     },
-    async (c, input) =>
-      c.json({
-        data: await db()
-          .select({ id: chatDocuments.id, title: chatDocuments.title, chunkCount: chatDocuments.chunkCount, embedded: chatDocuments.embedded, createdAt: chatDocuments.createdAt })
-          .from(chatDocuments)
-          .where(and(eq(chatDocuments.botId, input.params.id), isNull(chatDocuments.conversationId)))
-          .orderBy(desc(chatDocuments.createdAt)),
-      })
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit?: number; offset: number };
+      const query = db()
+        .select({ id: chatDocuments.id, title: chatDocuments.title, chunkCount: chatDocuments.chunkCount, embedded: chatDocuments.embedded, createdAt: chatDocuments.createdAt })
+        .from(chatDocuments)
+        .where(and(eq(chatDocuments.botId, input.params.id), isNull(chatDocuments.conversationId)))
+        .orderBy(desc(chatDocuments.createdAt), desc(chatDocuments.id));
+      if (limit === undefined) return c.json({ data: await query.offset(offset), hasMore: false });
+      const rows = await query.limit(limit + 1).offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
+    }
   );
 
   app.post(
@@ -324,14 +341,24 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "list-chatbot-conversations",
       summary: "List a chatbot's conversations",
-      description: "Newest first, with their message counts: to see what people ask and how it answers. Admin only.",
+      description:
+        "Newest first, with their message counts: to see what people ask and how it answers. Paged with `limit` (1-200, default 200) and `offset`; `hasMore` says whether another page follows. Admin only.",
       access: "session",
       permission: CONFIGURE,
-      input: { params: ParamId },
+      input: { params: ParamId, query: Page200 },
       output: { schema: Output },
     },
-    async (c, input) =>
-      c.json({ data: await db().select().from(chatConversations).where(eq(chatConversations.botId, input.params.id)).orderBy(desc(chatConversations.lastAt)).limit(200) })
+    async (c, input) => {
+      const { limit, offset } = input.query as z.infer<typeof Page200>;
+      const rows = await db()
+        .select()
+        .from(chatConversations)
+        .where(eq(chatConversations.botId, input.params.id))
+        .orderBy(desc(chatConversations.lastAt), desc(chatConversations.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
+    }
   );
 
   app.get(
@@ -394,14 +421,16 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "list-chatbot-feedback",
       summary: "Read the answers people rated",
-      description: "Newest first, each answer with its rating, comment and the question before it; `rating=down` for only the bad ones. Admin only.",
+      description:
+        "Newest first, each answer with its rating, comment and the question before it; `rating=down` for only the bad ones. Paged with `limit` (1-200, default 200) and `offset`; `hasMore` says whether another page follows. Admin only.",
       access: "session",
       permission: CONFIGURE,
-      input: { params: ParamId, query: z.object({ rating: z.enum(["up", "down"]).optional() }) },
+      input: { params: ParamId, query: Page200.extend({ rating: z.enum(["up", "down"]).optional() }) },
       output: { schema: Output },
     },
     async (c, input) => {
-      const rated = await db()
+      const { limit, offset } = input.query as z.infer<typeof Page200>;
+      const page = await db()
         .select()
         .from(chatMessages)
         .where(
@@ -411,8 +440,10 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
             input.query.rating ? eq(chatMessages.feedback, input.query.rating === "up" ? 1 : -1) : undefined
           )
         )
-        .orderBy(desc(chatMessages.feedbackAt))
-        .limit(200);
+        .orderBy(desc(chatMessages.feedbackAt), desc(chatMessages.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const rated = page.slice(0, limit);
       const data = [];
       for (const m of rated) {
         const [question] = await db()
@@ -423,7 +454,7 @@ export function chatOperations(ctx: KonContext): AnyOperation[] {
           .limit(1);
         data.push({ messageId: m.id, conversationId: m.conversationId, question: question?.content ?? null, answer: m.content, rating: m.feedback, comment: m.feedbackComment, at: m.feedbackAt });
       }
-      return c.json({ data });
+      return c.json({ data, hasMore: page.length > limit });
     }
   );
 

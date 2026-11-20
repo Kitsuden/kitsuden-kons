@@ -3,7 +3,7 @@
   "id": "kon-cardsim",
   "name": "CardSim",
   "description": "Card simulator builder: data-defined games, validated decks, rooms with a clock and deterministic sessions with replay; also a deck showcase and a hand generator over card datasets",
-  "version": "2.3.2",
+  "version": "2.4.0",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

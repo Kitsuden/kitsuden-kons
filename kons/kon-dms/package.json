@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-dms",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Versioned document management with hierarchical categories and approval workflows",
   "type": "module",
   "main": "./index.ts",

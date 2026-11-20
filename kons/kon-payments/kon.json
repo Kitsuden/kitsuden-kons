@@ -3,7 +3,7 @@
   "id": "kon-payments",
   "name": "Payments",
   "description": "Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "sdk": 1,
   "type": "kon",
   "tier": "common",

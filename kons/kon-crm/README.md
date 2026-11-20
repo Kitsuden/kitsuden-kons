@@ -8,7 +8,7 @@ admin views are configuration only.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.1.0 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
+| beta | business | 1.2.0 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
 
 ## Install
 
@@ -121,6 +121,13 @@ All routes except `/api/crm/public/*` need a session and pass the host's staff g
 "edit" = the CRM team (admin or editor account, or an agent, see below); "delete" and "configure" =
 admin. "Person" = refused to agents whatever their scopes.
 
+Paging: lists of records take `limit` and `offset`. Since 1.2.0, `deals/:id/documents` returns every
+row unless `limit` (1-500) asks for a page, and the exclusion list (up to 1000 per page), targets
+and portal links (500), merge requests (200) and score model versions (50) come a page at a time,
+that cap being the default `limit`. The work queue, observations, inbound emails and the inbox's
+threads and events kept their `limit` and gained `offset`. Each answers `hasMore` when rows follow
+the page.
+
 ### Records
 
 | Route | Needs | What it does |
@@ -148,15 +155,15 @@ admin. "Person" = refused to agents whatever their scopes.
 | `POST /api/crm/quotes/:id/reject` | edit | sent → rejected |
 | `POST /api/crm/quotes/:id/accept` | edit | → accepted; `then: payment` opens a kon-payments payment, `then: order` asks kon-ecommerce for an order |
 | `GET /api/crm/forecast` | view | Per person and period: open, weighted, won, target, attainment |
-| `GET /api/crm/targets` | view | Sales targets |
+| `GET /api/crm/targets` | view | Sales targets; `limit` (1-500, default 500), `offset`, `hasMore` |
 | `PUT /api/crm/targets` | configure | Set a person's target for a period |
 | `GET /api/crm/reports/:id` | view | `funnel`, `stage-conversion`, `lost-reasons` |
 | `GET /api/crm/contacts/:id/duplicates` | view | Possible duplicates with score and reasons |
 | `POST /api/crm/contacts/:id/merge` | edit; runs for a person with delete | Merge two contacts; from an agent, a 202 request for a person |
-| `GET /api/crm/merge-requests` | view | Merges agents asked for |
+| `GET /api/crm/merge-requests` | view | Merges agents asked for; `limit` (1-200, default 200), `offset`, `hasMore` |
 | `POST /api/crm/merge-requests/:id/decision` | delete, person | Approve or reject a requested merge |
 | `POST /api/crm/capture` | edit | Bring a lead in (contact, activity, optional deal); `dryRun` returns the plan |
-| `GET /api/crm/suppressions` | view | The exclusion list |
+| `GET /api/crm/suppressions` | view | The exclusion list, newest first; `limit` (1-1000, default 1000), `offset`, `hasMore` |
 | `POST /api/crm/suppressions` | edit | Exclude an email or domain |
 | `DELETE /api/crm/suppressions/:kind/:value` | delete | Take an entry off the list |
 | `POST /api/crm/contacts/:id/score` | edit | Calculate one contact's score |
@@ -207,11 +214,11 @@ admin. "Person" = refused to agents whatever their scopes.
 | `POST /api/crm/activities/:id/reopen` | edit | Reopen a completed task |
 | `DELETE /api/crm/activities/:id` | edit; its author or admin | Delete an activity |
 | `GET /api/crm/activity-kinds` | view | The activity kinds this installation uses |
-| `GET /api/crm/work` | view | Tasks to do, with due-date status; `include=deal` |
+| `GET /api/crm/work` | view | Tasks to do, with due-date status; `include=deal`; `limit` (1-200, default 100), `offset`, `hasMore` |
 | `GET /api/crm/work/summary` | view | Counts of tasks to do |
 | `GET /api/crm/agenda` | view | Dated work between two days, by type, `kind` and deal |
 | `GET /api/crm/documents` | view | Documents across deals |
-| `GET /api/crm/deals/:id/documents` | view | A deal's documents |
+| `GET /api/crm/deals/:id/documents` | view | A deal's documents; optional `limit` (1-500), `offset`, `hasMore` |
 | `POST /api/crm/documents` | edit | Attach a document record to a deal |
 | `PATCH /api/crm/documents/:id` | edit | Change a document's details |
 | `DELETE /api/crm/documents/:id` | edit; its uploader or admin | Delete a document record |
@@ -243,11 +250,11 @@ admin. "Person" = refused to agents whatever their scopes.
 | `DELETE /api/crm/access/:subjectType/:subjectId` | configure | Return someone to the default access |
 | `GET /api/crm/score-model` | view | The score model |
 | `PUT /api/crm/score-model` | configure | Save a new version of the score model |
-| `GET /api/crm/score-model/versions` | view | Earlier versions |
+| `GET /api/crm/score-model/versions` | view | Earlier versions; `limit` (1-50, default 50), `offset`, `hasMore` |
 | `GET /api/crm/evidence-policy` | view | Evidence kinds and their weights |
 | `PUT /api/crm/evidence-policy` | configure | Change the weights |
 | `POST /api/crm/observations` | edit | Record an observed value about a contact or company |
-| `GET /api/crm/observations` | view | List observations |
+| `GET /api/crm/observations` | view | List observations, newest first; `limit` (1-200, default 100), `offset`, `hasMore` |
 | `POST /api/crm/observations/:id/accept` | edit, person | Accept a suggested value |
 | `POST /api/crm/observations/:id/reject` | edit, person | Reject a suggested value |
 | `GET /api/crm/presets` | view | Ready-made setups |
@@ -256,11 +263,11 @@ admin. "Person" = refused to agents whatever their scopes.
 | `POST /api/crm/capture-forms` | configure | Create a form |
 | `PATCH /api/crm/capture-forms/:id` | configure | Change a form |
 | `DELETE /api/crm/capture-forms/:id` | configure | Delete a form |
-| `GET /api/crm/portal-links` | edit | List portal links |
+| `GET /api/crm/portal-links` | edit | List portal links; `limit` (1-500, default 500), `offset`, `hasMore` |
 | `POST /api/crm/portal-links` | edit, person | Give a contact a portal link (token shown once; `days`, `showStatement`) |
 | `DELETE /api/crm/portal-links/:id` | edit | Revoke a portal link |
 | `GET /api/crm/contacts/:id/portal-preview` | edit | What a contact's portal shows, without a link |
-| `GET /api/crm/inbound-emails` | configure | Emails posted to the CRM and why any was turned away |
+| `GET /api/crm/inbound-emails` | configure | Emails posted to the CRM and why any was turned away; `limit` (1-500, default 100), `offset`, `hasMore` |
 | `GET /api/crm/agent-guide` | view | `AGENT_GUIDE.md` plus this installation's entities, fields, kinds, the caller's access and the tool groups |
 
 ### Inbox (each person's own; no CRM access needed)
@@ -273,10 +280,10 @@ admin. "Person" = refused to agents whatever their scopes.
 | `DELETE /api/crm/inbox/mailboxes/:id` | the owner | Stop and delete everything it brought, and its links to contacts |
 | `POST /api/crm/inbox/mailboxes/:id/sync` | the owner | Sync now |
 | `POST /api/crm/inbox/mailboxes/:id/send` | the owner, sensitive | Send a plain-text email from the mailbox (the connection needs `mail.send`) |
-| `GET /api/crm/inbox/threads` | the owner; admins and editors for `team` threads | Threads, newest first |
+| `GET /api/crm/inbox/threads` | the owner; admins and editors for `team` threads | Threads, newest first; `limit` (1-200, default 50), `offset`, `hasMore` |
 | `GET /api/crm/inbox/threads/:id` | the same | A thread and its messages |
 | `PATCH /api/crm/inbox/threads/:id` | the owner | `visibility`: `private` or `team` |
-| `GET /api/crm/inbox/events` | the owner; admins and editors for `team` events | Calendar events in a date range |
+| `GET /api/crm/inbox/events` | the owner; admins and editors for `team` events | Calendar events in a date range, soonest first; `limit` (1-500, default 200), `offset`, `hasMore` |
 
 ### Public (no account; rate limited)
 
@@ -402,6 +409,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-crm-practice.test.ts` | Notes, amounts, agent merges, stage automation, public forms, portal, score model, import |
 | `tests/unit/kon-crm-conta-bridge.test.ts` | Billing through kon-conta |
 | `tests/unit/crm-filters.test.ts` | Custom field filters |
+| `tests/unit/kon-crm-pagination.test.ts` | `limit`, `offset` and `hasMore` on the lists that had none |
 | `tests/bun/crm-dedupe-capture.test.ts` | Duplicate scoring and capture plans (Bun) |
 | `kons/kon-crm/tests/crm.routes.test.ts`, `crm.schema.test.ts` | Route registration and schema |
 | `kons/kon-crm/tests/crm.integration.spec.ts` | Playwright against a running test API, as an agent (`KITSUDEN_API_TOKEN` with `crm:*`); skipped without it |

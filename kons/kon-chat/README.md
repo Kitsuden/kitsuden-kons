@@ -7,7 +7,7 @@ writing an agent loop.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | content | 1.1.0 | `/api/chat` | — (core `auth`; the core's agent engine; kon-ingest optional) |
+| experimental | content | 1.2.0 | `/api/chat` | — (core `auth`; the core's agent engine; kon-ingest optional) |
 
 A bot is a channel to one agent identity: the agent brings the model (whatever provider the core is
 configured with), its prompt and its permissions; the bot adds who may talk to it, what it knows, which
@@ -120,12 +120,12 @@ Admin (configure):
 | `POST /api/chat/bots` | Create a bot. 409 if the slug is taken; 422 for a public bot with `toolset` or `members`, or a channel bot with `members` or a `toolset` that is not `kon:<id>/<group>`. |
 | `PATCH /api/chat/bots/:id` | Change any setting. Same rules; 404 if missing. |
 | `DELETE /api/chat/bots/:id` | Delete a bot with its knowledge, conversations and messages. |
-| `GET /api/chat/bots/:id/knowledge` | Its documents (not attachments), with chunk counts and whether they have embeddings. |
+| `GET /api/chat/bots/:id/knowledge` | Its documents (not attachments), with chunk counts and whether they have embeddings, newest first. Every one, or a page with `limit` (1-500) and `offset`; `hasMore` says whether another follows. |
 | `POST /api/chat/bots/:id/knowledge` | Teach it a document (`title`, `content`). 400 past 5,000 chunks per bot without pgvector. |
 | `DELETE /api/chat/knowledge/:id` | Forget a document and its chunks. |
-| `GET /api/chat/bots/:id/conversations` | Its latest 200 conversations, newest first. |
+| `GET /api/chat/bots/:id/conversations` | Its conversations, newest first, a page at a time: `limit` (1-200, default 200) and `offset`; `hasMore` says whether another follows. |
 | `GET /api/chat/bots/:id/usage` | Per day for `days` (default 30, max 365): questions, tokens, cost, ratings, with channel turns included (`channelQuestions`); plus the last 24 hours against the limits. |
-| `GET /api/chat/bots/:id/feedback` | Rated answers with the question before each; `rating=up` or `rating=down`. |
+| `GET /api/chat/bots/:id/feedback` | Rated answers with the question before each; `rating=up` or `rating=down`; `limit` (1-200, default 200) and `offset`, and `hasMore`. |
 
 Team (use):
 
@@ -219,6 +219,7 @@ the whole kon. Details in [AGENTS.md](AGENTS.md).
 | --- | --- |
 | `tests/unit/kon-chat.test.ts` | Setting bots up, public and team turns, streaming, approvals, regenerate, fork, attachments, usage, budget, the widget. |
 | `tests/unit/kon-chat-routes.test.ts` | Who reaches which route (accounts, agents, denials), validation, limits, ownership of conversations, attachments and ratings. |
+| `tests/unit/kon-chat-pagination.test.ts` | Pages of a bot's knowledge, conversations and rated answers (`limit`, `offset`, `hasMore`). |
 | `tests/unit/kon-chat-channel.test.ts` | Channel bots: audience validation, the queue turn (knowledge, store context, handoff, read-only group), limits, budget, cost, usage, repeated jobs. |
 | `tests/unit/kon-koe-ai.test.ts` | The same contract end to end with kon-koe on one database. |
 

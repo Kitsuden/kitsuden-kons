@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-vekstudio",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "Bridge to the vekocr OCR stack (konusagi gateway): job submission, results, corrections and live SSE events",
   "type": "module",
   "main": "./index.ts",

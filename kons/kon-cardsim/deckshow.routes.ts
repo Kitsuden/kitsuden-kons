@@ -148,8 +148,21 @@ const Moderate = z.object({
 // handler, not a 422. Outputs are lax on purpose (`passthrough`): they are
 // database rows and cardsim engine results, which grow on their own.
 
-const ParamSlug = z.object({ slug: z.string().describe("Slug (of a game or of an entry)") });
+const ParamSlug = z.object({ slug: z.string().describe("Game slug") });
 const ParamId = z.object({ id: z.string().describe("Entry id (deckshow_entries)") });
+/**
+ * `/entries/{ref}`: GET reads an entry by its slug, PUT and DELETE by its id.
+ * They were `/entries/{slug}` and `/entries/{id}`, two templates of the same
+ * shape that OpenAPI takes for one (api-contract, 2026-11-18). A path
+ * parameter's name is not on the wire, so one name for both changes no URL;
+ * what each route accepts stays the same.
+ */
+const EntrySlugRef = z.object({
+  ref: z.string().describe("The entry's slug (`slug` in list-posts)"),
+});
+const EntryIdRef = z.object({
+  ref: z.string().describe("The entry's id (`id` in list-posts; deckshow_entries)"),
+});
 
 const Pagination = z.object({
   total: z.number().int(),
@@ -633,14 +646,14 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
 
   /** An entry with its deck hydrated: everything the record draws. */
   app.get(
-    "/entries/:slug",
+    "/entries/:ref",
     {
       id: "get-post",
       summary: "Read a showcase entry with its deck",
       description:
         "The entry, its game (with the definition) and its deck grouped by section and card, with names and images, plus whether you liked it. Counts a view. A hidden entry is a 404 except for its author and moderators; 409 if its deck or game no longer exists.",
       access: "optional",
-      input: { params: ParamSlug },
+      input: { params: EntrySlugRef },
       output: {
         schema: z.object({
           data: Row,
@@ -654,7 +667,7 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
     async (c) => {
       const user = userOf(c);
       const entry = await entries()
-        .filter({ slug: c.req.param("slug") })
+        .filter({ slug: c.req.param("ref") })
         .first();
       if (!entry) return c.json({ error: "Not found" }, 404);
       // A hidden deck answers 404, not 403: saying "it exists but I won't show it to you"
@@ -766,7 +779,7 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.put(
-    "/entries/:id",
+    "/entries/:ref",
     {
       id: "update-post",
       summary: "Edit a showcase entry",
@@ -774,12 +787,12 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
         "Changes title, description, tags, goldfish queries or visibility (published/unlisted) of an entry; omitted fields keep their value. An author cannot unhide what moderation hid. Its author or a moderator (403 otherwise).",
       access: "session",
       permission: SHOWCASE_ACCOUNT,
-      input: { params: ParamId, body: EditEntry },
+      input: { params: EntryIdRef, body: EditEntry },
       output: { schema: z.object({ data: Row }) },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, input, h) => {
-      const entry = await entries().find(c.req.param("id"));
+      const entry = await entries().find(c.req.param("ref"));
       if (!entry) return c.json({ error: "Not found" }, 404);
       if (!(await h.can(entry, "update"))) return c.json({ error: "Forbidden" }, 403);
 
@@ -801,7 +814,7 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.delete(
-    "/entries/:id",
+    "/entries/:ref",
     {
       id: "delete-post",
       summary: "Remove an entry from the showcase",
@@ -809,12 +822,12 @@ export function deckshowOperations(ctx: KonContext): AnyOperation[] {
         "Deletes the entry and its likes; the deck itself stays saved in kon-cardsim. Its author or a moderator (403 otherwise). 204 with no body.",
       access: "session",
       permission: SHOWCASE_ACCOUNT,
-      input: { params: ParamId },
+      input: { params: EntryIdRef },
       output: { status: 204 },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, _input, h) => {
-      const entry = await entries().find(c.req.param("id"));
+      const entry = await entries().find(c.req.param("ref"));
       if (!entry) return c.json({ error: "Not found" }, 404);
       if (!(await h.can(entry, "delete"))) return c.json({ error: "Forbidden" }, 403);
       // The ENTRY is deleted, not the deck: removing it from the showcase is not throwing it away.

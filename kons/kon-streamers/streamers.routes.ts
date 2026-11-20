@@ -337,21 +337,46 @@ export function streamersOperations(ctx: KonContext): AnyOperation[] {
       id: "list-live",
       summary: "List live streamers",
       description:
-        "Up to 20 streamers that are live now, most viewers first, as last reported by the sync job. Public.",
+        "The streamers that are live now, most viewers first, as last reported by the sync job, one page at a time: `limit` up to 20 (the default) and `offset`; `hasMore` says whether more are live. `totalDocs` counts the page. Public.",
       access: "public",
-      output: { schema: z.object({ docs: z.array(StreamerOut), totalDocs: z.number().int() }) },
+      input: {
+        query: z
+          .object({
+            limit: z.coerce
+              .number()
+              .int()
+              .min(1)
+              .max(20)
+              .default(20)
+              .describe("Streamers per page (1-20). The default is the maximum, what the list always returned."),
+            offset: z.coerce.number().int().min(0).default(0).describe("Streamers to skip."),
+          })
+          .passthrough(),
+      },
+      output: {
+        schema: z.object({
+          docs: z.array(StreamerOut),
+          totalDocs: z.number().int(),
+          hasMore: z.boolean(),
+        }),
+      },
     },
-    async (c) => {
-      const docs = await dbInstance
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit: number; offset: number };
+      // It stopped at 20 with no sign. The id breaks ties between equal viewer counts.
+      const rows = await dbInstance
         .select()
         .from(streamers)
         .where(eq(streamers.isLive, true))
-        .orderBy(desc(streamers.viewerCount))
-        .limit(20);
+        .orderBy(desc(streamers.viewerCount), asc(streamers.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const docs = rows.slice(0, limit);
 
       return c.json({
         docs,
         totalDocs: docs.length,
+        hasMore: rows.length > limit,
       });
     }
   );

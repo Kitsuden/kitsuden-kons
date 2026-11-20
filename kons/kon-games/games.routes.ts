@@ -464,6 +464,8 @@ export function gamesOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every curated collection in display order, each with its published games (in entry order) and the tag and platform slugs of each game. Cached for two minutes.",
       access: "public",
+      unpaginated:
+        "Curated shelves an editor arranges by hand: a few per site, read and cached as one list.",
       output: { schema: List },
     },
     async (c) => {
@@ -745,6 +747,8 @@ export function gamesOperations(ctx: KonContext): AnyOperation[] {
       summary: "List platforms",
       description: "Every gaming platform (PC, consoles, mobile…) by name, with its id and slug.",
       access: "public",
+      unpaginated:
+        "The gaming platforms (PC, consoles, mobile): a short catalogue read whole for pickers.",
       output: { schema: List },
     },
     async (c) => {
@@ -789,13 +793,44 @@ export function gamesOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "list-tags",
       summary: "List game tags",
-      description: "Every game tag (genre, feature, topic, series…) by name, with its id and slug.",
+      description:
+        "Every game tag (genre, feature, topic, series…) by name, with its id and slug. Without `limit`, every tag (as always); with it, one page and `hasMore`.",
       access: "public",
-      output: { schema: List },
+      input: {
+        query: query({
+          limit: z.coerce
+            .number()
+            .int()
+            .min(1)
+            .max(500)
+            .optional()
+            .describe("Tags per page (1-500). Without it, every tag."),
+          offset: z.coerce
+            .number()
+            .int()
+            .min(0)
+            .default(0)
+            .describe("Tags to skip (with `limit`)."),
+        }),
+      },
+      output: { schema: List.extend({ hasMore: z.boolean() }) },
     },
-    async (c) => {
-      const docs = await dbInstance.select().from(tags).orderBy(tags.name);
-      return c.json({ docs, totalDocs: docs.length });
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit?: number; offset: number };
+      // The id breaks ties between equal names, so pages do not overlap.
+      const base = dbInstance.select().from(tags).orderBy(tags.name, tags.id);
+      if (limit === undefined) {
+        // What the list always answered: every tag (`offset` goes with `limit`).
+        const docs = await base;
+        return c.json({ docs, totalDocs: docs.length, hasMore: false });
+      }
+      const rows = await base.limit(limit + 1).offset(offset);
+      const [{ count }] = await dbInstance.select({ count: sql<number>`count(*)::int` }).from(tags);
+      return c.json({
+        docs: rows.slice(0, limit),
+        totalDocs: Number(count),
+        hasMore: rows.length > limit,
+      });
     }
   );
 

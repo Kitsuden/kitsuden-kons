@@ -5,7 +5,7 @@ first, and for teams that sell and collect over chat. Notes for coding agents: [
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 0.1.0 | `/api/koe` | core `auth`; a secrets key for Meta channels; kon-chat optional (AI bots); the media sidecar optional (voice notes, stickers) |
+| experimental | business | 0.2.0 | `/api/koe` | core `auth`; a secrets key for Meta channels; kon-chat optional (AI bots); the media sidecar optional (voice notes, stickers) |
 
 koe (声, "voice") keeps one conversation per contact and channel, decides who answers it (a bot, the queue,
 one person), enforces each channel's service window and Meta's template rules on every message that goes
@@ -85,7 +85,12 @@ in through the public extension API below; koe never imports it, and without it 
 
 ## HTTP API
 
-Every route answers `{ data }` (lists add `next` when there is more). `POST /api/koe/conversations/:id/messages`
+Every route answers `{ data }` (lists add `next` when there is more). Notes, payment promises and outcomes
+take `limit` and `offset` and add `hasMore`: promises and outcomes default to (and cap at) 200 rows, what they
+always returned; notes return every note unless `limit` (1-500) is given. Contacts, notices, quick replies,
+stickers and campaigns keep their own `limit` and default (contacts, notices and quick replies 30 of at most
+100, stickers 100 of 200, campaigns 50 of 100) and take `offset` with `hasMore` too. Members, teams, channels,
+templates, flows and sequences are configuration and come whole. `POST /api/koe/conversations/:id/messages`
 refuses with 409 and `details.koe` naming why: `WINDOW_CLOSED`, `TAG_NOT_ALLOWED`, `TEMPLATE_NOT_SUPPORTED`,
 `TEMPLATE_NOT_APPROVED`, `OPTED_OUT`, `BLOCKED`, `NOT_YOURS`, `BOT_SILENCED`, `UNSUPPORTED`, `TOO_LARGE`.
 
@@ -110,16 +115,16 @@ refuses with 409 and `details.koe` naming why: `WINDOW_CLOSED`, `TAG_NOT_ALLOWED
 | POST `/api/koe/conversations/:id/read` | member | Mark as read |
 | POST `/api/koe/conversations/:id/typing` | member | I am typing |
 | GET `/api/koe/conversations/:id/window` | member | Can I write freely now? |
-| GET `/api/koe/conversations/:id/notes` | member | Internal notes |
+| GET `/api/koe/conversations/:id/notes` | member | Internal notes (`limit`, `offset`; `hasMore`) |
 | POST `/api/koe/conversations/:id/notes` | member | Add an internal note |
 | GET `/api/koe/conversations/:id/events` | member | What happened to a conversation |
-| GET `/api/koe/contacts` | member | Find contacts |
+| GET `/api/koe/contacts` | member | Find contacts (`q`, `limit`, `offset`; `hasMore`) |
 | GET `/api/koe/contacts/:id` | member | One contact |
 | PATCH `/api/koe/contacts/:id` | member | Edit a contact |
 | POST `/api/koe/contacts/:id/merge` | member | Merge two contacts |
 | PUT `/api/koe/contacts/:id/consent` | member | Record consent |
 | POST `/api/koe/contacts/:id/start` | member | Write first to a contact |
-| GET `/api/koe/notices` | member | My notices |
+| GET `/api/koe/notices` | member | My notices (`unread`, `limit`, `offset`; `hasMore`) |
 | GET `/api/koe/notices/latest` | member | What a push should show |
 | POST `/api/koe/notices/read` | member | Mark notices as read |
 | POST `/api/koe/push/subscriptions` | member | Get web push on this browser |
@@ -150,11 +155,11 @@ refuses with 409 and `details.koe` naming why: `WINDOW_CLOSED`, `TAG_NOT_ALLOWED
 | GET `/api/koe/public/webchat/:key/messages` | anyone | A visitor's conversation |
 | POST `/api/koe/media` | member | Upload a file to send |
 | GET `/api/koe/media/:id` | member | A media file |
-| GET `/api/koe/stickers` | member | The team's stickers |
+| GET `/api/koe/stickers` | member | The team's stickers (`limit`, `offset`; `hasMore`) |
 | POST `/api/koe/stickers` | member | Keep a sticker |
 | DELETE `/api/koe/stickers/:id` | member | Remove a sticker from the library |
 | POST `/api/koe/public/webchat/:key/media` | anyone | A visitor sends a file |
-| GET `/api/koe/quick-replies` | member | Quick replies |
+| GET `/api/koe/quick-replies` | member | Quick replies (`limit`, `offset`; `hasMore`) |
 | POST `/api/koe/quick-replies` | member | Create a quick reply |
 | PATCH `/api/koe/quick-replies/:id` | member | Change a quick reply |
 | DELETE `/api/koe/quick-replies/:id` | member | Delete a quick reply |
@@ -172,7 +177,7 @@ refuses with 409 and `details.koe` naming why: `WINDOW_CLOSED`, `TAG_NOT_ALLOWED
 | POST `/api/koe/flows/:id/test` | member | Try a bot flow |
 | GET `/api/koe/config/pricing` | member | Message price table |
 | PUT `/api/koe/config/pricing` | admin | Set the message price table |
-| GET `/api/koe/campaigns` | member | List campaigns |
+| GET `/api/koe/campaigns` | member | List campaigns (`status`, `limit`, `offset`; `hasMore`) |
 | GET `/api/koe/campaigns/:id` | member | Get a campaign |
 | POST `/api/koe/campaigns` | member | Create a campaign draft |
 | PATCH `/api/koe/campaigns/:id` | member | Change a campaign draft |
@@ -193,10 +198,10 @@ refuses with 409 and `details.koe` naming why: `WINDOW_CLOSED`, `TAG_NOT_ALLOWED
 | POST `/api/koe/conversations/:id/sequences/:sequenceId` | member | Start a sequence in a conversation |
 | DELETE `/api/koe/conversations/:id/sequences/:sequenceId` | member | Stop a sequence in a conversation |
 | POST `/api/koe/conversations/:id/promises` | member | Record a payment promise |
-| GET `/api/koe/conversations/:id/promises` | member | Payment promises of a contact |
+| GET `/api/koe/conversations/:id/promises` | member | Payment promises of a contact (`limit` 1-200, `offset`; `hasMore`) |
 | PATCH `/api/koe/promises/:id` | member | Mark a payment promise kept or cancelled |
 | POST `/api/koe/conversations/:id/outcomes` | member | Record the outcome of an attempt |
-| GET `/api/koe/conversations/:id/outcomes` | member | Outcomes of a conversation |
+| GET `/api/koe/conversations/:id/outcomes` | member | Outcomes of a conversation (`limit` 1-200, `offset`; `hasMore`) |
 | GET `/api/koe/collections/portfolio` | member | Collections portfolio |
 | GET `/api/koe/sales/pipeline` | member | Sales pipeline |
 | GET `/api/koe/reports/summary` | member | Inbox dashboard |

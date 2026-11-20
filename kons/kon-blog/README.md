@@ -6,7 +6,7 @@ fields (BLUF, FAQ) for answer engines. For any site that publishes articles; mos
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| stable (tier `essential`) | core | 2.0.3 | `/api/blog` | kon-media (part of the core), core `auth` |
+| stable (tier `essential`) | core | 2.0.4 | `/api/blog` | kon-media (part of the core), core `auth` |
 
 ## Install
 
@@ -76,7 +76,7 @@ Reads (anyone; staff also see unpublished posts):
 | `GET /api/blog/:id` | anyone | One post by uuid, with `tagIds`, `categoryIds` and `comments`. A non-uuid id is a 404. |
 | `GET /api/blog/seo/:slug` | anyone | SEO, Open Graph, Twitter Card and JSON-LD metadata, plus ready-made HTML tags. Query `siteName`, `baseUrl`, `language` (site language, used for `og:locale` only when the post has no `locale`; `og:locale` comes from the post's `locale`, e.g. `pt` → `pt_BR`, fallback `en_US`); `preview=true` lets staff read an unpublished post. See [SEO_GUIDE.md](SEO_GUIDE.md). |
 | `GET /api/blog/geo/:slug` | anyone | The answer-engine payload: SEO summary, `geo_ai` (BLUF, FAQ schema, dataset URL, reading time, word count), body and table of contents. Same query as the SEO route. See [GEO_IMPLEMENTATION_GUIDE.md](GEO_IMPLEMENTATION_GUIDE.md). |
-| `GET /api/blog/categories` | anyone | Every category as a flat list with `parentId` and `postCount`, by `displayOrder` then name. |
+| `GET /api/blog/categories` | anyone | Every category as a flat list with `parentId` and `postCount`, by `displayOrder` then name. Whole, with no page size (declared `unpaginated`). |
 
 Writes and editor tools (staff: see [Who can do what](#who-can-do-what)):
 

@@ -24,6 +24,11 @@ public; saving comps needs an account; importing sets and ranking comps is for s
 - MCP tools are `autobattler__<operation>`. The calculators take the board in `body`
   (`setSlug`, `slots`, `level`, `augments`) and return `{ data }`; `suggest-units` also returns
   `meta.full` and `meta.summary`.
+- Pages: `list-set-comps` takes `limit` (1-500; none by default: every comp) and `offset`, and
+  answers `hasMore` next to `data` (`meta.total` counts all that match). `list-sets` and
+  `search-entities` are read whole (`unpaginated`).
+- `get-comp` and `delete-comp` take `ref` (renamed in 1.1.0 from `slug` / `id`): the comp's slug
+  for `get-comp`, its id for `delete-comp`.
 - Sensitive, may come back `202 KITSUDEN_E_APPROVAL_REQUIRED`: `import-set`, `rank-comp`,
   `delete-comp`. Report the proposal; do not retry.
 - 404: the set, comp, trait or item does not exist, the `:kind` is not one of `units`, `traits`,
@@ -86,6 +91,7 @@ public; saving comps needs an account; importing sets and ranking comps is for s
 ```bash
 pnpm vitest run tests/unit/autobattler-engine.test.ts               # after touching autobattler.engine.ts
 pnpm vitest run tests/unit/autobattler-builder.test.ts              # after touching autobattler.builder.ts
+pnpm vitest run tests/unit/autobattler-pagination.test.ts           # list-set-comps pages, /comps/:ref
 pnpm vitest run tests/unit/sec-cards-deckshow-autobattler.test.ts   # after touching index.ts or the policy
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-autobattler"  # these docs
 ```

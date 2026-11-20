@@ -359,6 +359,7 @@ export function phasesOperations(ctx: KonContext): AnyOperation[] {
       summary: "List tournament phases",
       description: "The phase plan of the tournament in order (pools, top 8...), with status.",
       access: "public",
+      unpaginated: "The phases of one tournament (pools, top 8…): a handful, read as one plan.",
       input: { params: TournamentParam },
       output: { schema: withData(z.array(Row)) },
       errors: ["KITSUDEN_E_NOT_FOUND"],

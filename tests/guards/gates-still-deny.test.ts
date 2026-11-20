@@ -33,6 +33,9 @@ const INVENTORY = JSON.parse(readFileSync(join(__dirname, "gate-inventory.json")
 const OPERATION_KEYS = new Set([
   "id", "method", "route", "summary", "description", "tags", "input", "output", "access", "permission",
   "sensitive", "readOnly", "idempotent", "errors", "mcp", "guide", "cost", "before", "handle",
+  // Read by the core since Kitsuden 0.9.x: the OpenAPI, the Deprecation/Sunset headers, MCP and the
+  // clients (`deprecated`), and the contract rule for lists (`unpaginated`).
+  "deprecated", "unpaginated",
 ]);
 const PERMISSION_KEYS = new Set(["scopes", "policy", "roles", "resourceScope"]);
 const POLICY_KEYS = new Set(["resource", "action", "inHandler"]);

@@ -55,6 +55,20 @@ const paged = {
   limit: whole(500, "Rows per page"),
   page: whole(1_000_000, "Page, from 1"),
 };
+/**
+ * Paging for a list that used to return every row. Without `limit` it still does (and
+ * `hasMore` is false), so a client that sends nothing gets what it got before.
+ */
+const optionalPage = {
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("Rows per page, 1-500. Without it, every row"),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)"),
+};
 const flag = (description: string) =>
   z
     .enum(["true", "false"])
@@ -67,6 +81,10 @@ const WithRow = z.object({ data: Row }).passthrough();
 const WithRows = z.object({ data: z.array(Row) }).passthrough();
 const WithData = z.object({ data: z.record(z.string(), z.unknown()) }).passthrough();
 const WithList = z.object({ data: z.array(z.record(z.string(), z.unknown())) }).passthrough();
+const RowsPage = z.object({ data: z.array(Row), hasMore: z.boolean() }).passthrough();
+const ListPage = z
+  .object({ data: z.array(z.record(z.string(), z.unknown())), hasMore: z.boolean() })
+  .passthrough();
 const Done = z.object({ success: z.boolean() }).passthrough();
 const WithPagination = z
   .object({
@@ -419,6 +437,7 @@ export function registerBillingOperations(
     "/resources",
     conta("view", {
       id: "list-resources",
+      unpaginated: "The people and things a firm bills by the unit: its staff and a few items, tens of rows.",
       summary: "List resources",
       description:
         "People and things billed per unit, with their unit and their billing and cost rates. `includeInactive=true` adds the inactive ones. Read access to the ledger.",
@@ -777,10 +796,11 @@ export function registerBillingOperations(
       id: "list-client-funds",
       summary: "Client funds per client",
       description:
-        "What is held for each client, read from the ledger, with the agreed minimum, whether it is below it and the top-up to ask for. Read access to the ledger.",
-      output: { schema: WithList },
+        "What is held for each client, read from the ledger, largest balance first, with the agreed minimum, whether it is below it and the top-up to ask for. Every client unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more. Read access to the ledger.",
+      input: { query: z.object(optionalPage) },
+      output: { schema: ListPage },
     }),
-    async (c) => c.json({ data: await billing.clientFundsByClient() })
+    async (c, input) => c.json(await billing.clientFundsByClient(input.query))
   );
 
   app.get(
@@ -789,18 +809,19 @@ export function registerBillingOperations(
       id: "list-client-funds-transactions",
       summary: "Client funds statement",
       description:
-        "Client funds movements, newest first, with their signed `amount` and the client's running `balance`, optionally for one `clientId` and date range. Read access to the ledger.",
+        "Client funds movements, newest first, with their signed `amount` and the client's running `balance`, optionally for one `clientId` and date range. A page at a time: `limit` 1-5000 (1000 by default), `offset` skips rows and `hasMore` says there are more; the running balance counts every earlier movement, whatever the page. Read access to the ledger.",
       input: {
         query: z.object({
           clientId: id.optional().describe("Only this client"),
           dateFrom: isoDate.optional().describe("From this date"),
           dateTo: isoDate.optional().describe("Up to this date"),
-          limit: whole(5000, "Most movements returned"),
+          limit: whole(5000, "Movements per page, 1-5000 (default 1000)"),
+          offset: optionalPage.offset,
         }),
       },
-      output: { schema: WithRows },
+      output: { schema: RowsPage },
     }),
-    async (c, input) => c.json({ data: await billing.clientFundsTransactions(input.query) })
+    async (c, input) => c.json(await billing.clientFundsTransactions(input.query))
   );
 
   app.get(
@@ -823,15 +844,16 @@ export function registerBillingOperations(
       id: "list-recurring-fees",
       summary: "List recurring fees",
       description:
-        "Recurring fees ordered by next date, each with the quantity used in its period and whether it is due, plus the monthly recurring revenue and how many are due. Read access to the ledger.",
+        "Recurring fees ordered by next date, each with the quantity used in its period and whether it is due, plus the monthly recurring revenue and how many are due. Every fee unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more. The summary always covers every fee that matches the filter. Read access to the ledger.",
       input: {
         query: z.object({
           clientId: id.optional().describe("Only this client"),
           active: flag("Only active, or only paused"),
           asOf: isoDate.optional().describe("Date that decides what is due. Today by default"),
+          ...optionalPage,
         }),
       },
-      output: { schema: WithRows },
+      output: { schema: RowsPage },
     }),
     async (c, input) => c.json(await billing.listRecurringFees(input.query))
   );
@@ -897,14 +919,15 @@ export function registerBillingOperations(
       id: "list-success-fees",
       summary: "List success fees",
       description:
-        "Fees that depend on a result, each with its amount if won and that fee weighted by probability, plus the totals of the open ones. Read access to the ledger.",
+        "Fees that depend on a result, by expected date, each with its amount if won and that fee weighted by probability, plus the totals of the open ones. Every fee unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more. The totals always cover every open fee that matches the filter. Read access to the ledger.",
       input: {
         query: z.object({
           clientId: id.optional().describe("Only this client"),
           status: z.enum(["open", "won", "lost"]).optional().describe("Only this status"),
+          ...optionalPage,
         }),
       },
-      output: { schema: WithRows },
+      output: { schema: RowsPage },
     }),
     async (c, input) => c.json(await billing.listSuccessFees(input.query))
   );

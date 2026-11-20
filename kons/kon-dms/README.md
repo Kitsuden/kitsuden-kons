@@ -7,7 +7,7 @@ and needs to know who approved and who read what.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 2.0.1 | `/api/dms` | — (core `auth`) |
+| beta | business | 2.1.0 | `/api/dms` | — (core `auth`) |
 
 ## Install
 
@@ -52,7 +52,8 @@ URLs. No environment variables.
 
 Every route needs a session (anonymous: 401). "Reader", "owner", "author", "reviewer",
 "approver" are relative to the document; "team" is admin or editor. Lists are paginated with
-`limit` and `page` where noted.
+`limit` and `page` where noted. Versions, acknowledgments and backlinks return every row unless
+`limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says rows follow the page.
 
 Folders:
 
@@ -75,15 +76,15 @@ Documents:
 | `DELETE /api/dms/documents/:id` | Owner or admin | Archives (inactive and `archived`); nothing is erased. |
 | `POST /api/dms/documents/:id/relations` | Owner or author | Links to another readable document; an unreadable target is 422. |
 | `POST /api/dms/documents/:id/acknowledge` | Reader | Records reading the current published version; repeating answers `{ alreadyAcknowledged: true }`. |
-| `GET /api/dms/documents/:id/acknowledgments` | Owner or author | Who acknowledged it. |
-| `GET /api/dms/documents/:id/backlinks` | Reader | Readable documents whose published content links here. |
+| `GET /api/dms/documents/:id/acknowledgments` | Owner or author | Who acknowledged it, newest first; optional `limit` (1-500), `offset`, `hasMore`. |
+| `GET /api/dms/documents/:id/backlinks` | Reader | Readable documents whose published content links here, by title; optional `limit` (1-500), `offset`, `hasMore`. |
 | `POST /api/dms/import` | Team | Imports the output of the folder export as private drafts owned by the caller. |
 
 Versions, files and diagrams:
 
 | Route | Who may call it | What it does |
 | --- | --- | --- |
-| `GET /api/dms/documents/:id/versions` | Reader | Versions, newest first; readers only get published ones. |
+| `GET /api/dms/documents/:id/versions` | Reader | Versions, newest first; readers only get published ones. Optional `limit` (1-500), `offset`, `hasMore`. |
 | `POST /api/dms/documents/:id/versions` | Owner or author | New draft; number from `changeType` (default `minor`). |
 | `GET /api/dms/versions/:versionId` | Reader (published) or participant (drafts) | A version; `files=true` adds its files. |
 | `PATCH /api/dms/versions/:versionId` | Owner or author | Edits a `draft` or `changes_requested` version; published is 409. |
@@ -115,7 +116,7 @@ Reading, search and the rest:
 | --- | --- | --- |
 | `GET /api/dms/render/:slug` | Reader | Reader view of the current published version: header ids, diagrams, table of contents, breadcrumb, previous and next. An old slug answers 308. |
 | `GET /api/dms/render/code/:code` | Reader | 307 redirect to the reader view by code. |
-| `GET /api/dms/search` | Any account | Full-text search over readable documents (`q` 2-200 chars), plus up to 10 folders. Filters `categoryId`, `type`, `status`; `limit` 1-50. |
+| `GET /api/dms/search` | Any account | Full-text search over readable documents (`q` 2-200 chars), plus up to 10 folders. Filters `categoryId`, `type`, `status`; `limit` 1-50. Not paged: the best matches only; `GET /api/dms/documents?search=` pages the whole set. |
 | `GET /api/dms/stats` | Any account | Counts over readable documents, reviews due in 30 days, versions pending the caller's review. |
 | `GET /api/dms/audit-log` | Admin; or owner or author with `documentId` | The access and change log; filters `documentId`, `userId`, `action`. |
 | `GET /api/dms/notifications` | Any account | The caller's workflow notifications; `unreadOnly=true`. |
@@ -216,8 +217,12 @@ files (path traversal, types, sizes over 2 GB), HTML and SVG sanitizing, audit, 
 in the database. `tests/unit/effective-agents-in-kons.test.ts` checks that agents with `admin` or
 `dms:*` see documents that are not theirs.
 
+`tests/unit/kon-dms-pagination.test.ts` covers `limit`, `offset` and `hasMore` on versions,
+acknowledgments and backlinks.
+
 ```bash
 pnpm vitest run tests/unit/kon-dms-security.test.ts
+pnpm vitest run tests/unit/kon-dms-pagination.test.ts
 pnpm vitest run tests/unit/effective-agents-in-kons.test.ts
 ```
 

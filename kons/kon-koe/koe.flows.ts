@@ -810,6 +810,7 @@ export const flowOperations: OperationsModule = (app, ctx) => {
       description: "The bot flows without AI (menus, data capture, branches) and which channel runs each.",
       access: "session",
       permission: USE,
+      unpaginated: "The bot flows leads wrote by hand: configuration, a few per channel.",
       output: { schema: Output },
     },
     async (c, _i, h) => {

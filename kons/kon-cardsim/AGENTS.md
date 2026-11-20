@@ -29,6 +29,11 @@ clients only ever get the per-seat view from `viewFor`.
   finished game (409 before it ends; 403 to non-players if the room has no spectators); `simulate-goldfish` and the
   `…-goldfish` tools → per-query probabilities over many dealt hands; `…-deal-hands` → sample
   hands from a seed (same seed, same hands).
+- Pages: `list-rooms` (`limit` 1-50, default 50) and `list-my-decks` (`limit` 1-500, none by
+  default: every deck) take `limit` and `offset` and answer `hasMore` next to `data`.
+  `list-presets`, `list-games` and `list-datasets` are read whole (`unpaginated`).
+- Showcase entries: `get-post`, `update-post` and `delete-post` take `ref` (renamed in 2.4.0 from
+  `slug` / `id`): the entry's slug for `get-post`, its id for the other two.
 - May come back `202 KITSUDEN_E_APPROVAL_REQUIRED` (report it, do not retry): `publish-game`,
   `import-cards`, `sync-catalog`, `publish-post`, `moderate-post`, `import-dataset`,
   `upload-cards` (declared sensitive) and the `DELETE`s `delete-deck`, `delete-post`, `unlike`,
@@ -132,6 +137,7 @@ pnpm vitest run tests/unit/handlab-definition.test.ts
 pnpm vitest run tests/unit/handlab-delete-dataset-rls.test.ts
 pnpm vitest run tests/unit/security-handlab.test.ts
 pnpm vitest run tests/unit/kons-from-dataset.test.ts
+pnpm vitest run tests/unit/cardsim-pagination.test.ts
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-cardsim"
 ```
 

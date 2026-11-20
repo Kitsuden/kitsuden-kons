@@ -6,7 +6,7 @@ job to a Kitsuden record. For teams that run the vekocr/vekdocs stack next to Ki
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | documents | 1.0.2 | `/api/ocr` | — (core `auth`; a reachable vekdocs gateway) |
+| experimental | documents | 1.1.0 | `/api/ocr` | — (core `auth`; a reachable vekdocs gateway) |
 
 ## Install
 
@@ -38,7 +38,7 @@ else, files and the event stream included, is streamed through untouched.
 
 | Method and path | Who | What it does |
 | --- | --- | --- |
-| `GET /api/ocr/documents` | Admin, editor | The mirror, oldest first. An admin sees every job; an editor only the ones they sent. `limit` 1-500 (default 100). |
+| `GET /api/ocr/documents` | Admin, editor | The mirror, oldest first. An admin sees every job; an editor only the ones they sent. Pages: `limit` 1-500 (default 100) and `offset`; the body is the array and the `X-Has-More` response header (`true`/`false`) says whether more follow. |
 | `GET /api/ocr/documents/:jobId` | Admin, or the editor or agent who sent it | One row by gateway job id; 404 for anyone else and for a job not in the mirror. |
 | `PATCH /api/ocr/documents/:jobId` | Admin, or the editor or agent who sent it | Set `entityType` + `entityId` (null to unlink) and/or `reviewed`. Unknown fields: 422 listing every issue. 404 for anyone else. Returns the row. |
 | `GET /api/ocr/health` | Anyone | `{ kon, status }`: `ok` when the gateway's health check answers without an error status, `degraded` otherwise. |

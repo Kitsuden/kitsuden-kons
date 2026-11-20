@@ -36,10 +36,14 @@ import {
   declareOp,
   KeyParam,
   ListWithTotal,
+  PagedList,
+  PageQuery,
   ProjectParam,
   REST_ONLY,
   Row,
   Success,
+  fetchPage,
+  pageOf,
   query,
   registry,
   text,
@@ -138,7 +142,10 @@ export function teamOperations(
 
   routes.get(
     "/:projectId/squads",
-    declare("list-squads", "List a project's squads", `Each squad with its scrum master and members. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-squads", "List a project's squads", `Each squad with its scrum master and members. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: the few teams its owners set up, each read with its member ids.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const squads = await db.instance
@@ -279,11 +286,11 @@ export function teamOperations(
 
   routes.get(
     "/notifications",
-    declare("list-notifications", "My agile notifications", "The caller's notifications in every project (mentions, assignments, hand-offs), newest first, with the issue's key. `unread=true` only unread ones; `limit` 1-200 (default 50).", { query: query({ unread: text("`true`: only unread"), limit: text("1-200 (default 50)") }) }, { schema: Anything }),
-    async (c) => {
+    declare("list-notifications", "My agile notifications", "The caller's notifications in every project (mentions, assignments, hand-offs), newest first, with the issue's key. `unread=true` only unread ones; `limit` 1-200 (default 50) and `offset` (rows to skip) page them, `hasMore` says whether more remain. `unread` counts every unread one.", { query: query({ unread: text("`true`: only unread"), limit: text("1-200 (default 50)"), offset: PageQuery.offset }) }, { schema: Anything }),
+    async (c, input) => {
       const user = userValue(c);
       const limit = Math.min(Math.max(parseInt(c.req.query("limit") || "50", 10) || 50, 1), 200);
-      const docs = await db.instance
+      const listing = db.instance
         .select({
           id: agileNotifications.id,
           kind: agileNotifications.kind,
@@ -304,13 +311,14 @@ export function teamOperations(
             c.req.query("unread") === "true" ? isNull(agileNotifications.readAt) : undefined
           )
         )
-        .orderBy(desc(agileNotifications.createdAt))
-        .limit(limit);
+        .orderBy(desc(agileNotifications.createdAt), desc(agileNotifications.id))
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, { limit, offset: pageOf(input).offset });
       const [{ unread }] = await db.instance
         .select({ unread: sql<number>`count(*)::int` })
         .from(agileNotifications)
         .where(and(eq(agileNotifications.userId, user.id), isNull(agileNotifications.readAt)));
-      return c.json({ docs, unread });
+      return c.json({ docs, unread, hasMore });
     }
   );
 
@@ -372,15 +380,15 @@ export function teamOperations(
 
   routes.get(
     "/work/mine",
-    declare("list-my-work", "The caller's work queue", "Work asked of the caller (an agent, or a person) in every project: assignments, mentions, hand-offs and schedules. Default `status=queued`; also `running`, `done`, `failed`, `cancelled` or `all`. Oldest first, `limit` 1-100 (default 20).", { query: query({ status: text("queued (default), running, done, failed, cancelled or all"), limit: text("1-100 (default 20)") }) }, { schema: ListWithTotal }),
-    async (c) => {
+    declare("list-my-work", "The caller's work queue", "Work asked of the caller (an agent, or a person) in every project: assignments, mentions, hand-offs and schedules. Default `status=queued`; also `running`, `done`, `failed`, `cancelled` or `all`. Queued work oldest first, any other status newest first; `limit` 1-100 (default 20) and `offset` (rows to skip) page it, `hasMore` says whether more remain.", { query: query({ status: text("queued (default), running, done, failed, cancelled or all"), limit: text("1-100 (default 20)"), offset: PageQuery.offset }) }, { schema: PagedList }),
+    async (c, input) => {
       const user = userValue(c);
       const status = c.req.query("status") || "queued";
       if (status !== "all" && !(WORK_STATUSES as readonly string[]).includes(status)) {
         throw AppError.badRequest("Unknown status");
       }
       const limit = Math.min(Math.max(parseInt(c.req.query("limit") || "20", 10) || 20, 1), 100);
-      const docs = await db.instance
+      const listing = db.instance
         .select(workColumns)
         .from(agileAgentWork)
         .leftJoin(agileIssues, eq(agileAgentWork.issueId, agileIssues.id))
@@ -391,9 +399,14 @@ export function teamOperations(
             status === "all" ? undefined : eq(agileAgentWork.status, status as (typeof WORK_STATUSES)[number])
           )
         )
-        .orderBy(status === "queued" ? asc(agileAgentWork.createdAt) : desc(agileAgentWork.createdAt))
-        .limit(limit);
-      return c.json({ docs, totalDocs: docs.length });
+        .orderBy(
+          ...(status === "queued"
+            ? [asc(agileAgentWork.createdAt), asc(agileAgentWork.id)]
+            : [desc(agileAgentWork.createdAt), desc(agileAgentWork.id)])
+        )
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, { limit, offset: pageOf(input).offset });
+      return c.json({ docs, totalDocs: docs.length, hasMore });
     }
   );
 
@@ -483,13 +496,13 @@ export function teamOperations(
 
   routes.get(
     "/:projectId/work",
-    declare("list-project-work", "A project's agent work", `Every piece of work of the project, newest first (\`agentId\`, \`status\` filter; \`limit\` 1-200), and totals per agent: pieces by status, tokens and cost. ${WHO_SEES}`, { params: ProjectParam, query: query({ agentId: text("Only this agent"), status: text("Only this status"), limit: text("1-200 (default 50)") }) }, { schema: Anything }),
+    declare("list-project-work", "A project's agent work", `Every piece of work of the project, newest first (\`agentId\`, \`status\` filter; \`limit\` 1-200, default 50, and \`offset\` page it, \`hasMore\` says whether more remain), and totals per agent over all of it: pieces by status, tokens and cost. ${WHO_SEES}`, { params: ProjectParam, query: query({ agentId: text("Only this agent"), status: text("Only this status"), limit: text("1-200 (default 50)"), offset: PageQuery.offset }) }, { schema: Anything }),
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const q = c.req.query();
       const limit = Math.min(Math.max(parseInt(q.limit || "50", 10) || 50, 1), 200);
       if (q.status && !(WORK_STATUSES as readonly string[]).includes(q.status)) throw AppError.badRequest("Unknown status");
-      const docs = await db.instance
+      const listing = db.instance
         .select(workColumns)
         .from(agileAgentWork)
         .leftJoin(agileIssues, eq(agileAgentWork.issueId, agileIssues.id))
@@ -501,8 +514,9 @@ export function teamOperations(
             q.status ? eq(agileAgentWork.status, q.status as (typeof WORK_STATUSES)[number]) : undefined
           )
         )
-        .orderBy(desc(agileAgentWork.createdAt))
-        .limit(limit);
+        .orderBy(desc(agileAgentWork.createdAt), desc(agileAgentWork.id))
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, { limit, offset: pageOf(input).offset });
       const agents = await db.instance
         .select({
           agentId: agileAgentWork.agentId,
@@ -519,6 +533,7 @@ export function teamOperations(
         .groupBy(agileAgentWork.agentId);
       return c.json({
         docs,
+        hasMore,
         agents: agents.map((a) => ({
           ...a,
           inputTokens: Number(a.inputTokens),
@@ -547,7 +562,10 @@ export function teamOperations(
 
   routes.get(
     "/:projectId/schedules",
-    declare("list-agent-schedules", "List a project's agent schedules", `When each agent wakes up and with what prompt. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-agent-schedules", "List a project's agent schedules", `When each agent wakes up and with what prompt. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: the wake-up schedules its owners set for its agent members, a few per agent.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const docs = await db.instance

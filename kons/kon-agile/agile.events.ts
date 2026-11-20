@@ -289,18 +289,21 @@ export function eventOperations(): AnyOperation[] {
   const routes = registry();
   routes.get(
     "/rule-templates",
-    declareOp(
-      "list-rule-templates",
-      "Ready-made automation rules for agile events",
-      "The events the tracker emits (with their payload) and automation rules ready to post to `POST /api/actions`: email the team about urgent issues, email when an issue is finished, forward comments, send changes to a webhook, announce merged pull requests. Replace what `fill` lists (the project id, the address or URL) first. Writing a rule needs the core's rule permission (an administrator). Any signed-in account.",
-      {},
-      {
-        schema: z
-          .object({ events: z.record(z.string(), z.unknown()), templates: z.array(Template) })
-          .passthrough(),
-      },
-      []
-    ),
+    {
+      ...declareOp(
+        "list-rule-templates",
+        "Ready-made automation rules for agile events",
+        "The events the tracker emits (with their payload) and automation rules ready to post to `POST /api/actions`: email the team about urgent issues, email when an issue is finished, forward comments, send changes to a webhook, announce merged pull requests. Replace what `fill` lists (the project id, the address or URL) first. Writing a rule needs the core's rule permission (an administrator). Any signed-in account.",
+        {},
+        {
+          schema: z
+            .object({ events: z.record(z.string(), z.unknown()), templates: z.array(Template) })
+            .passthrough(),
+        },
+        []
+      ),
+      unpaginated: "A fixed catalogue written in the kon's code: the agile events and a handful of ready-made rules.",
+    },
     async (c) => c.json({ events: AGILE_EVENTS.emits, templates: RULE_TEMPLATES })
   );
   return routes.ops;

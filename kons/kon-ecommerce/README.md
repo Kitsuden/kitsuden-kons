@@ -6,7 +6,7 @@ delivery of files and license keys, discount codes and order e-mails.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.2.0 | `/api/shop` | kon-media (core `auth`) |
+| beta | business | 1.3.0 | `/api/shop` | kon-media (core `auth`) |
 
 It is not a large-catalog shop: there is no persistent cart, no carrier rates, no warehouse
 management and no per-jurisdiction taxes. For that, run a dedicated commerce engine next to
@@ -144,7 +144,7 @@ Public (buyers; the order routes need the order token in `X-Order-Token` or `?to
 | `POST /api/shop/orders/:id/checkout` | Buyer with the order token | Opens the payment page for the order's total. 10 per minute. |
 | `GET /api/shop/orders/:id/downloads/:item` | Buyer with the order token | Counts a download and redirects (302); 410 when revoked, expired or used up. |
 | `POST /api/shop/my-orders/link` | Anyone | E-mails a "my orders" link; always 202. 5 per minute. |
-| `GET /api/shop/my-orders` | Buyer with a link token | The orders of that e-mail. |
+| `GET /api/shop/my-orders` | Buyer with a link token | The orders of that e-mail, newest first: `limit` (1-100, default 100) and `offset`; `hasMore` says whether another page exists. |
 
 Backoffice (session):
 
@@ -156,15 +156,15 @@ Backoffice (session):
 | `DELETE /api/shop/admin/products/:id` | Admin | Deletes a product and its variants; past orders keep their lines. |
 | `POST /api/shop/admin/products/:id/variants` | Staff | Adds a variant (201); 409 if the sku is taken. |
 | `PATCH /api/shop/admin/variants/:id` | Staff | Partial update of a variant; uses the product's permission. |
-| `GET /api/shop/admin/products/:id/files` | Staff | Files the product delivers. |
+| `GET /api/shop/admin/products/:id/files` | Staff | Files the product delivers (the whole list: declared `unpaginated`). |
 | `POST /api/shop/admin/products/:id/files` | Staff | Attaches a media file, for every variant or one (201). |
 | `DELETE /api/shop/admin/files/:id` | Staff | Stops delivering a file; existing downloads stop working; the media file stays. |
 | `POST /api/shop/admin/variants/:id/license-keys` | Staff | Adds keys to a variant's pool; repeated keys are skipped. |
-| `GET /api/shop/admin/orders` | Staff | Orders, newest first; `status`, `limit` up to 200. |
+| `GET /api/shop/admin/orders` | Staff | Orders, newest first; `status`; `limit` (up to 200, default 50) and `offset`; `hasMore` says whether another page exists. |
 | `GET /api/shop/admin/orders/:id` | Staff | One order with its lines. |
 | `POST /api/shop/admin/orders/:id/status` | Staff | Moves an order along `TRANSITIONS` (with `paymentRef`, tracking); e-mails the buyer. |
 | `POST /api/shop/admin/orders/:id/deliver` | Staff | Delivers what a paid order is missing; 409 if not paid. |
-| `GET /api/shop/admin/promotions` | Staff | Discount codes with usage. |
+| `GET /api/shop/admin/promotions` | Staff | Discount codes with usage, newest first: `limit` (1-500, default 500) and `offset`; `hasMore` says whether another page exists. |
 | `POST /api/shop/admin/promotions` | Staff | Creates a code (201); 409 if it exists. |
 | `PATCH /api/shop/admin/promotions/:id` | Staff | Changes rules or switches it off; code, kind and value cannot change. |
 

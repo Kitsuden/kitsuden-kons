@@ -3,7 +3,7 @@
   "id": "kon-members",
   "name": "Members",
   "description": "Paid memberships: tiers, members and content access control",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "sdk": 1,
   "type": "kon",
   "tier": "essential",

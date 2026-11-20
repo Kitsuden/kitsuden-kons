@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-members",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Paid memberships for Kitsuden: tiers, members and access control",
   "type": "module",
   "main": "./index.ts",
