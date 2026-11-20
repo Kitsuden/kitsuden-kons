@@ -133,6 +133,7 @@ export function recordOperations(routes: ReturnType<typeof registry>): void {
     "/activity-kinds",
     {
       id: "list-activity-kinds",
+      unpaginated: "The kinds of activity a preset or an admin defined: a short configuration list.",
       summary: "List the kinds of activity this installation uses",
       description:
         "What the business calls its activities (`hearing`, `site-visit`…), each with the `type` it maps to and a default duration, as a preset or an admin defined them in the `activity` entity. Empty when none are defined, and then any `kind` is accepted. Requires CRM view access.",

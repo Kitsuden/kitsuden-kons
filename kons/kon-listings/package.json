@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-listings",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from visitors, and the XML feeds portals such as Trovit and Mitula read.",
   "type": "module",
   "main": "./index.ts",

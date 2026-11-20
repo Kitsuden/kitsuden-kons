@@ -6,7 +6,7 @@ keeping HR data (birth date, salary band, emergency contact, documents) visible 
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.1 | `/api/directory` | kon-media (core `auth`) |
+| beta | business | 1.1.0 | `/api/directory` | kon-media (core `auth`) |
 
 ## Install
 
@@ -41,26 +41,31 @@ writes it; the org chart is computed on each request.
 ## HTTP API
 
 What each employee field shows depends on who asks (see [Who can do what](#who-can-do-what)).
-Lists return `{ docs }`; `GET /api/directory/employees` also returns `totalDocs`.
+Lists return `{ docs }`; `GET /api/directory/employees` also returns `totalDocs` (the employees on
+that page). Organizations, departments and positions come a page at a time: `limit` (default and
+maximum 500 for organizations, 1000 for the other two) and `offset`, with `hasMore` set when rows
+follow the page. Employees keep their `limit` (1-100, default 50) and take `offset` too, so the
+101st employee is reachable; they answer `hasMore` as well. Without `offset` a client gets what it
+got before 1.1.0.
 
 Structure:
 
 | Route | Who may call it | What it does |
 | --- | --- | --- |
-| `GET /api/directory/organizations` | Signed in | Active organizations by name (up to 500), with logo URL and employee count. |
+| `GET /api/directory/organizations` | Signed in | Active organizations by name, with logo URL and employee count; `limit` (1-500, default 500), `offset`, `hasMore`. |
 | `POST /api/directory/organizations` | HR | Creates an organization; slug from the name unless given; 409 if taken. |
 | `GET /api/directory/organizations/:id` | Signed in | One organization by id or slug, with its active top-level departments. Inactive: 404 except for HR. |
-| `GET /api/directory/departments` | Signed in | Active departments (up to 1000). Filters `organizationId`, `parentId` (`null` = top level). |
+| `GET /api/directory/departments` | Signed in | Active departments. Filters `organizationId`, `parentId` (`null` = top level); `limit` (1-1000, default 1000), `offset`, `hasMore`. |
 | `POST /api/directory/departments` | HR | Creates a department; slug unique in the organization (409); a parent from another organization is 422. |
 | `GET /api/directory/departments/:id` | Signed in | A department with head, sub-departments and active employees as the caller may see them. Inactive: 404 except for HR. |
-| `GET /api/directory/positions` | Signed in | Active positions (up to 1000). Filters `organizationId`, `departmentId`. |
+| `GET /api/directory/positions` | Signed in | Active positions. Filters `organizationId`, `departmentId`; `limit` (1-1000, default 1000), `offset`, `hasMore`. |
 | `POST /api/directory/positions` | HR | Creates a position. |
 
 Employees:
 
 | Route | Who may call it | What it does |
 | --- | --- | --- |
-| `GET /api/directory/employees` | Signed in | Active, visible employees by surname. Filters `organizationId`, `departmentId`, `positionId`, `managerId`, `remote=true`, `location`, `search` (name; HR also e-mail), `status` (HR only), `limit` (1-100, default 50). |
+| `GET /api/directory/employees` | Signed in | Active, visible employees by surname. Filters `organizationId`, `departmentId`, `positionId`, `managerId`, `remote=true`, `location`, `search` (name; HR also e-mail), `status` (HR only); `limit` (1-100, default 50), `offset`, `hasMore`. |
 | `POST /api/directory/employees` | HR | Creates a profile. Required: `organizationId`, `employeeId`, `firstName`, `lastName`, `email`. Employee number unique per organization and e-mail unique overall (409). |
 | `GET /api/directory/employees/:id` | Signed in | A profile with organization, department, position, manager and direct reports. Hidden or inactive: 404 except for its owner and HR. |
 | `PATCH /api/directory/employees/:id` | HR, or the employee | HR changes any field. The employee changes only personal fields of their own profile; any other field is 403. |
@@ -146,8 +151,12 @@ colleagues, the employee and HR; personal versus HR fields; documents; statistic
 cycle; malformed ids; the uploader taken from the session; and row security plus the HR-fields
 trigger in the database.
 
+`tests/unit/kon-directory-pagination.test.ts` covers `limit`, `offset` and `hasMore` on the
+structure lists and the employee list.
+
 ```bash
 pnpm vitest run tests/unit/kon-directory-security.test.ts
+pnpm vitest run tests/unit/kon-directory-pagination.test.ts
 ```
 
 ## License

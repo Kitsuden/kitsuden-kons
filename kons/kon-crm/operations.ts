@@ -38,6 +38,7 @@
 import { authorize, defineOperation, type AnyOperation } from "@kitsuden/engine";
 import type { OperationContext, ValidatedInput, KonOperation } from "@kitsuden/shared";
 import type { Context, MiddlewareHandler } from "hono";
+import { z } from "@kitsuden/engine/zod";
 
 import { applyAccess, checkWrite } from "./crm.access";
 import type { CrmDb } from "./crm.db";
@@ -117,3 +118,49 @@ export const requiresEdit: MiddlewareHandler = async (c, next) => {
   await authorize(userOf(c), "edit", null, "crm");
   await next();
 };
+
+// ── Paging of lists that had none ───────────────────────────────────────────
+
+/**
+ * `limit` and `offset` of a list that used to stop at `max` rows with no sign. The default is
+ * still `max`, so a client that sends neither gets what it got before, plus `hasMore`.
+ */
+export const cappedPage = (max: number) => ({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(max)
+    .default(max)
+    .describe(`Rows per page, 1-${max} (default ${max})`),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)"),
+});
+
+/**
+ * `limit` and `offset` of a list that used to return every row. Without `limit` it still does
+ * (and `hasMore` is false).
+ */
+export const optionalPage = {
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("Rows per page, 1-500. Without it, every row"),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)"),
+};
+
+/**
+ * `offset` alone, for a list whose `limit` was already there (a page size with no way to the
+ * next page). Its `limit` keeps its own default and maximum.
+ */
+export const pageOffset = z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)");
+
+export type Page = { limit?: number; offset: number };
+
+/** The page out of the `limit + 1` rows read (every row without `limit`), and whether more follow. */
+export function pageOfRows<T>(rows: T[], limit: number | undefined): { data: T[]; hasMore: boolean } {
+  if (limit === undefined) return { data: rows, hasMore: false };
+  return { data: rows.slice(0, limit), hasMore: rows.length > limit };
+}

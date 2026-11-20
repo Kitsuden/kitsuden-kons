@@ -273,6 +273,7 @@ export function accessOperations(routes: ReturnType<typeof registry>): void {
     "/access",
     {
       id: "list-access-grants",
+      unpaginated: "One grant per person or agent an admin gave CRM access to: the team of one installation.",
       summary: "List CRM access grants",
       description:
         "Every grant, with who gave it, why and until when. Admin only. Whoever has no grant has the default access.",

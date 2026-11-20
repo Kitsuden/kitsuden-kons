@@ -28,7 +28,8 @@ tools say `character-builder`, and the policy resource is `builder`.
   - `compute-build` → `{ data: stats, issues, code }`; 422 with `issues` on a rule break.
   - `open-build-code` → `{ data: { ok, builderId, build } }`.
   - `save-build`, `update-build` → `{ data: <build row> }`.
-  - `list-my-builds`, `list-builds` → `{ docs: [...] }`; `get-build` → `{ data }`.
+  - `list-my-builds` → `{ docs: [...] }`; `list-builds` → `{ docs: [...], hasMore }` (`limit` 1-100,
+    default 24, and `offset`); `get-build` → `{ data }`.
   - `delete-build` → `{ data: { id } }`; `vote-build` → `{ data: { id, votes, voted } }`.
 - `publish-definition` and `delete-build` are sensitive: they may come back
   `202 KITSUDEN_E_APPROVAL_REQUIRED`. Report the proposal; do not retry.

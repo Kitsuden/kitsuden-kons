@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-ecommerce",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Shop for digital products and made-to-order goods: catalog, orders, finite stock and local pickup",
   "type": "module",
   "main": "./index.ts",

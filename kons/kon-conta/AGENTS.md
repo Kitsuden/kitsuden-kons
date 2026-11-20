@@ -23,6 +23,14 @@ trail). One ledger for the whole installation: there are no per-user rows. Human
 - **MCP tools** are `conta__<operation>` (ids in `conta.routes.ts` and `conta.billing.routes.ts`).
   Reads return `{ data: ... }`; writes return `{ data: row }`; deletes return `{ success }`.
   Amounts in and out are decimal strings.
+- **Paging.** `list-client-funds`, `list-recurring-fees` and `list-success-fees` return every row
+  unless you send `limit` (1-500); then `offset` moves on and `hasMore` says whether to ask again.
+  Their `summary` always covers every row that matches the filter, not only the page.
+  `list-accounts`, `list-counterparties`, `list-projects`, `list-disbursements` and
+  `list-client-funds-transactions` keep their `limit` and its default and take `offset`, with
+  `hasMore`; the statement's running `balance` counts every earlier movement, whatever the page.
+  Lists with `limit` and `page` (invoices, journals…) keep that scheme. Currencies, templates,
+  resources and the role list are small configuration and always come whole.
 - **Approval.** Sensitive operations may come back `202 KITSUDEN_E_APPROVAL_REQUIRED` when an admin
   has turned approval on: `post-journal`, `reverse-journal`, `issue-invoice`, `void-invoice`,
   `record-payment`, `reverse-payment`, `record-expense`, the three `client-funds-*` writes,
@@ -115,4 +123,5 @@ pnpm vitest run tests/unit/kon-conta-startup.test.ts    # startup: no migrations
 pnpm vitest run tests/unit/kon-conta-billing.test.ts    # billing, client funds, close, reports
 pnpm vitest run tests/unit/kon-conta-reads.test.ts      # reads, settings, attention, bridge
 pnpm vitest run tests/unit/kon-crm-conta-bridge.test.ts # after touching conta.bridge.ts
+pnpm vitest run tests/unit/kon-conta-pagination.test.ts  # limit, offset, hasMore on billing lists
 ```

@@ -57,6 +57,11 @@ import {
   withData,
   query,
   text,
+  cappedPage,
+  optionalPage,
+  pageOf,
+  cutPage,
+  pageOffset,
 } from "./schemas";
 import { importOperations } from "./importers/import.routes";
 import { leaderboardOperations } from "./leaderboard";
@@ -163,25 +168,24 @@ function playersOperations(ctx: KonContext): AnyOperation[] {
       id: "list-players",
       summary: "List players",
       description:
-        "Up to 500 players, newest first, optionally filtered by alias (`search`). Account ids are left out unless you are tournament staff.",
+        "Players, newest first, optionally filtered by alias (`search`), in pages of `limit` (1-500, default 500) from `offset`. The response is the array; the `X-Has-More` header says whether more follow (a page shorter than `limit` is the last). Account ids are left out unless you are tournament staff.",
       access: "optional",
-      input: { query: query({ search: text("Text in the alias") }) },
+      input: { query: query({ search: text("Text in the alias"), ...cappedPage(500) }) },
       output: { schema: Rows },
     },
-    async (c) => {
+    async (c, input) => {
       const search = c.req.query("search");
-      let query = db.instance.select().from(players).orderBy(desc(players.createdAt));
-
-      if (search) {
-        query = db.instance
-          .select()
-          .from(players)
-          .where(ilike(players.alias, `%${search}%`))
-          .orderBy(desc(players.createdAt)) as any;
-      }
-
-      // With a cap (it was the whole table) and without account ids outside the organization
-      const results = await (query as typeof query).limit(500);
+      const { limit = 500, offset } = pageOf(input);
+      // With a cap (it was the whole table), in pages since 2026-11-18, and without
+      // account ids outside the organization.
+      const rows = await db.instance
+        .select()
+        .from(players)
+        .where(search ? ilike(players.alias, `%${search}%`) : undefined)
+        .orderBy(desc(players.createdAt), desc(players.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const results = cutPage(c, rows, limit);
       return c.json((await seesAccountIds(c)) ? results : results.map(withoutAccountIds));
     }
   );
@@ -337,22 +341,22 @@ function teamsOperations(ctx: KonContext): AnyOperation[] {
       id: "list-teams",
       summary: "List teams",
       description:
-        "Up to 500 teams, newest first, optionally filtered by name (`search`). Account ids are left out unless you are tournament staff.",
+        "Teams, newest first, optionally filtered by name (`search`), in pages of `limit` (1-500, default 500) from `offset`. The response is the array; the `X-Has-More` header says whether more follow (a page shorter than `limit` is the last). Account ids are left out unless you are tournament staff.",
       access: "optional",
-      input: { query: query({ search: text("Text in the team name") }) },
+      input: { query: query({ search: text("Text in the team name"), ...cappedPage(500) }) },
       output: { schema: Rows },
     },
-    async (c) => {
+    async (c, input) => {
       const search = c.req.query("search");
-      let query = db.instance.select().from(teams).orderBy(desc(teams.createdAt));
-      if (search) {
-        query = db.instance
-          .select()
-          .from(teams)
-          .where(ilike(teams.name, `%${search}%`))
-          .orderBy(desc(teams.createdAt)) as any;
-      }
-      const results = await (query as typeof query).limit(500);
+      const { limit = 500, offset } = pageOf(input);
+      const rows = await db.instance
+        .select()
+        .from(teams)
+        .where(search ? ilike(teams.name, `%${search}%`) : undefined)
+        .orderBy(desc(teams.createdAt), desc(teams.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const results = cutPage(c, rows, limit);
       return c.json((await seesAccountIds(c)) ? results : results.map(withoutAccountIds));
     }
   );
@@ -603,18 +607,19 @@ function tournamentsOperations(ctx: KonContext): AnyOperation[] {
       id: "list-tournaments",
       summary: "List tournaments",
       description:
-        "Newest first, at most `limit` (default 50, max 200), filtered by text in the title. Drafts only for tournament staff (`status` filters by state for them; the public never sees Draft). Includes the approved participant count, dates and prize pool.",
+        "Newest first, in pages of `limit` (default 50, max 200) from `offset`, filtered by text in the title. The response is the array; the `X-Has-More` header says whether more follow (a page shorter than `limit` is the last). Drafts only for tournament staff (`status` filters by state for them; the public never sees Draft). Includes the approved participant count, dates and prize pool.",
       access: "optional",
       input: {
         query: query({
           search: text("Text in the title"),
           status: text("Draft | Open | InProgress | Completed … (staff only)"),
           limit: text("1-200, default 50"),
+          ...pageOffset,
         }),
       },
       output: { schema: Rows },
     },
-    async (c) => {
+    async (c, input) => {
       const search = c.req.query("search");
       const status = c.req.query("status");
       /**
@@ -625,6 +630,8 @@ function tournamentsOperations(ctx: KonContext): AnyOperation[] {
        */
       const request = Number.parseInt(c.req.query("limit") ?? "", 10);
       const limit = Number.isFinite(request) && request > 0 ? Math.min(request, 200) : 50;
+      // Rows past `limit` were unreachable (api-contract, 2026-11-18): `offset` moves on.
+      const { offset } = pageOf(input);
       // Conditions accumulate and `.where()` is called ONCE.
       //
       // Before there were two chained `.where()`, which in Drizzle do not add up: the
@@ -720,10 +727,12 @@ function tournamentsOperations(ctx: KonContext): AnyOperation[] {
         })
         .from(tournaments)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(tournaments.createdAt))
-        .limit(limit);
+        // The id breaks ties in `createdAt`, so pages neither repeat nor skip a row.
+        .orderBy(desc(tournaments.createdAt), desc(tournaments.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json(results);
+      return c.json(cutPage(c, results, limit));
     }
   );
 
@@ -1089,21 +1098,30 @@ function proMatchesOperations(ctx: KonContext): AnyOperation[] {
       id: "list-scene-matches",
       summary: "List scene matches (the blog calendar)",
       description:
-        "Matches of OTHER teams for the esports blog calendar (not our tournaments). By default live and scheduled, live first then by time; `order=recent` for results (newest first). Filters: `status` (comma list), `game` (name), `days` ahead, `limit` (1-100, default 12).",
+        "Matches of OTHER teams for the esports blog calendar (not our tournaments). By default live and scheduled, live first then by time; `order=recent` for results (newest first). Filters: `status` (comma list), `game` (name), `days` ahead. In pages of `limit` (1-100, default 12) from `offset`; `hasMore` says whether more follow and `totalDocs` is the size of this page.",
       access: "public",
       input: {
         query: query({
           limit: text("1-100, default 12"),
+          ...pageOffset,
           status: text("Comma list of scheduled | live | finished | cancelled"),
           game: text("Game name"),
           days: text("Up to N days ahead"),
           order: text("`recent` = newest first"),
         }),
       },
-      output: { schema: z.object({ docs: Rows, totalDocs: z.number().int() }) },
+      output: {
+        schema: z.object({
+          docs: Rows,
+          totalDocs: z.number().int().describe("Matches in this page"),
+          hasMore: z.boolean().describe("More matches follow: ask with `offset` + `limit`"),
+        }),
+      },
     },
-    async (c) => {
+    async (c, input) => {
       const limit = Math.min(Math.max(Number(c.req.query("limit")) || 12, 1), 100);
+      // Rows past `limit` were unreachable (api-contract, 2026-11-18): `offset` moves on.
+      const { offset } = pageOf(input);
       const requests = (c.req.query("status") ?? "live,scheduled").split(",").map((e) => e.trim());
       const statuses = requests.filter(isStatus);
       const game = c.req.query("game");
@@ -1133,11 +1151,16 @@ function proMatchesOperations(ctx: KonContext): AnyOperation[] {
         .orderBy(
           ...(recent
             ? [sql`${proMatches.scheduledAt} desc nulls last`]
-            : [desc(eq(proMatches.status, "live")), asc(proMatches.scheduledAt)])
+            : [desc(eq(proMatches.status, "live")), asc(proMatches.scheduledAt)]),
+          // Matches at the same time (or with none) keep one order between pages.
+          asc(proMatches.id)
         )
-        .limit(limit);
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json({ docs, totalDocs: docs.length });
+      const hasMore = docs.length > limit;
+      const page = hasMore ? docs.slice(0, limit) : docs;
+      return c.json({ docs: page, totalDocs: page.length, hasMore });
     }
   );
 
@@ -1275,13 +1298,14 @@ function matchesOperations(ctx: KonContext): AnyOperation[] {
       id: "list-sets",
       summary: "List sets",
       description:
-        "Sets (rows of esports_matches) by round and order, optionally of one tournament. Sets of draft tournaments only for staff.",
+        "Sets (rows of esports_matches) by round and order, optionally of one tournament. Sets of draft tournaments only for staff. Every set unless you send `limit` (1-500) and `offset`; the response is the array and the `X-Has-More` header says whether more follow (a page shorter than `limit` is the last).",
       access: "optional",
-      input: { query: query({ tournamentId: text("Tournament id") }) },
+      input: { query: query({ tournamentId: text("Tournament id"), ...optionalPage(500) }) },
       output: { schema: Rows },
     },
-    async (c) => {
+    async (c, input) => {
       const tournamentId = c.req.query("tournamentId");
+      const { limit, offset } = pageOf(input);
       // A single condition, so there was no filter to lose here — but
       // chaining after `.orderBy()` forced an `as any` that turned off the
       // check right on the filter line. Same order as the route
@@ -1298,7 +1322,7 @@ function matchesOperations(ctx: KonContext): AnyOperation[] {
         .select({ id: tournaments.id })
         .from(tournaments)
         .where(ne(tournaments.status, "Draft"));
-      const results = await db.instance
+      const all = db.instance
         .select()
         .from(matches)
         .where(
@@ -1307,8 +1331,14 @@ function matchesOperations(ctx: KonContext): AnyOperation[] {
             seesDrafts ? undefined : inArray(matches.tournamentId, publicOnes)
           )
         )
-        .orderBy(asc(matches.round), asc(matches.matchOrder));
-      return c.json(results);
+        // The id breaks ties: sets of several tournaments share round and order,
+        // and a page needs a stable order.
+        .orderBy(asc(matches.round), asc(matches.matchOrder), asc(matches.id))
+        .offset(offset)
+        .$dynamic();
+      // Without `limit`, every set, as before pages existed.
+      const results = await (limit === undefined ? all : all.limit(limit + 1));
+      return c.json(cutPage(c, results, limit));
     }
   );
 

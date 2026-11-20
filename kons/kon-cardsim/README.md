@@ -14,7 +14,7 @@ at `/api/cardsim`:
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 2.3.2 | `/api/cardsim` | — (core: `auth`) |
+| beta | gaming | 2.4.0 | `/api/cardsim` | — (core: `auth`) |
 
 ## Install
 
@@ -52,6 +52,12 @@ carry a secret seed (`secret_rng`) that never leaves the server while the game i
 | `handlab_decks` | Hand generator decks. |
 
 ## HTTP API
+
+**Pages (since 2.4.0).** `list-rooms` takes `limit` (1-50, default 50: the old cap) and
+`offset`; `list-my-decks` takes `limit` (1-500) and `offset`, and without `limit` still returns
+every deck. Both add `hasMore` next to `data`: while it is `true`, ask again with `offset` +
+`limit`. `list-presets`, `list-games` and `list-datasets` are read whole (declared `unpaginated`):
+the shipped presets, and the games and datasets the team curates.
 
 ### The simulator
 
@@ -107,15 +113,22 @@ entry answers 404 to everyone but its author and moderation.
 | `POST /api/cardsim/showcase/goldfish` | `showcase-simulate-goldfish` | public |
 | `POST /api/cardsim/showcase/decks` | `showcase-save-deck` | session (`deckshow:create` for an agent) |
 | `GET /api/cardsim/showcase/entries` | `list-posts` | public |
-| `GET /api/cardsim/showcase/entries/:slug` | `get-post` | public |
+| `GET /api/cardsim/showcase/entries/:ref` | `get-post` | public |
 | `POST /api/cardsim/showcase/entries` | `publish-post` | session |
-| `PUT /api/cardsim/showcase/entries/:id` | `update-post` | session (author or moderation) |
-| `DELETE /api/cardsim/showcase/entries/:id` | `delete-post` | session (author or moderation) |
+| `PUT /api/cardsim/showcase/entries/:ref` | `update-post` | session (author or moderation) |
+| `DELETE /api/cardsim/showcase/entries/:ref` | `delete-post` | session (author or moderation) |
 | `POST /api/cardsim/showcase/entries/:id/like` | `like` | session |
 | `DELETE /api/cardsim/showcase/entries/:id/like` | `unlike` | session |
 | `POST /api/cardsim/showcase/entries/:id/moderate` | `moderate-post` | session (admin/editor) |
 
 Policy: `deckshow`.
+
+`:ref` on `/showcase/entries/:ref` is the entry's **slug** for `get-post` and its **id** for
+`update-post` and `delete-post`, exactly as before. Until 2.3.2 the parameter was called `slug`
+on the GET and `id` on the PUT and DELETE; OpenAPI reads two such templates as one path, so 2.4.0
+gives both the one name `ref`. URLs do not change, but generated clients and MCP tools
+(`cardsim__get-post`, `cardsim__update-post`, `cardsim__delete-post`) now take `ref` in place of
+`slug` / `id`.
 
 ### The hand generator
 
@@ -226,6 +239,7 @@ Until 2.3.0 the showcase was `kon-deckshow` (mounted at `/api/deckshow`) and the
 | `tests/unit/deckshow-authz.test.ts`, `tests/unit/deckshow-published-deck-rls.test.ts`, `tests/unit/sec-cards-deckshow-autobattler.test.ts` | The showcase: policy, published decks under row security, likes on hidden entries |
 | `tests/unit/handlab-definition.test.ts`, `tests/unit/handlab-delete-dataset-rls.test.ts`, `tests/unit/security-handlab.test.ts` | The hand generator: minimal definition, deleting datasets, permissions and rate limits |
 | `tests/unit/kons-from-dataset.test.ts` | Cards read from a dataset |
+| `tests/unit/cardsim-pagination.test.ts` | Pages of `list-my-decks` and `list-rooms` (`limit`, `offset`, `hasMore`); `/showcase/entries/:ref` keeps its URLs |
 
 ```bash
 pnpm vitest run tests/unit/cardsim-engine.test.ts

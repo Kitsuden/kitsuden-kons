@@ -6,7 +6,7 @@ signed-in users save comps that staff rank into a tier list.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.2 | `/api/autobattler` | — (core: `auth`) |
+| beta | gaming | 1.1.0 | `/api/autobattler` | — (core: `auth`) |
 
 ## Install
 
@@ -53,11 +53,11 @@ Sets and catalogue:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/autobattler/sets` | anyone | Every set, current ones first, then by name. `?game=` filters. |
+| `GET /api/autobattler/sets` | anyone | Every set, current ones first, then by name. `?game=` filters. Read whole (a few sets per game). |
 | `POST /api/autobattler/sets/import` | admin, editor, or an agent with `autobattler:import` | Upsert a set by `slug` with all its entities (1 to 20,000), matched by kind and id; repeated ids in the batch are collapsed. Returns 201 with `created`, `updated`, `total`, `collapsed`. Icons must be `http(s)` or `/path`. |
 | `GET /api/autobattler/sets/:slug` | anyone | The set and how many entities of each kind it has. |
-| `GET /api/autobattler/sets/:slug/comps` | anyone | Published comps of the set in tier order (S, A, B… then unranked; then best average placement; then most recently updated). `?tag=` filters. |
-| `GET /api/autobattler/sets/:slug/:kind` | anyone | Entities of one kind (`units`, `traits`, `items`, `augments`) by name. `?q=` matches the name; any other query key filters on that `data` field. Another kind is a 404. |
+| `GET /api/autobattler/sets/:slug/comps` | anyone | Published comps of the set in tier order (S, A, B… then unranked; then best average placement; then most recently updated). `?tag=` filters. Every comp unless you send `limit` (1-500) and `offset`; `hasMore` says whether more follow, `meta.total` counts all that match. |
+| `GET /api/autobattler/sets/:slug/:kind` | anyone | Entities of one kind (`units`, `traits`, `items`, `augments`) by name. `?q=` matches the name; any other query key filters on that `data` field. Another kind is a 404. Read whole (one set's catalogue). |
 | `GET /api/autobattler/sets/:slug/items/:id/components` | anyone | The components an item is built from. |
 
 Calculators (save nothing; the body names the set with `setSlug`):
@@ -73,10 +73,16 @@ Comps:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/autobattler/comps/:slug` | anyone (hidden: author and staff) | The comp, its set, its traits and the board with each unit and item resolved. 409 if its set no longer exists. |
+| `GET /api/autobattler/comps/:ref` | anyone (hidden: author and staff) | The comp, its set, its traits and the board with each unit and item resolved. 409 if its set no longer exists. |
 | `POST /api/autobattler/comps` | any signed-in account | Save a comp as yours, published. The slug comes from the title plus a random suffix; the gold cost is computed. A comp with rule issues is a 422 with `issues`. |
-| `DELETE /api/autobattler/comps/:id` | the author, or staff | Delete a comp. 204. |
+| `DELETE /api/autobattler/comps/:ref` | the author, or staff | Delete a comp. 204. |
 | `POST /api/autobattler/comps/:id/rank` | admin, editor | Set `tier` (null removes it), `hide`, and `stats` with `statsSource` (stats without a source are a 422). Omitted fields keep their value. Never the author. |
+
+`:ref` on `/comps/:ref` is the comp's **slug** for `get-comp` and its **id** for `delete-comp`,
+exactly as before. Until 1.0.2 the parameter was called `slug` on the GET and `id` on the DELETE;
+OpenAPI reads two such templates as one path, so 1.1.0 gives both the one name `ref`. URLs do not
+change, but generated clients and the MCP tools `autobattler__get-comp` and
+`autobattler__delete-comp` now take `ref` in place of `slug` / `id`.
 
 ## Who can do what
 
@@ -134,6 +140,7 @@ call answers `202 KITSUDEN_E_APPROVAL_REQUIRED` until a person approves it. See
 | --- | --- |
 | `tests/unit/autobattler-engine.test.ts` | Trait thresholds, distinct units, emblems, comp validation, gold cost, crafting. |
 | `tests/unit/autobattler-builder.test.ts` | Unit suggestions, full board, trait plan. |
+| `tests/unit/autobattler-pagination.test.ts` | Pages of `list-set-comps` (`limit`, `offset`, `hasMore`); `/comps/:ref` keeps its URLs. |
 | `tests/unit/sec-cards-deckshow-autobattler.test.ts` (`describe("autobattler: ...")`) | Importing a set is editorial; `autobattler:import` works for an agent; icon URLs. |
 
 ```bash

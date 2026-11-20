@@ -221,6 +221,7 @@ export function liveOperations(
       description:
         "The games of the set in order (without ingest tokens). Someone else's set is a 404.",
       access: "session",
+      unpaginated: "The games of one set: a best-of series, a handful at most.",
       permission: ANY_ACCOUNT,
       before: [requires("games")],
       input: { params: ParamId },

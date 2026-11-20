@@ -6,7 +6,7 @@ OCR) are an optional dependency or a sidecar, never inside the API.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | documents | 0.1.1 | `/api/ingest` | — (pgvector in the database; the core's embeddings provider for search) |
+| experimental | documents | 0.2.0 | `/api/ingest` | — (pgvector in the database; the core's embeddings provider for search) |
 
 ## Install
 
@@ -62,19 +62,24 @@ Send exactly one of `content` (text, up to 7 MB) or `contentBase64` (binary).
 ## HTTP API
 
 Most routes are generated from the two models by the core (`modelOperations`); one is the kon's own.
+The core puts each model's description at `/<plural>/_model`, which is not a kebab-case path: the kon adds
+`/<plural>/model` (`describe-<model>-model`) with the same answer and marks the old route deprecated.
+Both work until 2027-05-18; move to the new one.
 
 | Method and path | Operation | What it does |
 | --- | --- | --- |
 | `POST /api/ingest/documents/ingest` | `ingest-document` | Store a document and queue its processing. 202. |
-| `GET /api/ingest/documents/_model` | `describe-document` | Fields, access policy and scopes of the model. |
+| `GET /api/ingest/documents/model` | `describe-document-model` | Fields, access policy and scopes of the model. |
+| `GET /api/ingest/documents/_model` | `describe-document` | Deprecated since 2026-11-18, sunset 2027-05-18 (`Deprecation` and `Sunset` headers): the same answer as `describe-document-model`. |
 | `GET /api/ingest/documents` | `list-documents` | Your documents, newest first; `limit`, `offset`, `sort` and filters by field. |
 | `GET /api/ingest/documents/:id` | `get-document` | One document; poll it for `status`. |
 | `POST /api/ingest/documents` | `create-document` | Insert a document row directly. Its processing is queued, as with the ingest route. |
 | `PATCH /api/ingest/documents/:id` | `update-document` | Change fields of one of your documents. |
 | `DELETE /api/ingest/documents/:id` | `delete-document` | Delete one of your documents (204). Its chunks are deleted in the same transaction. |
-| `GET /api/ingest/chunks/_model` | `describe-chunk` | Fields, access policy and scopes of the model. |
+| `GET /api/ingest/chunks/model` | `describe-chunk-model` | Fields, access policy and scopes of the model. |
+| `GET /api/ingest/chunks/_model` | `describe-chunk` | Deprecated since 2026-11-18, sunset 2027-05-18 (`Deprecation` and `Sunset` headers): the same answer as `describe-chunk-model`. |
 | `GET /api/ingest/chunks` | `list-chunks` | Your chunks; filter with `documentId`. |
-| `GET /api/ingest/chunks/search` | `search-chunks` | `q` (required) and `limit` (1-50, default 10): your chunks closest in meaning, with `score` (1 = identical). |
+| `GET /api/ingest/chunks/search` | `search-chunks` | `q` (required) and `limit` (1-50, default 10): your chunks closest in meaning, with `score` (1 = identical). A top-k, not paged (no `offset`; declared `unpaginated`): refine `q` to find others. |
 | `GET /api/ingest/chunks/:id` | `get-chunk` | One chunk. |
 | `POST /api/ingest/chunks` | `create-chunk` | Insert a chunk directly; its embedding is queued. |
 | `PATCH /api/ingest/chunks/:id` | `update-chunk` | Change fields of one of your chunks. |
@@ -113,8 +118,9 @@ another size, change it in `ingest.model.ts` and in `job.ts`, and generate a mig
 ## Agents and MCP
 
 Every route above is an SDK operation and an MCP tool named `ingest__<operation>`: `ingest__ingest-document`,
-`ingest__describe-document`, `ingest__list-documents`, `ingest__get-document`, `ingest__create-document`,
-`ingest__update-document`, `ingest__delete-document`, `ingest__describe-chunk`, `ingest__list-chunks`,
+`ingest__describe-document-model`, `ingest__describe-document` (deprecated), `ingest__list-documents`,
+`ingest__get-document`, `ingest__create-document`, `ingest__update-document`, `ingest__delete-document`,
+`ingest__describe-chunk-model`, `ingest__describe-chunk` (deprecated), `ingest__list-chunks`,
 `ingest__search-chunks`, `ingest__get-chunk`, `ingest__create-chunk`, `ingest__update-chunk`,
 `ingest__delete-chunk`.
 

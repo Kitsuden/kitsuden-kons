@@ -31,6 +31,15 @@ and agents use the same operations; some decisions are kept for people. Human do
   admin; granting is a person's decision), `accept-observation`, `reject-observation`,
   `decide-merge-request`, `create-portal-link`. Public callers only: `submit-capture-form`,
   `read-client-portal`, `receive-inbound-email`.
+- **Paging.** Record lists take `limit` and `offset`. `list-deal-documents` returns every row
+  unless you send `limit` (1-500); `list-suppressions`, `list-targets`, `list-portal-links`,
+  `list-merge-requests` and `list-score-model-versions` default to their old cap; `list-work`,
+  `list-observations`, `list-inbound-emails`, `list-threads` and `list-events` keep their `limit`
+  and default and take `offset`. All of them answer `hasMore`: when it is `true`, ask again with
+  `offset + limit` (`list-observations` can return fewer than `limit` rows when it leaves out
+  fields you cannot read; `list-events` pages one fixed `from`/`to` window). Configuration lists
+  (pipelines, entities, presets, templates, views, mailboxes, a deal's lines, quotes and people)
+  are small and come whole.
 - **Merges.** `crm__merge-contacts` from an agent never merges: it answers 202 with a merge request
   a person decides. Report it; do not retry.
 - **Approval.** `grant-access`, `update-evidence-policy`, `apply-preset`, `create-capture-form`,
@@ -155,6 +164,7 @@ pnpm vitest run tests/unit/kon-crm-inbound.test.ts       # inbound email
 pnpm vitest run tests/unit/kon-crm-practice.test.ts      # end to end with a preset
 pnpm vitest run tests/unit/kon-crm-conta-bridge.test.ts  # billing
 pnpm vitest run tests/unit/crm-filters.test.ts           # custom field filters
+pnpm vitest run tests/unit/kon-crm-pagination.test.ts    # limit, offset, hasMore
 pnpm vitest run kons/kon-crm/tests/crm.routes.test.ts    # route registration
 pnpm test:bun                                            # dedupe and capture
 ```

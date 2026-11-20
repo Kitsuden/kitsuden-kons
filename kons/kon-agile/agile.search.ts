@@ -33,16 +33,22 @@ export function searchOperations(db: { instance: AgileDb }, access: AgileAccess)
 
   routes.get(
     "/:projectId/search",
-    declareOp(
-      "search-issues",
-      "Search a project's issues",
-      'Full-text search over the key, title, description and comments of the project\'s issues. `q` takes words, `"an exact phrase"`, `-without` and `or`; a half-typed key or title word also matches. Best matches first (title over description over comments), each with where it matched and a short snippet with the words between « ». `includeArchived=true` also searches archived issues; `limit` 1-50 (default 20). Only for members of the project (and admin); anyone else gets 404.',
-      {
-        params: ProjectParam,
-        query: query({ q: text("What to look for (2-200 characters)"), includeArchived: text("`true`: archived issues too"), limit: text("1-50 (default 20)") }),
-      },
-      { schema: z.object({ docs: z.array(Hit), totalDocs: z.number().int() }).passthrough() }
-    ),
+    {
+      ...declareOp(
+        "search-issues",
+        "Search a project's issues",
+        'Full-text search over the key, title, description and comments of the project\'s issues. `q` takes words, `"an exact phrase"`, `-without` and `or`; a half-typed key or title word also matches. Best matches first (title over description over comments), each with where it matched and a short snippet with the words between « ». `includeArchived=true` also searches archived issues; `limit` 1-50 (default 20). Only for members of the project (and admin); anyone else gets 404.',
+        {
+          params: ProjectParam,
+          query: query({ q: text("What to look for (2-200 characters)"), includeArchived: text("`true`: archived issues too"), limit: text("1-50 (default 20)") }),
+        },
+        { schema: z.object({ docs: z.array(Hit), totalDocs: z.number().int() }).passthrough() }
+      ),
+      // The ranking is finished in code (title over description over comments) over a window
+      // of `2 × limit` rows, so an OFFSET on the SQL would not continue the same order.
+      unpaginated:
+        "Returns the best matches by relevance (limit 1-50, default 20), re-ranked by where they matched; a search is narrowed with more words, not paged.",
+    },
     async (c, input) => {
       const { project } = await access.projectFor(c, input.params.projectId, "view");
       const q = (c.req.query("q") ?? "").trim();

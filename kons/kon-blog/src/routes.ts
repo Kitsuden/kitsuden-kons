@@ -1951,6 +1951,8 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every category as a flat list with parentId and postCount (build the tree on the client).",
       access: "public",
+      unpaginated:
+        "The category tree an editor curates: dozens at most, read whole to build the tree.",
       output: { schema: CategoryList },
       handle: async (_input, { c }) => {
         try {

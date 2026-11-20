@@ -27,7 +27,7 @@ export type Declaration = Omit<KonOperation, "method" | "route" | "handle">;
  * `c.req.param("slug")` is `string` —as when each route typed its own— and
  * not `string | undefined`. What is validated is in `input.params`.
  */
-export type KonPath = "/:id/:slug/:kind";
+export type KonPath = "/:id/:slug/:kind/:ref";
 
 /** A handler of the old kind, with the validated input and the operation's context. */
 export type Handler = (

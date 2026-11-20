@@ -16,6 +16,7 @@
 #   · `pnpm test:bun`         the kons that carry bun tests
 #   · migrations of ALL kons on a real Postgres, through Kitsuden's own runner
 #   · Schemathesis against the SDK operations of these kons (contract testing)
+#   · Kitsuden's contract rules (Spectral) on the same operations
 #
 # KITSUDEN_REF picks the Kitsuden version to test against (default: main).
 #
@@ -138,6 +139,13 @@ jobs:
       - name: Kon bun tests
         run: pnpm test:bun
 
+      # Kitsuden's contract rules (Spectral) on these kons' SDK operations: the core
+      # builds their OpenAPI from the declarations (no database) and lints it with its
+      # own ruleset (scripts/api-contract/ in Kitsuden). Blocking: every kon passes. A
+      # Kitsuden older than the ruleset is reported and skipped.
+      - name: Contract rules (Spectral)
+        run: KITSUDEN_DIR=.kitsuden node scripts/api-contract.mjs --github --summary="$GITHUB_STEP_SUMMARY"
+
       # The kons' SQL migrations, all of them, on a real Postgres, with the
       # same runner a Kitsuden server uses: each kon is "installed" by path
       # through KITSUDEN_KONS, the way `kitsuden kon add --link` declares it.
@@ -170,7 +178,15 @@ jobs:
         run: |
           KITSUDEN_KONS=$(for d in ../../../kons/kon-*; do printf '%s=%s,' "$(basename "$d")" "$(cd "$d" && pwd)"; done)
           export KITSUDEN_KONS
-          bun run scripts/schemathesis.ts --only-installed --baseline="$GITHUB_WORKSPACE/schemathesis-baseline.json"
+          # Left out: the three kon-dc operations whose body holds the recursive blueprint
+          # definition (templates and steps that nest): POST /api/dc/blueprints,
+          # PATCH /api/dc/blueprints/{id} and POST /api/dc/import. Schemathesis's coverage
+          # phase never finishes on them: on 2026-11-20 it sent ~280,000 requests to the
+          # first, then ~226,000 to the last, until the job timed out. `--solo` filters by
+          # path, so GET and DELETE on those paths go too. Remove this once the core's
+          # runner tests recursive bodies without the coverage phase (Kitsuden/kitsuden#43).
+          bun run scripts/schemathesis.ts --only-installed --baseline="$GITHUB_WORKSPACE/schemathesis-baseline.json" \
+            '--solo=^(?!/api/dc/(blueprints(/\{id\})?|import)$)'
 
       - name: Upload Schemathesis report
         if: always()

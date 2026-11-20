@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-dc",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Discord bots built from declarative blueprints: modules you switch on per server, slash commands over HTTP and a separate Go gateway worker",
   "type": "module",
   "main": "./index.ts",

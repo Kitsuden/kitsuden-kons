@@ -29,6 +29,10 @@ is decided by the academy role in `training_user_profiles`, not the site role. H
   operation scope alone passes the route, but row security then shows the agent only its own rows.
 - **Responses** are `{ <key>: [rows], total }` for lists, `{ success: true, <key>: row }` for
   writes, `{ success: true, message }` for writes without a row.
+- **Pages.** `list-my-courses`, `list-assignments`, `list-profiles` and `list-surveys` take
+  `limit` (1-500) and `offset` and add `hasMore`; `total` still counts every matching row. Without
+  `limit` they return everything, as before. `list-course-modules`, `list-learning-paths`,
+  `list-my-learning-paths` and `list-groups` are read whole (`unpaginated`).
 - **Validation** keeps the old `zValidator` behaviour: an invalid body is a **400** (not 422)
   with `{ success: false, error }`, and unknown fields are dropped silently.
 - **404** means not found or not visible to you (a course not assigned to you, a group you are not
@@ -124,5 +128,6 @@ is decided by the academy role in `training_user_profiles`, not the site role. H
 pnpm vitest run tests/unit/security-academy.test.ts                # after touching routes, policy or RLS
 pnpm vitest run tests/unit/kon-academy-lms-agents-and-sync.test.ts # agents in RLS, user sync
 pnpm vitest run tests/unit/academy-without-relational-api.test.ts  # after touching reads or academy.queries.ts
+pnpm vitest run tests/unit/kon-academy-lms-pagination.test.ts      # pages of the lists
 pnpm test:bun                                                      # after touching services/
 ```

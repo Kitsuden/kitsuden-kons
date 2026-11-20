@@ -172,8 +172,37 @@ const ObjectParam = z.object({
   slug: z.string().describe("Set slug"),
   id: z.string().describe("Item id inside the set"),
 });
-const ParamComp = z.object({ slug: z.string().describe("Comp slug") });
 const ParamId = z.object({ id: z.string().describe("Comp id (autobattler_comps)") });
+/**
+ * `/comps/{ref}`: GET reads a comp by its slug, DELETE by its id. They were
+ * `/comps/{slug}` and `/comps/{id}`, two templates of the same shape that
+ * OpenAPI takes for one (api-contract, 2026-11-18). A path parameter's name is
+ * not on the wire, so one name for both changes no URL; what each route
+ * accepts stays the same.
+ */
+const CompSlugRef = z.object({
+  ref: z.string().describe("The comp's slug (`slug` in list-set-comps)"),
+});
+const CompIdRef = z.object({
+  ref: z.string().describe("The comp's id (`id` in list-set-comps; autobattler_comps)"),
+});
+
+// ── Pages (api-contract, 2026-11-18) ─────────────────────────────────────────
+
+const HasMore = z
+  .boolean()
+  .describe("More rows after this page: ask again with `offset` + `limit`.");
+/** `limit` and `offset` of a list that returned everything: without `limit` it still does. */
+const optionalPage = (max: number) => ({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(max)
+    .optional()
+    .describe(`Rows per page (1-${max}). Without it, every row, as always.`),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+});
 
 /** Free-text query: whatever is not declared is ignored, as always. */
 const text = (that: string) => z.string().optional().describe(that);
@@ -271,6 +300,7 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every imported set (e.g. a TFT set), the current one of each game first, then by name; `game` filters by game. Public.",
       access: "optional",
+      unpaginated: "The sets staff imported (`autobattler:import`): a few per game, one per season.",
       input: {
         query: z.object({ game: text("Only sets of this game (e.g. tft)") }).passthrough(),
       },
@@ -432,18 +462,25 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
       id: "list-set-comps",
       summary: "Tier list of comps of a set",
       description:
-        "Published comps of the set in tier list order (S, A, B… then unranked; inside a tier, best average placement first, then most recently updated); `tag` filters. 404 if the set does not exist.",
+        "Published comps of the set in tier list order (S, A, B… then unranked; inside a tier, best average placement first, then most recently updated); `tag` filters. Every comp unless you send `limit` (1-500) and `offset`; `meta.total` counts all that match and `hasMore` says whether more follow. 404 if the set does not exist.",
       access: "optional",
       input: {
         params: ParamSlug,
-        query: z.object({ tag: text("Only comps with this tag") }).passthrough(),
+        query: z
+          .object({ tag: text("Only comps with this tag"), ...optionalPage(500) })
+          .passthrough(),
       },
       output: {
-        schema: z.object({ data: z.array(Row), meta: z.object({ total: z.number().int() }) }),
+        schema: z.object({
+          data: z.array(Row),
+          meta: z.object({ total: z.number().int() }),
+          hasMore: HasMore,
+        }),
       },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset = 0 } = input.query as { limit?: number; offset?: number };
       const row = await sets()
         .filter({ slug: c.req.param("slug") })
         .first();
@@ -460,9 +497,17 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
         (a, b) =>
           rank(a.tier) - rank(b.tier) ||
           (a.stats?.avgPlacement ?? 9) - (b.stats?.avgPlacement ?? 9) ||
-          b.updatedAt.getTime() - a.updatedAt.getTime()
+          b.updatedAt.getTime() - a.updatedAt.getTime() ||
+          // The id breaks ties, so a page does not repeat or skip a comp.
+          a.id.localeCompare(b.id)
       );
-      return c.json({ data: filtered, meta: { total: filtered.length } });
+      // The order is computed in memory (tier, then placement), so the page is cut here.
+      const end = limit === undefined ? filtered.length : offset + limit;
+      return c.json({
+        data: filtered.slice(offset, end),
+        meta: { total: filtered.length },
+        hasMore: end < filtered.length,
+      });
     }
   );
 
@@ -475,6 +520,8 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The catalogue of the comp editor: entities of one kind (`units`, `traits`, `items`, `augments`) of the set, by name; `q` matches the name and any other query key filters on that data field (exact match, arrays match any element). 404 for an unknown kind or set.",
       access: "optional",
+      unpaginated:
+        "One kind of entity (units, traits, items or augments) of one set: a game's fixed catalogue, a few hundred at most.",
       input: {
         params: ParamKind,
         query: z
@@ -730,14 +777,14 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
   // ══ 3. Compositions ════════════════════════════════════════════════════════
 
   app.get(
-    "/comps/:slug",
+    "/comps/:ref",
     {
       id: "get-comp",
       summary: "Read a comp with its board resolved",
       description:
         "The comp, its set (slug, name, rules), its trait synergies (all and active) and the board with each unit and item resolved. A hidden comp is a 404 except for its author and staff; 409 if its set no longer exists.",
       access: "optional",
-      input: { params: ParamComp },
+      input: { params: CompSlugRef },
       output: {
         schema: z.object({
           data: Row,
@@ -751,7 +798,7 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
     },
     async (c) => {
       const comp = await comps()
-        .filter({ slug: c.req.param("slug") })
+        .filter({ slug: c.req.param("ref") })
         .first();
       if (!comp) return c.json({ error: "Not found" }, 404);
       if (!(await can(userOf(c), "view", comp, "autobattler"))) {
@@ -836,19 +883,19 @@ export function autobattlerOperations(ctx: KonContext): AnyOperation[] {
   );
 
   app.delete(
-    "/comps/:id",
+    "/comps/:ref",
     {
       id: "delete-comp",
       summary: "Delete a comp",
       description: "Deletes the comp. Its author or staff (403 otherwise). 204 with no body.",
       access: "session",
       permission: ANY_ACCOUNT,
-      input: { params: ParamId },
+      input: { params: CompIdRef },
       output: { status: 204 },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
     async (c, _input, h) => {
-      const comp = await comps().find(c.req.param("id"));
+      const comp = await comps().find(c.req.param("ref"));
       if (!comp) return c.json({ error: "Not found" }, 404);
       if (!(await h.can(comp, "delete"))) {
         return c.json({ error: "Forbidden" }, 403);

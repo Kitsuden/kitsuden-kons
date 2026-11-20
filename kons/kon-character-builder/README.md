@@ -6,7 +6,7 @@ and keeps a public gallery of builds with votes. For game sites that offer build
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.1.3 | `/api/builder` | `kon-formulas` (^1.0.0); core: `auth` |
+| beta | gaming | 1.2.0 | `/api/builder` | `kon-formulas` (^1.0.0); core: `auth` |
 
 ## Install
 
@@ -52,7 +52,7 @@ builds** (grids).
 
 | Route | Operation | Who | What it does |
 | --- | --- | --- | --- |
-| `GET /api/builder/definitions` | `list-definitions` | anyone | id, slug, name and state of each definition, by name. Drafts only for the builder team. |
+| `GET /api/builder/definitions` | `list-definitions` | anyone | id, slug, name and state of each definition, by name, whole (declared `unpaginated`). Drafts only for the builder team. |
 | `GET /api/builder/definitions/:slug` | `get-definition` | anyone | The definition with dataset-backed options filled in; `meta.datasets` says, per slot, which dataset fed it or why it could not be read. A draft is a 404 for anyone outside the team. |
 | `POST /api/builder/definitions/validate` | `validate-definition` | any account | Compiles a definition without saving it: `{ ok: true }` or `{ ok: false, error }` (both 200). 400 without `definition`. |
 | `PUT /api/builder/definitions` | `publish-definition` | builder team, or agent with `builder:publishDefinition` | Upsert by `slug`: 201 created, 200 rewritten. Compiled first (422 with the formula error). `published` sets `draft`/`published`; omitted, a new definition is a draft and an existing one keeps its state. |
@@ -64,8 +64,8 @@ builds** (grids).
 | Route | Operation | Who | What it does |
 | --- | --- | --- | --- |
 | `POST /api/builder/builds` | `save-build` | any account | Validates and saves a build (`builderId`, `build`, optional `name`, `visibility`, default `private`). Saving the same build again updates it (200) and never lowers its visibility. 404 if the definition does not exist or is a draft you cannot see; 409 at 100 builds per planner or 1,000 in total; 429 after 60 new builds in 10 minutes (not for admin). |
-| `GET /api/builder/builds/mine?builder=<id>` | `list-my-builds` | the caller (401 without a session) | Your builds in one planner, private ones included, newest first, up to 100. 400 without `builder`. |
-| `GET /api/builder/builds?builder=<id>` | `list-builds` | anyone | The gallery: public builds of a planner, optionally of one `subject`, most voted first; `limit` 1–100 (default 24). Each says whether you `voted` it. Owner ids are left out. |
+| `GET /api/builder/builds/mine?builder=<id>` | `list-my-builds` | the caller (401 without a session) | Your builds in one planner, private ones included, newest first: all of them (declared `unpaginated`: saving a 101st is refused). 400 without `builder`. |
+| `GET /api/builder/builds?builder=<id>` | `list-builds` | anyone | The gallery: public builds of a planner, optionally of one `subject`, most voted first (then most recent, then id); `limit` 1–100 (default 24) and `offset` for the next page; `hasMore` says whether more follow. Each says whether you `voted` it. Owner ids are left out. |
 | `GET /api/builder/builds/:id` | `get-build` | anyone for public and unlisted; owner or admin for private | One build with `voted`. A private build of someone else is a 404. |
 | `PATCH /api/builder/builds/:id` | `update-build` | owner or admin | Changes `name` and/or `visibility`. The publication date is set the first time it becomes public. Anyone else: 403. |
 | `DELETE /api/builder/builds/:id` | `delete-build` | owner or admin | Deletes the build and all its votes. Anyone else: 403. |

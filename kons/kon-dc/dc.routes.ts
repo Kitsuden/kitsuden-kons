@@ -146,6 +146,17 @@ const GuildModuleParam = GuildParam.extend({
   moduleId: z.string().min(1).max(60).describe("Module id: a built-in one (see GET /modules: welcome, economy, leveling, giveaways, role-menus, moderation…) or `blueprint-<uuid>`"),
 });
 const BlueprintParam = z.object({ id: z.string().describe("Blueprint id (uuid; anything else is a 404)") });
+/** An optional page: without `limit` a list answers every row, as it always did. */
+const OptionalPage = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional().describe("Rows per page (1-500). Without it, every row."),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+});
+/** Runs a list query whole, or one page of it with `hasMore`. */
+async function pageOf<T>(run: (limit: number | undefined, offset: number) => Promise<T[]>, page: { limit?: number; offset: number }) {
+  if (page.limit === undefined) return { docs: await run(undefined, page.offset), hasMore: false };
+  const rows = await run(page.limit + 1, page.offset);
+  return { docs: rows.slice(0, page.limit), hasMore: rows.length > page.limit };
+}
 
 const Guild = z.object({
   id: z.string(),
@@ -541,6 +552,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         "Every module a server can switch on: the built-in ones (welcome, autorole, ai, announcements, economy, leveling, giveaways, role-menus, reminders, scheduled-messages, suggestions, polls, moderation, automod, logs, tickets) and each published blueprint (`blueprint-<uuid>`), with the JSON Schema of its settings and the gateway intents it needs. Modules switched off for the installation (DISCORD_DISABLED_MODULES) are not listed.",
       access: "session",
       permission: team("view"),
+      unpaginated: "The built-in modules this kon ships plus the published blueprints: a catalogue, not data that grows with use.",
       output: { schema: z.object({ docs: z.array(ModuleInfo) }) },
       handle: async () => ({ docs: (await engine.availableModules()).map((m) => moduleInfo(m)) }),
     }),
@@ -550,11 +562,17 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       method: "GET",
       route: "/guilds",
       summary: "List Discord servers",
-      description: "Servers the bot is or was in (`leftAt` set when it left), by name.",
+      description:
+        "Servers the bot is or was in (`leftAt` set when it left), by name. Without `limit` every server; with `limit` (1-500) and `offset` one page, and `hasMore` says whether another follows.",
       access: "session",
       permission: team("view"),
-      output: { schema: z.object({ docs: z.array(Guild) }) },
-      handle: async () => ({ docs: await db.select().from(dcGuilds).orderBy(asc(dcGuilds.name)) }),
+      input: { query: OptionalPage },
+      output: { schema: z.object({ docs: z.array(Guild), hasMore: z.boolean() }) },
+      handle: async ({ query }) =>
+        pageOf((limit, offset) => {
+          const q = db.select().from(dcGuilds).orderBy(asc(dcGuilds.name), asc(dcGuilds.id)).offset(offset);
+          return limit === undefined ? q : q.limit(limit);
+        }, query),
     }),
 
     defineOperation({
@@ -586,6 +604,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       description: "Every available module with whether it is on in this server and its current settings.",
       access: "session",
       permission: team("view"),
+      unpaginated: "One row per available module (the built-in catalogue plus published blueprints), whatever the server switched on.",
       input: { params: GuildParam },
       output: { schema: z.object({ docs: z.array(GuildModuleState) }) },
       errors: ["KITSUDEN_E_NOT_FOUND"],
@@ -716,6 +735,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       description: "The commands of the modules switched on in this server. 409 if two modules declare the same command.",
       access: "session",
       permission: team("view"),
+      unpaginated: "The slash commands of one server's active modules, which Discord itself caps per server.",
       input: { params: GuildParam },
       output: { schema: z.object({ docs: z.array(SlashCommand) }) },
       errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
@@ -766,16 +786,18 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       route: "/items",
       summary: "List catalog items",
       description:
-        "Items of the catalog: a server's (`guildId`), the global ones (`guildId=global`, shown in every server: profile badges and backgrounds), or all. Sorted by name.",
+        "Items of the catalog: a server's (`guildId`), the global ones (`guildId=global`, shown in every server: profile badges and backgrounds), or all. Sorted by name. Without `limit` every item; with `limit` (1-500) and `offset` one page, and `hasMore` says whether another follows.",
       access: "session",
       permission: team("view"),
-      input: { query: z.object({ guildId: z.union([Snowflake, z.literal("global")]).optional().describe("A server id, or `global`") }) },
-      output: { schema: z.object({ docs: z.array(ItemOut) }) },
+      input: { query: OptionalPage.extend({ guildId: z.union([Snowflake, z.literal("global")]).optional().describe("A server id, or `global`") }) },
+      output: { schema: z.object({ docs: z.array(ItemOut), hasMore: z.boolean() }) },
       handle: async ({ query }) => {
         const where =
           query.guildId === "global" ? isNull(dcItems.guildId) : query.guildId ? eq(dcItems.guildId, query.guildId) : undefined;
-        const rows = await db.select().from(dcItems).where(where).orderBy(asc(dcItems.name));
-        return { docs: rows };
+        return pageOf((limit, offset) => {
+          const q = db.select().from(dcItems).where(where).orderBy(asc(dcItems.name), asc(dcItems.id)).offset(offset);
+          return limit === undefined ? q : q.limit(limit);
+        }, query);
       },
     }),
 
@@ -922,11 +944,17 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       method: "GET",
       route: "/blueprints",
       summary: "List Discord blueprints",
-      description: "Blueprints, most recently changed first, drafts included.",
+      description:
+        "Blueprints, most recently changed first, drafts included. Without `limit` every blueprint; with `limit` (1-500) and `offset` one page, and `hasMore` says whether another follows.",
       access: "session",
       permission: team("view"),
-      output: { schema: z.object({ docs: z.array(Blueprint) }) },
-      handle: async () => ({ docs: await db.select().from(dcBlueprints).orderBy(desc(dcBlueprints.updatedAt)) }),
+      input: { query: OptionalPage },
+      output: { schema: z.object({ docs: z.array(Blueprint), hasMore: z.boolean() }) },
+      handle: async ({ query }) =>
+        pageOf((limit, offset) => {
+          const q = db.select().from(dcBlueprints).orderBy(desc(dcBlueprints.updatedAt), desc(dcBlueprints.id)).offset(offset);
+          return limit === undefined ? q : q.limit(limit);
+        }, query),
     }),
 
     defineOperation({
@@ -1212,6 +1240,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
         "Ready-made blueprints (broadcast booth, feedback form…) with the JSON Schema of their settings and what they need: other kons, and the scopes the bot's agent key must have for them.",
       access: "session",
       permission: team("view"),
+      unpaginated: "The templates this kon and its extensions ship in code: a fixed catalogue.",
       output: {
         schema: z.object({
           docs: z.array(
@@ -1273,6 +1302,7 @@ export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): An
       description: "The messages the bot keeps up to date in this server: channel, message, module, panel and last redraw.",
       access: "session",
       permission: team("view"),
+      unpaginated: "The live panels a server's staff posted, a few per server: each is a message the bot redraws.",
       input: { params: GuildParam },
       output: { schema: z.object({ docs: z.array(PanelOut) }) },
       errors: ["KITSUDEN_E_NOT_FOUND"],

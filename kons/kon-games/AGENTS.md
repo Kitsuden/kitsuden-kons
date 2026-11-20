@@ -79,6 +79,9 @@ collections, written by the team. Each block has a `data` part owned by the load
 - A game slug cannot be a reserved segment (`site-reserved-segments.test.ts`).
 - Literal routes (`/slug/:slug`, `/collections`, `/platforms`, `/tags`) are declared before
   `/:id`; the SDK refuses a shadowed operation.
+- `list-tags` pages with `limit`/`offset` (order name, id) and answers `hasMore`; without
+  `limit` it returns every tag, as before. `list-collections` and `list-platforms` declare
+  `unpaginated` (bounded by nature).
 - Collections only list published games, and their cache (`collections:*`) is invalidated on
   every write that changes what they show.
 - The responses the Inti adapter uses keep their shape (`inti-contract.test.ts`).

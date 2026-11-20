@@ -44,6 +44,14 @@ results, online operations and imports. 78 SDK operations, all of them MCP tools
   - other: `overall-standings` (leaderboard), `list-scene-matches`, `create-scene-match`,
     `update-scene-match`, `delete-scene-match`, `import-sources`, `import-tournament`,
     `sync-prize-pool`, `get-prize-pool`.
+- Pages: `list-players` and `list-teams` (`limit` 1-500, default 500) and `list-sets` (`limit`
+  1-500, none by default: every set) take `limit` and `offset`. The result is the bare array; a
+  page with `limit` rows may have more after it (REST clients also get the `X-Has-More` header).
+  `list-phases` and `list-stations` are read whole (`unpaginated`: one tournament's phases and
+  places to play). `list-tournaments` keeps its own `limit` (default 50, max 200) and takes
+  `offset`, with the same `X-Has-More` header. `list-scene-matches` keeps `limit` (1-100, default
+  12), takes `offset` and adds `hasMore` to its `{ docs, totalDocs }` body (`totalDocs` is the
+  page's size).
 - Sensitive, may come back `202 KITSUDEN_E_APPROVAL_REQUIRED`: `generate-bracket`,
   `resolve-no-shows`, `plan-phases`, `import-tournament` and every `DELETE`. Report the proposal;
   do not retry.
@@ -156,6 +164,7 @@ pnpm vitest run tests/unit/esports-registration.test.ts          # registration 
 pnpm vitest run tests/unit/esports-guest-link.test.ts            # guest link host
 pnpm vitest run tests/unit/esports-online.test.ts                # online.ts, online.routes.ts
 pnpm vitest run tests/unit/esports-importers.test.ts             # importers
+pnpm vitest run tests/unit/esports-pagination.test.ts            # pages of players, teams, sets, tournaments, scene matches
 pnpm vitest run tests/unit/broadcast-real-bracket-bridge.test.ts # the kon-broadcast bridge
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-esports"   # these docs
 ```

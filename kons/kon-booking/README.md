@@ -6,7 +6,7 @@ teams whose members book shared spaces and a desk that manages them.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.0.2 | `/api/booking` | kon-media; core `auth` |
+| beta | business | 1.1.0 | `/api/booking` | kon-media; core `auth` |
 
 ## Install
 
@@ -58,16 +58,16 @@ opens the whole kon (see [Who can do what](#who-can-do-what)).
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/booking/rooms` | any session (see note) | Active rooms by name, up to 500. Filters `type`, `minCapacity`, `maxCapacity`, `features` (comma-separated keys that must be true). |
-| `GET /api/booking/rooms/:id` | any session (see note) | One room by id or slug, with amenities. `include_bookings=true` adds upcoming occupied slots (staff: id, title and status of the next 10 confirmed bookings). An inactive room is a 404 except for staff. |
+| `GET /api/booking/rooms` | any session (see note) | Active rooms by name, in pages: `limit` (1-500, default 500) and `offset`; `hasMore` says whether more follow. Filters `type`, `minCapacity`, `maxCapacity`, `features` (comma-separated keys that must be true). |
+| `GET /api/booking/rooms/:id` | any session (see note) | One room by id or slug, with amenities. `includeBookings=true` adds upcoming occupied slots (staff: id, title and status of the next 10 confirmed bookings). An inactive room is a 404 except for staff. The old name `include_bookings` still works but is deprecated since 1.1.0 (2026-11-18) and removed after 2027-05-18. |
 | `POST /api/booking/rooms` | staff | Create a room (slug derived from the name if absent; 409 if taken). `amenityIds` links amenities. |
 | `PATCH /api/booking/rooms/:id` | staff | Partial update, plus `isActive`. `amenityIds` replaces the amenity list. |
 | `DELETE /api/booking/rooms/:id` | admin (not editors) | Delete a room and, in cascade, all its bookings, notes, amenity links and blackouts. |
 | `GET /api/booking/rooms/:id/slots` | any session (see note) | 30-minute steps of `duration` minutes (15-1440, default 60) for `date` (YYYY-MM-DD, UTC) within the room's hours (default 08:00-18:00 UTC), each marked available or not. |
-| `GET /api/booking/rooms/:id/blackout` | any session (see note) | Blackout periods of a room. Staff also see the reason and who created them. |
+| `GET /api/booking/rooms/:id/blackout` | any session (see note) | Blackout periods of a room (past ones included), by start, in pages: `limit` (1-500, default 500), `offset`, `hasMore`. Staff also see the reason and who created them. |
 | `POST /api/booking/rooms/:id/blackout` | staff | Create a blackout period (`startDate`, `endDate`, optional `reason`, `isRecurring`). Existing bookings are not touched. |
 | `DELETE /api/booking/blackout/:blackoutId` | staff | Remove a blackout period. |
-| `GET /api/booking/amenities` | any session (see note) | Active amenities, optional `category` filter. |
+| `GET /api/booking/amenities` | any session (see note) | Active amenities (up to 500, read whole: a lookup list), optional `category` filter. |
 | `POST /api/booking/amenities` | staff | Create an amenity. |
 | `GET /api/booking/availability` | any session (see note) | `roomId`, `startTime`, `endTime` (all required): whether the slot is free, with duration and estimated cost; if not, the reason. Staff also get the clashing booking ids and blackout details. |
 
@@ -83,7 +83,10 @@ opens the whole kon (see [Who can do what](#who-can-do-what)).
 | `POST /api/booking/bookings/:id/check-in` | staff | `confirmed` to `checked_in` (400 otherwise). |
 | `POST /api/booking/bookings/:id/check-out` | staff | `checked_in` to `checked_out` (400 otherwise). |
 | `POST /api/booking/bookings/:id/notes` | owner or staff | Add a note. `isInternal: true` is staff only. |
-| `GET /api/booking/my-bookings` | signed in | The caller's upcoming occupying bookings. A `userId` query parameter is ignored. |
+| `GET /api/booking/my-bookings` | signed in | The caller's upcoming occupying bookings, in pages: `limit` (1-200, default 200), `offset`, `hasMore`. A `userId` query parameter is ignored. |
+
+Paged lists keep their item field (`docs`) and add `hasMore`; with no `limit` they return what they
+always returned (up to the old cap).
 
 Bodies are strict: unknown fields (for example `userId` or `hourlyRate` on a booking) are a 422.
 Ids that are not UUIDs are a 404, not a 500.
@@ -151,6 +154,7 @@ operations sensitive in the panel. Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-booking-security.test.ts` | Roles, strict bodies, conflicts under row security, 404 for other people's bookings, internal notes, editor as staff, database RLS |
 | `tests/unit/kon-booking-agent-delete-room.test.ts` | Room deletion through the policy (admin agents yes, editors no); anonymous public reads at kon level |
 | `tests/unit/booking-slots-timezone.test.ts` | Slots computed in UTC on a server in another time zone |
+| `tests/unit/kon-booking-pagination.test.ts` | Pages of `list-rooms`, `list-blackouts` and `my-bookings` (`limit`, `offset`, `hasMore`); `includeBookings` and the deprecated `include_bookings` |
 | `tests/unit/effective-agents-in-kons.test.ts` | Agents with `admin`, `booking:*`, `kon:booking:*` see and manage all bookings |
 
 From the repository root, one file at a time:
@@ -159,6 +163,7 @@ From the repository root, one file at a time:
 pnpm vitest run tests/unit/kon-booking-security.test.ts
 pnpm vitest run tests/unit/kon-booking-agent-delete-room.test.ts
 pnpm vitest run tests/unit/booking-slots-timezone.test.ts
+pnpm vitest run tests/unit/kon-booking-pagination.test.ts
 pnpm vitest run tests/unit/effective-agents-in-kons.test.ts
 ```
 

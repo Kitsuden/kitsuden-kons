@@ -20,7 +20,8 @@ in `tierlist.engine.ts`.
 - Fork into your own list: `tierlist:create` or `kon:tierlist:fork-template`.
 - `content:edit` grants nothing here.
 - MCP tools are `tierlist__<operation>`:
-  - `list-templates` → `{ data: [{ id, slug, title, version }] }`.
+  - `list-templates` → `{ data: [{ id, slug, title, version }], hasMore }`; optional `limit`/`offset`
+    (without `limit`, every template and `hasMore: false`).
   - `get-template` → `{ data: <row>, view: { rows, unranked } }`.
   - `publish-template`, `place-in-template`, `add-items`, `remove-item` → `{ data: <row> }`.
   - `sync-catalog` → `{ data, unranked, inCatalog, origin }`. A 409 with `lost` means hand-added

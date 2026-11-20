@@ -290,6 +290,8 @@ export function handlabOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every card dataset (editorial catalogues) by name, with its deck rules (hand size, deck min/max, max copies) and card count. Public. Use the slug to read it, search its cards or deal hands.",
       access: "public",
+      unpaginated:
+        "The card datasets the team curates (`handlab:create`): a short editorial catalogue.",
       output: { schema: z.object({ data: z.array(Row) }) },
     },
     async (c) => {

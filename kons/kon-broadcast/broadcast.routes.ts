@@ -1170,6 +1170,8 @@ export function broadcastOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The characters (slug, name, portrait) that the overlay paints, in display order. 409 when the catalog section is off.",
       access: "public",
+      unpaginated:
+        "One game's character roster, loaded whole and painted whole by the overlay.",
       before: [requires("catalog")],
       output: { schema: z.object({ data: z.array(z.record(z.string(), z.unknown())) }) },
       errors: ["KITSUDEN_E_CONFLICT"],

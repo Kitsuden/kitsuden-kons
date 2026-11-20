@@ -473,10 +473,16 @@ export function manageOperations({ db, team, now, guildOr404, forget, emit }: Ma
       route: "/guilds/:guildId/schedules",
       summary: "Work a Discord server's bot will do later",
       description:
-        "Giveaway draws, reminders, scheduled messages, birthday checks, blueprint `later` steps and other work queued for this server, soonest first. Recurring ones carry their `spec`.",
+        "Giveaway draws, reminders, scheduled messages, birthday checks, blueprint `later` steps and other work queued for this server, soonest first. Recurring ones carry their `spec`. Paged with `limit` (1-500, default 500) and `offset`; `hasMore` says whether another page follows.",
       access: "session",
       permission: team("view"),
-      input: { params: GuildParam },
+      input: {
+        params: GuildParam,
+        query: z.object({
+          limit: z.coerce.number().int().min(1).max(500).default(500).describe("Rows per page (1-500). The default is the maximum, what the list always returned."),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
       output: {
         schema: z.object({
           docs: z.array(
@@ -490,13 +496,17 @@ export function manageOperations({ db, team, now, guildOr404, forget, emit }: Ma
               payload: z.record(z.string(), z.unknown()),
             })
           ),
+          hasMore: z.boolean(),
         }),
       },
       errors: ["KITSUDEN_E_NOT_FOUND"],
-      handle: async ({ params }) => {
+      handle: async ({ params, query }) => {
         await guildOr404(params.guildId);
-        const rows = await db.select().from(dcSchedules).where(eq(dcSchedules.guildId, params.guildId)).orderBy(asc(dcSchedules.runAt)).limit(500);
+        const { limit, offset } = query;
+        const page = await db.select().from(dcSchedules).where(eq(dcSchedules.guildId, params.guildId)).orderBy(asc(dcSchedules.runAt), asc(dcSchedules.id)).limit(limit + 1).offset(offset);
+        const rows = page.slice(0, limit);
         return {
+          hasMore: page.length > limit,
           docs: rows.map((r) => ({
             id: r.id,
             moduleId: r.moduleId,

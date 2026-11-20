@@ -189,6 +189,7 @@ export function paymentsOperations(
       description:
         "The payment providers configured on this site (stripe, lemonsqueezy, paddle, paypal) and whether each supports the customer portal and cancelling. Public.",
       access: "public",
+      unpaginated: "The payment providers built into the kon that this site configured: four at most.",
       output: {
         schema: z.object({
           providers: z.array(

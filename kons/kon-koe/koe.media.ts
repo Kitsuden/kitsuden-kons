@@ -789,23 +789,31 @@ export const mediaOperations: OperationsModule = (app, ctx) => {
     {
       id: "list-stickers",
       summary: "The team's stickers",
-      description: "Stickers kept to send again, newest first, with signed URLs. Send one with send-message `kind: sticker` and its `mediaId`.",
+      description: "Stickers kept to send again, newest first, with signed URLs. Paged with `limit` (1-200, default 100) and `offset`; `hasMore` says whether another page follows. Send one with send-message `kind: sticker` and its `mediaId`.",
       access: "session",
       permission: USE,
-      input: { query: z.object({ limit: z.coerce.number().int().min(1).max(200).default(100) }) },
+      input: {
+        query: z.object({
+          limit: z.coerce.number().int().min(1).max(200).default(100),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
       output: { schema: Output },
     },
     async (c, input, h) => {
       await requireMember(db(), h.user);
-      const rows = (await db()
+      const { limit, offset } = input.query;
+      const page = (await db()
         .select({ sticker: koeStickers, media: koeMedia })
         .from(koeStickers)
         .innerJoin(koeMedia, eq(koeMedia.id, koeStickers.mediaId))
-        .orderBy(desc(koeStickers.createdAt))
-        .limit(input.query.limit)) as Array<{ sticker: typeof koeStickers.$inferSelect; media: Media }>;
+        .orderBy(desc(koeStickers.createdAt), desc(koeStickers.id))
+        .limit(limit + 1)
+        .offset(offset)) as Array<{ sticker: typeof koeStickers.$inferSelect; media: Media }>;
+      const rows = page.slice(0, limit);
       const data = [];
       for (const r of rows) data.push({ ...r.sticker, media: await mediaView(ctx, r.media) });
-      return c.json({ data });
+      return c.json({ data, hasMore: page.length > limit });
     }
   );
 

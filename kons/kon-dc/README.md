@@ -6,7 +6,7 @@ separate Go gateway worker.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | content | 0.3.0 | `/api/dc` | — |
+| experimental | content | 0.4.0 | `/api/dc` | — |
 
 A bot here is **configuration, not code**. Each server switches on the modules it wants (welcome,
 auto role, levels, AI answers, kon announcements) and any number of **blueprints**: commands,
@@ -285,6 +285,11 @@ the whole JSON one tab away; publishing; templates installed through a form) and
 import*. Rebuild with `pnpm build:admin kon-dc`; check with `pnpm check:admin`.
 
 ## HTTP API
+
+Lists answer `{ docs }`. Those that grow with use page: `GET /guilds`, `GET /items` and `GET /blueprints`
+take an optional `limit` (1-500) and `offset` (without `limit` they answer every row, as before), and
+`GET /guilds/:guildId/schedules` takes `limit` (1-500, default 500) and `offset`; all four add `hasMore`.
+Modules, templates, a server's modules, commands and panels are bounded and come whole.
 
 | Route | Who |
 | --- | --- |

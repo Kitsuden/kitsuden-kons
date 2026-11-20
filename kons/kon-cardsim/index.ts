@@ -88,6 +88,11 @@ import {
   query,
   registry,
   text,
+  HasMore,
+  cappedPage,
+  optionalPage,
+  pageOf,
+  cutPage,
 } from "./operations.js";
 import manifest from "./kon.json" with { type: "json" };
 
@@ -468,6 +473,7 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The game definitions shipped with the kon (id, name, players, zone count, deck sections with their size range). Publish one with publish-game `{ slug, preset }`. Public.",
       access: "public",
+      unpaginated: "The game definitions shipped in the kon's code: a fixed handful (PRESETS).",
       output: {
         schema: withData(z.array(z.object({ id: z.string(), name: z.string() }).passthrough())),
       },
@@ -496,6 +502,8 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every published card game (slug, name, full definition), by name. Use the slug with get-game, search-cards or get-ranking. Public.",
       access: "optional",
+      unpaginated:
+        "The card games an admin published (`cardsim:manageCatalog`): a short curated catalogue.",
       output: { schema: withData(z.array(Row)) },
     },
     async (c) => {
@@ -1010,20 +1018,26 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       id: "list-my-decks",
       summary: "List my decks",
       description:
-        "The caller's saved decks, most recently updated first, optionally for one `gameId`. Any account.",
+        "The caller's saved decks, most recently updated first, optionally for one `gameId`. Every deck unless you send `limit` (1-500) and `offset`; `hasMore` says whether more follow. Any account.",
       access: "session",
       permission: ANY_ACCOUNT,
-      input: { query: query({ gameId: text("Only decks of this game id") }) },
-      output: { schema: withData(z.array(Row)) },
+      input: {
+        query: query({ gameId: text("Only decks of this game id"), ...optionalPage(500) }),
+      },
+      output: { schema: withData(z.array(Row)).extend({ hasMore: HasMore }) },
     },
-    async (c) => {
+    async (c, input) => {
       const user = userOf(c);
       const gameId = c.req.query("gameId");
-      const rows = await decks()
+      const { limit, offset } = pageOf(input);
+      const mine = decks()
         .filter(gameId ? { ownerId: user?.id ?? "", gameId } : { ownerId: user?.id ?? "" })
-        .orderBy("-updatedAt")
-        .all();
-      return c.json({ data: rows });
+        // The id breaks ties, so a page does not repeat or skip a deck.
+        .orderBy("-updatedAt", "-id")
+        .offset(offset);
+      // Without `limit`, every deck, as before pages existed.
+      const page = cutPage(await (limit === undefined ? mine : mine.limit(limit + 1)).all(), limit);
+      return c.json({ data: page.rows, hasMore: page.hasMore });
     }
   );
 
@@ -1368,23 +1382,29 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       id: "list-rooms",
       summary: "List open public rooms",
       description:
-        "The lobby: open public rooms (latest 50), optionally of one `gameId`. Only what is needed to decide to join (seats taken, password or not, spectators) — never decks or the action log. Public.",
+        "The lobby: open public rooms, newest first, optionally of one `gameId`, in pages of `limit` (1-50, default 50) from `offset`; `hasMore` says whether more follow. Only what is needed to decide to join (seats taken, password or not, spectators) — never decks or the action log. Public.",
       access: "optional",
-      input: { query: query({ gameId: text("Only rooms of this game id") }) },
-      output: { schema: withData(z.array(Row)) },
+      input: { query: query({ gameId: text("Only rooms of this game id"), ...cappedPage(50) }) },
+      output: { schema: withData(z.array(Row)).extend({ hasMore: HasMore }) },
     },
-    async (c) => {
+    async (c, input) => {
       const gameId = c.req.query("gameId");
-      const rows = await sessions()
-        .filter(
-          gameId
-            ? { status: "open", visibility: "public", gameId }
-            : { status: "open", visibility: "public" }
-        )
-        .orderBy("-createdAt")
-        .limit(50)
-        .all();
+      const { limit = 50, offset } = pageOf(input);
+      const { rows, hasMore } = cutPage(
+        await sessions()
+          .filter(
+            gameId
+              ? { status: "open", visibility: "public", gameId }
+              : { status: "open", visibility: "public" }
+          )
+          .orderBy("-createdAt", "-id")
+          .limit(limit + 1)
+          .offset(offset)
+          .all(),
+        limit
+      );
       return c.json({
+        hasMore,
         // Neither the decks nor the log of a lobby room are ever leaked:
         // only what is needed to decide whether you join.
         data: rows.map((r) => ({

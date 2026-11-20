@@ -6,7 +6,7 @@ them with their own inputs.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.2 | `/api/formulas` | — (core: `auth`) |
+| beta | gaming | 1.0.3 | `/api/formulas` | — (core: `auth`) |
 
 ## Install
 
@@ -44,7 +44,7 @@ Rules the engine applies:
 
 | Route | Who | What it does |
 | --- | --- | --- |
-| `GET /api/formulas/systems` | anyone | Every system, sorted by name, with its stats. |
+| `GET /api/formulas/systems` | anyone | Every system, sorted by name, with its stats, whole (declared `unpaginated`). |
 | `GET /api/formulas/systems/:slug` | anyone | One system plus `inputs` (variables to provide) and `outputs` (stats in evaluation order). 404 if missing; 422 if the stored system no longer compiles. |
 | `PUT /api/formulas/systems` | admin, editor, or an agent with the scope | Create or rewrite a system by `slug`: 201 on create, 200 on rewrite. It is compiled first; a broken system is a 422 and nothing is saved. |
 | `POST /api/formulas/systems/:slug/evaluate` | any signed-in account | Body `{ "inputs": { "<variable>": <number> } }` (at most 500 finite numbers). Declared inputs that are missing count as 0. Returns every variable and stat with its value. Changes nothing. |

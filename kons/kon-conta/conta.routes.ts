@@ -246,10 +246,25 @@ const query = <K extends string>(...keys: K[]) =>
       >
     )
     .passthrough();
+/**
+ * The same free-text filters plus `offset`, for a list whose `limit` had no way to the next
+ * page. `limit` keeps its default and maximum; a client that sends no `offset` gets what it got
+ * before, plus `hasMore`.
+ */
+const pagedQuery = <K extends string>(...keys: K[]) =>
+  query(...keys).extend({
+    offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)"),
+  });
+/** The page out of the `limit + 1` rows read, and whether more follow it. */
+const pageOf = <T>(rows: T[], limit: number) => ({
+  data: rows.slice(0, limit),
+  hasMore: rows.length > limit,
+});
 
 const Row = z.object({ id: z.string() }).passthrough();
 const WithRow = z.object({ data: Row }).passthrough();
 const WithRows = z.object({ data: z.array(Row) }).passthrough();
+const RowsPage = z.object({ data: z.array(Row), hasMore: z.boolean() }).passthrough();
 const WithData = z.object({ data: z.record(z.string(), z.unknown()) }).passthrough();
 const Done = z.object({ success: z.boolean() }).passthrough();
 const PermissionRow = z.object({ userId: z.string(), role: z.string() }).passthrough();
@@ -402,6 +417,7 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
     "/permissions",
     conta(["view", "administer"], {
       id: "list-permissions",
+      unpaginated: "One row per user holding an accounting role: the few accountants and viewers of an installation.",
       summary: "List accounting roles",
       description:
         "Lists who holds an accounting role (`accountant`: reads and writes; `viewer`: read only), one row per user id. Admin only.",
@@ -498,6 +514,7 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
     "/currencies",
     conta("view", {
       id: "list-currencies",
+      unpaginated: "The active currencies of the ledger: a short catalogue an accountant keeps.",
       summary: "List currencies",
       description:
         "Lists the active currencies (code, name, symbol, decimal places). Accounting role `accountant`/`viewer`, admin, or an agent with conta:view.",
@@ -534,14 +551,15 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "list-accounts",
       summary: "List accounts",
       description:
-        "The active chart of accounts ordered by code, optionally filtered by `type` (asset, liability, equity, revenue, expense) and `isClientFunds` (true/false); `limit` 1–1000 (500 by default). Read access to the ledger.",
-      input: { query: query("type", "isClientFunds", "limit") },
-      output: { schema: WithRows },
+        "The active chart of accounts ordered by code, optionally filtered by `type` (asset, liability, equity, revenue, expense) and `isClientFunds` (true/false); a page at a time: `limit` 1–1000 (500 by default), `offset` skips rows and `hasMore` says there are more. Read access to the ledger.",
+      input: { query: pagedQuery("type", "isClientFunds", "limit") },
+      output: { schema: RowsPage },
     }),
-    async (c) => {
+    async (c, input) => {
       const type = c.req.query("type");
       const isClientFunds = c.req.query("isClientFunds");
       const limit = Math.min(Math.max(Number(c.req.query("limit")) || 500, 1), 1000);
+      const { offset } = input.query as { offset: number };
 
       const conditions: SQL[] = [eq(accounts.isActive, true)];
       if (type) {
@@ -551,13 +569,14 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       }
       if (isClientFunds) conditions.push(eq(accounts.isClientFundsAccount, isClientFunds === "true"));
 
-      const data = await db
+      const rows = await db
         .select()
         .from(accounts)
         .where(and(...conditions))
-        .orderBy(accounts.code)
-        .limit(limit);
-      return c.json({ data });
+        .orderBy(accounts.code, asc(accounts.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOf(rows, limit));
     }
   );
 
@@ -679,13 +698,14 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "list-counterparties",
       summary: "List counterparties",
       description:
-        "Clients, vendors, banks and others ordered by name, optionally filtered by `type` (client, vendor, bank, other) and `externalRef` (its id in another system); `limit` 1–500 (100 by default). Read access to the ledger.",
-      input: { query: query("type", "externalRef", "limit") },
-      output: { schema: WithRows },
+        "Clients, vendors, banks and others ordered by name, optionally filtered by `type` (client, vendor, bank, other) and `externalRef` (its id in another system); a page at a time: `limit` 1–500 (100 by default), `offset` skips rows and `hasMore` says there are more. Read access to the ledger.",
+      input: { query: pagedQuery("type", "externalRef", "limit") },
+      output: { schema: RowsPage },
     }),
-    async (c) => {
+    async (c, input) => {
       const type = c.req.query("type");
       const limit = Math.min(Math.max(Number(c.req.query("limit")) || 100, 1), 500);
+      const { offset } = input.query as { offset: number };
       const conditions: SQL[] = [];
       if (type) {
         const t = counterpartySchema.shape.type.safeParse(type);
@@ -694,13 +714,14 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       }
       const externalRef = c.req.query("externalRef");
       if (externalRef) conditions.push(eq(counterparties.externalRef, externalRef));
-      const data = await db
+      const rows = await db
         .select()
         .from(counterparties)
         .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(counterparties.name)
-        .limit(limit);
-      return c.json({ data });
+        .orderBy(counterparties.name, asc(counterparties.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOf(rows, limit));
     }
   );
 
@@ -797,14 +818,15 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "list-projects",
       summary: "List projects",
       description:
-        "Projects (jobs, cases or engagements billed to a client), newest first, optionally filtered by `clientId`, `status` (open, closed, on_hold) and `externalRef`; `limit` 1–500 (100 by default). Read access to the ledger.",
-      input: { query: query("clientId", "status", "externalRef", "limit") },
-      output: { schema: WithRows },
+        "Projects (jobs, cases or engagements billed to a client), newest first, optionally filtered by `clientId`, `status` (open, closed, on_hold) and `externalRef`; a page at a time: `limit` 1–500 (100 by default), `offset` skips rows and `hasMore` says there are more. Read access to the ledger.",
+      input: { query: pagedQuery("clientId", "status", "externalRef", "limit") },
+      output: { schema: RowsPage },
     }),
-    async (c) => {
+    async (c, input) => {
       const clientId = c.req.query("clientId");
       const status = c.req.query("status");
       const limit = Math.min(Math.max(Number(c.req.query("limit")) || 100, 1), 500);
+      const { offset } = input.query as { offset: number };
 
       const conditions: SQL[] = [];
       if (clientId) conditions.push(eq(projects.clientId, clientId));
@@ -816,13 +838,14 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
         conditions.push(eq(projects.status, s.data as Project["status"]));
       }
 
-      const data = await db
+      const rows = await db
         .select()
         .from(projects)
         .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(desc(projects.openedAt))
-        .limit(limit);
-      return c.json({ data });
+        .orderBy(desc(projects.openedAt), asc(projects.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOf(rows, limit));
     }
   );
 
@@ -919,6 +942,7 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
     "/templates",
     conta("view", {
       id: "list-templates",
+      unpaginated: "Journal templates are configuration an accountant writes: tens per installation.",
       summary: "List journal templates",
       description:
         "Active journal templates ordered by name, optionally filtered by `type` (the template type). Read access to the ledger.",
@@ -1450,14 +1474,15 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "list-disbursements",
       summary: "List disbursements",
       description:
-        "Recoverable client expenses, newest first, optionally filtered by `projectId` and `status` (pending, billed, paid); `limit` 1–200 (50 by default). Read access to the ledger.",
-      input: { query: query("projectId", "status", "limit") },
-      output: { schema: WithRows },
+        "Recoverable client expenses, newest first, optionally filtered by `projectId` and `status` (pending, billed, paid); a page at a time: `limit` 1–200 (50 by default), `offset` skips rows and `hasMore` says there are more. Read access to the ledger.",
+      input: { query: pagedQuery("projectId", "status", "limit") },
+      output: { schema: RowsPage },
     }),
-    async (c) => {
+    async (c, input) => {
       const projectId = c.req.query("projectId");
       const status = c.req.query("status");
       const limit = Math.min(Math.max(Number(c.req.query("limit")) || 50, 1), 200);
+      const { offset } = input.query as { offset: number };
 
       const conditions: SQL[] = [];
       if (projectId) conditions.push(eq(disbursements.projectId, projectId));
@@ -1467,13 +1492,14 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
         conditions.push(eq(disbursements.status, s.data as Disbursement["status"]));
       }
 
-      const data = await db
+      const rows = await db
         .select()
         .from(disbursements)
         .where(conditions.length ? and(...conditions) : undefined)
-        .orderBy(desc(disbursements.createdAt))
-        .limit(limit);
-      return c.json({ data });
+        .orderBy(desc(disbursements.createdAt), asc(disbursements.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOf(rows, limit));
     }
   );
 

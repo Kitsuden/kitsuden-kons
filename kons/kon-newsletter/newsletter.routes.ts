@@ -58,6 +58,22 @@ import {
 import { defaultLocale, type BulkTransport, type FeedbackAdapter, type SegmentFilter } from "./newsletter.types";
 import { KON_ID, registry, ADMIN_ONLY } from "./operations";
 
+/**
+ * A page of a list that used to stop at `max` rows with no sign: the default is still those rows,
+ * and `hasMore` now says whether more exist.
+ */
+const pageQuery = (max: number) =>
+  z.object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(max)
+      .default(max)
+      .describe(`Rows per page (1-${max}). The default is the maximum, what the list always returned.`),
+    offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+  });
+
 const subscribeSchema = z.object({
   email: z.string().email().max(320),
   name: z.string().max(200).optional(),
@@ -586,6 +602,7 @@ export function newsletterOperations(
       description: "Every newsletter (the lists members subscribe to), oldest first. Admin only.",
       access: "session",
       permission: ADMIN_ONLY,
+      unpaginated: "The lists members subscribe to: a few per site, and no operation creates them.",
       output: { schema: z.object({ newsletters: z.array(Row) }) },
     },
     async (c) => {
@@ -600,18 +617,22 @@ export function newsletterOperations(
       id: "list-members",
       summary: "List members",
       description:
-        "The most recent members (default 100, max 500): email, name, status, locale and consent date. Personal data: admin only.",
+        "The most recent members (default 100, max 500): email, name, status, locale and consent date, newest first. `offset` skips rows; `hasMore` says whether another page follows. Personal data: admin only.",
       access: "session",
       permission: ADMIN_ONLY,
       input: {
         query: z
-          .object({ limit: z.string().optional().describe("How many, max 500 (default 100)") })
+          .object({
+            limit: z.string().optional().describe("How many, max 500 (default 100)"),
+            offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+          })
           .passthrough(),
       },
-      output: { schema: z.object({ members: z.array(Row) }) },
+      output: { schema: z.object({ members: z.array(Row), hasMore: z.boolean() }) },
     },
-    async (c) => {
+    async (c, input) => {
       const limit = Math.min(Number(c.req.query("limit") ?? 100), 500);
+      const { offset } = input.query as { offset: number };
       const rows = await db
         .select({
           id: nlMembers.id,
@@ -623,9 +644,10 @@ export function newsletterOperations(
           createdAt: nlMembers.createdAt,
         })
         .from(nlMembers)
-        .orderBy(desc(nlMembers.createdAt))
-        .limit(limit);
-      return c.json({ members: rows });
+        .orderBy(desc(nlMembers.createdAt), desc(nlMembers.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json({ members: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
@@ -635,18 +657,21 @@ export function newsletterOperations(
       id: "list-suppressions",
       summary: "List suppressed addresses",
       description:
-        "The latest 500 suppressed addresses (bounces, complaints, unsubscribes, manual), which no campaign will ever write to. Admin only.",
+        "Suppressed addresses (bounces, complaints, unsubscribes, manual), which no campaign will ever write to, newest first. Paged with `limit` (1-500, default 500) and `offset`; `hasMore` says whether another page follows. Admin only.",
       access: "session",
       permission: ADMIN_ONLY,
-      output: { schema: z.object({ suppressions: z.array(Row) }) },
+      input: { query: pageQuery(500) },
+      output: { schema: z.object({ suppressions: z.array(Row), hasMore: z.boolean() }) },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit: number; offset: number };
       const rows = await db
         .select()
         .from(nlSuppressions)
-        .orderBy(desc(nlSuppressions.createdAt))
-        .limit(500);
-      return c.json({ suppressions: rows });
+        .orderBy(desc(nlSuppressions.createdAt), desc(nlSuppressions.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json({ suppressions: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
@@ -736,6 +761,7 @@ export function newsletterOperations(
       description: "Every saved segment (a named member filter campaigns can target). Admin only.",
       access: "session",
       permission: ADMIN_ONLY,
+      unpaginated: "Saved member filters: a handful per site, and no operation creates them.",
       output: { schema: z.object({ segments: z.array(Row) }) },
     },
     async (c) => {
@@ -749,18 +775,22 @@ export function newsletterOperations(
     {
       id: "list-campaigns",
       summary: "List campaigns",
-      description: "The latest 100 campaigns, newest first, with status and stats. Admin only.",
+      description:
+        "Campaigns, newest first, with status and stats. Paged with `limit` (1-100, default 100) and `offset`; `hasMore` says whether another page follows. Admin only.",
       access: "session",
       permission: ADMIN_ONLY,
-      output: { schema: z.object({ campaigns: z.array(Row) }) },
+      input: { query: pageQuery(100) },
+      output: { schema: z.object({ campaigns: z.array(Row), hasMore: z.boolean() }) },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit: number; offset: number };
       const rows = await db
         .select()
         .from(nlCampaigns)
-        .orderBy(desc(nlCampaigns.createdAt))
-        .limit(100);
-      return c.json({ campaigns: rows });
+        .orderBy(desc(nlCampaigns.createdAt), desc(nlCampaigns.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json({ campaigns: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 

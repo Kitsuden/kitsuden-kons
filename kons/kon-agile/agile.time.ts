@@ -19,7 +19,21 @@ import { z } from "@kitsuden/engine/zod";
 import { isAgent, type AgileAccess } from "./agile.access";
 import type { AgileDb } from "./agile.db";
 import { agileAgentWork, agileIssues, agileTimeEntries } from "./agile.schema";
-import { declareOp, KeyParam, ListWithTotal, ProjectParam, Row, Success, query, registry, text } from "./operations";
+import {
+  declareOp,
+  fetchPage,
+  KeyParam,
+  ListWithTotal,
+  PagedList,
+  PageQuery,
+  pageOf,
+  ProjectParam,
+  Row,
+  Success,
+  query,
+  registry,
+  text,
+} from "./operations";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD");
 const logSchema = z.object({
@@ -77,15 +91,23 @@ export function timeOperations(db: { instance: AgileDb }, access: AgileAccess): 
 
   routes.get(
     "/issues/:key/time",
-    declareOp("list-time", "Time logged on an issue", `Every entry (newest day first) and the total minutes. ${WHO_SEES}`, { params: KeyParam }, { schema: ListWithTotal.extend({ totalMinutes: z.number().int() }).passthrough() }),
+    declareOp("list-time", "Time logged on an issue", `Every entry (newest day first) and the total minutes. \`limit\` (1-500) and \`offset\` page the entries; without \`limit\`, all of them (\`hasMore\` says whether more remain). \`totalMinutes\` always counts every entry of the issue. ${WHO_SEES}`, { params: KeyParam, query: query(PageQuery) }, { schema: PagedList.extend({ totalMinutes: z.number().int() }).passthrough() }),
     async (c, input) => {
       const { issue } = await issueFor(c, input.params.key, "view");
-      const docs = await db.instance
+      const page = pageOf(input);
+      const listing = db.instance
         .select()
         .from(agileTimeEntries)
         .where(eq(agileTimeEntries.issueId, issue.id))
-        .orderBy(desc(agileTimeEntries.spentOn), desc(agileTimeEntries.createdAt));
-      return c.json({ docs, totalDocs: docs.length, totalMinutes: docs.reduce((n, d) => n + d.minutes, 0) });
+        .orderBy(desc(agileTimeEntries.spentOn), desc(agileTimeEntries.createdAt), desc(agileTimeEntries.id))
+        .$dynamic();
+      const { docs, hasMore } = await fetchPage(listing, page);
+      // The whole list came back: add it up as before. A page: the total of every entry.
+      const totalMinutes =
+        page.limit === undefined && page.offset === 0
+          ? docs.reduce((n, d) => n + d.minutes, 0)
+          : (await peopleTime(issue.id, null)).minutes;
+      return c.json({ docs, totalDocs: docs.length, totalMinutes, hasMore });
     }
   );
 

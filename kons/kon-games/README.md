@@ -6,7 +6,7 @@ let the team and agents edit the text of those pages without fighting the data l
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 2.1.3 | `/api/games` | — (core: `auth`; images from the core media library, `/api/media`) |
+| beta | gaming | 2.2.0 | `/api/games` | — (core: `auth`; images from the core media library, `/api/media`) |
 
 ## Install
 
@@ -62,14 +62,14 @@ The admin panel gets the views of `kon.json`: **All Games** (grid), **By Status*
 
 | Route | Operation | Who | What it does |
 | --- | --- | --- | --- |
-| `GET /api/games/collections` | `list-collections` | anyone | Every collection in display order, each with its published games (with `tagSlugs` and `platformSlugs`). Cached for two minutes. |
+| `GET /api/games/collections` | `list-collections` | anyone | Every collection in display order, each with its published games (with `tagSlugs` and `platformSlugs`). Cached for two minutes. Declared `unpaginated`: shelves curated by hand. |
 | `GET /api/games/collections/:id` | `get-collection` | anyone | One collection with its published games and their entries. |
 | `POST /api/games/collections` | `create-collection` | team | `title` required (400 otherwise); `gameIds` creates the entries in order. |
 | `PATCH /api/games/collections/:id` | `update-collection` | team | Changes `title`, `slug`, `displayOrder`; `gameIds` replaces the entries. |
 | `DELETE /api/games/collections/:id` | `delete-collection` | team | Deletes the collection and its entries; the games stay. |
-| `GET /api/games/platforms` | `list-platforms` | anyone | Every platform by name. |
+| `GET /api/games/platforms` | `list-platforms` | anyone | Every platform by name (declared `unpaginated`: a short catalogue). |
 | `POST /api/games/platforms` | `create-platform` | team | `name` required; slug derived from it when missing. |
-| `GET /api/games/tags` | `list-tags` | anyone | Every tag by name. |
+| `GET /api/games/tags` | `list-tags` | anyone | Every tag by name. Optional `limit` (1-500) and `offset` give one page; the answer carries `hasMore` (always `false` without `limit`, which still returns every tag). |
 | `POST /api/games/tags` | `create-tag` | team | `name` required; slug derived from it when missing. |
 
 A collection id that is not a uuid is a 404 before any query, and so is the game id of the two

@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-agile",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Agile project management with agents as teammates: projects, issues, sprints, epics, squads, saved views, dashboards and AI triage with human approval",
   "type": "module",
   "main": "./index.ts",

@@ -418,6 +418,28 @@ const PaginatedList = z.object({
     totalPages: z.number(),
   }),
 });
+/** A list that can be read a page at a time: `hasMore` says there are rows after this page. */
+const ListPage = z.object({ docs: z.array(Row), hasMore: z.boolean() });
+/**
+ * Paging for a list that used to return every row. Without `limit` it still does (and
+ * `hasMore` is false), so a client that sends nothing gets what it got before.
+ */
+const optionalPage = {
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("Rows per page, 1-500. Without it, every row"),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)"),
+};
+type OptionalPage = { limit?: number; offset: number };
+/** The page out of `limit + 1` rows read (or every row, without `limit`). */
+function pageOfRows<T>(rows: T[], limit: number | undefined) {
+  if (limit === undefined) return { docs: rows, hasMore: false };
+  return { docs: rows.slice(0, limit), hasMore: rows.length > limit };
+}
 const Success = z.object({ success: z.literal(true) });
 const Confirmation = z.union([Row, z.object({ alreadyAcknowledged: z.literal(true) })]);
 const Export = z.object({
@@ -830,6 +852,8 @@ export function dmsOperations(ctx: KonContext): AnyOperation[] {
     "/categories",
     {
       id: "list-folders",
+      unpaginated:
+        "The folder tree an admin set up (only admin creates folders): tens of folders, read whole to draw the tree.",
       summary: "List document folders",
       description:
         "Active folders (categories) the caller can see, ordered by sortOrder and name. The team (admin/editor) sees every folder; any other account sees the folders opened to its role and those holding a document it can read. `parentId` filters by parent (`null` = top level; a value that is not a uuid gives an empty list); `stats=true` adds `documentCount` (published documents the caller can read).",
@@ -1523,23 +1547,26 @@ export function dmsOperations(ctx: KonContext): AnyOperation[] {
       id: "list-versions",
       summary: "List a document's versions",
       description:
-        "The versions of a document, newest first, with their content. Readers only get published versions; owner, author, reviewers and approvers get drafts too. 404 when the caller cannot read the document.",
+        "The versions of a document, newest first, with their content. Readers only get published versions; owner, author, reviewers and approvers get drafts too. Every version unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more. 404 when the caller cannot read the document.",
       access: "session",
       permission: ANY_ACCOUNT,
-      input: { params: DocumentParam },
-      output: { schema: List },
+      input: { params: DocumentParam, query: queryValue(optionalPage) },
+      output: { schema: ListPage },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as OptionalPage;
       const { doc, p } = await documentFor(c, c.req.param("id"), "view");
       const conditionsValue: SQL[] = [eq(dmsDocumentVersions.documentId, doc.id)];
       if (!p.viewDrafts) conditionsValue.push(eq(dmsDocumentVersions.status, "published"));
-      const versions = await dbInstance
+      const query = dbInstance
         .select()
         .from(dmsDocumentVersions)
         .where(and(...conditionsValue))
-        .orderBy(desc(dmsDocumentVersions.createdAt));
-      return c.json({ docs: versions });
+        .orderBy(desc(dmsDocumentVersions.createdAt), desc(dmsDocumentVersions.id));
+      const versions =
+        limit === undefined ? await query.offset(offset) : await query.limit(limit + 1).offset(offset);
+      return c.json(pageOfRows(versions, limit));
     }
   );
 
@@ -2097,26 +2124,31 @@ export function dmsOperations(ctx: KonContext): AnyOperation[] {
       id: "list-read-acknowledgments",
       summary: "Who acknowledged a document",
       description:
-        "The reading acknowledgments of a document, newest first. Owner or author (403 for a mere reader).",
+        "The reading acknowledgments of a document, newest first. Every one unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more. Owner or author (403 for a mere reader).",
       access: "session",
       permission: ANY_ACCOUNT,
-      input: { params: DocumentParam },
-      output: { schema: List },
+      input: { params: DocumentParam, query: queryValue(optionalPage) },
+      output: { schema: ListPage },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as OptionalPage;
       // Who has read what: seen by whoever runs the document, not any reader.
       const { doc } = await documentFor(c, c.req.param("id"), "edit");
       // Personal RLS only lets you see your own rows: with the action already
       // authorized, they are read as system.
-      const acks = await asSystem(() =>
-        dbInstance
+      const acks = await asSystem(() => {
+        const query = dbInstance
           .select()
           .from(dmsDocumentAcknowledgments)
           .where(eq(dmsDocumentAcknowledgments.documentId, doc.id))
-          .orderBy(desc(dmsDocumentAcknowledgments.acknowledgedAt))
-      );
-      return c.json({ docs: acks });
+          .orderBy(
+            desc(dmsDocumentAcknowledgments.acknowledgedAt),
+            desc(dmsDocumentAcknowledgments.id)
+          );
+        return limit === undefined ? query.offset(offset) : query.limit(limit + 1).offset(offset);
+      });
+      return c.json(pageOfRows(acks, limit));
     }
   );
 
@@ -2411,19 +2443,20 @@ export function dmsOperations(ctx: KonContext): AnyOperation[] {
       id: "list-incoming-links",
       summary: "Documents linking to this one",
       description:
-        "Active documents the caller can read whose published content links to this document as [[code]] or [[slug]].",
+        "Active documents the caller can read whose published content links to this document as [[code]] or [[slug]], by title. Every one unless `limit` (1-500) asks for a page; `offset` skips rows and `hasMore` says there are more.",
       access: "session",
       permission: ANY_ACCOUNT,
-      input: { params: DocumentParam },
-      output: { schema: List },
+      input: { params: DocumentParam, query: queryValue(optionalPage) },
+      output: { schema: ListPage },
       errors: ["KITSUDEN_E_NOT_FOUND"],
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as OptionalPage;
       const u = user(c);
       const { doc } = await documentFor(c, c.req.param("id"), "view");
       const escape = (s: string) => s.replace(/[\\%_]/g, (m) => `\\${m}`);
       const read = readFilter(u);
-      const backlinks = await dbInstance
+      const query = dbInstance
         .selectDistinct({
           id: dmsDocuments.id,
           code: dmsDocuments.code,
@@ -2443,8 +2476,12 @@ export function dmsOperations(ctx: KonContext): AnyOperation[] {
               like(dmsDocumentVersions.content, `%[[${escape(doc.slug)}]]%`)
             )
           )
-        );
-      return c.json({ docs: backlinks });
+        )
+        // A stable order, so pages neither repeat nor skip a document.
+        .orderBy(asc(dmsDocuments.title), asc(dmsDocuments.id));
+      const backlinks =
+        limit === undefined ? await query.offset(offset) : await query.limit(limit + 1).offset(offset);
+      return c.json(pageOfRows(backlinks, limit));
     }
   );
 
@@ -2637,6 +2674,7 @@ ${bodyValue}
       summary: "List a version's diagrams",
       description: "The diagrams embedded in a version, by name. Same visibility as get-version.",
       access: "session",
+      unpaginated: "The diagrams embedded in one version of one document: a handful per version.",
       permission: ANY_ACCOUNT,
       input: { params: ParamVersion },
       output: { schema: List },
@@ -3290,7 +3328,9 @@ ${bodyValue}
       id: "search-documents",
       summary: "Search documents",
       description:
-        "Full-text search (Spanish) in the current published versions of the documents the caller can read, with a highlighted `snippet`; when nothing matches, falls back to title/code/description (`searchType: fallback`). Also returns up to 10 matching folders. `q` 2-200 characters (400 otherwise); filters `categoryId`, `type`, `status`; `limit` 1-50, default 20.",
+        "Full-text search (Spanish) in the current published versions of the documents the caller can read, with a highlighted `snippet`; when nothing matches, falls back to title/code/description (`searchType: fallback`). Also returns up to 10 matching folders. `q` 2-200 characters (400 otherwise); filters `categoryId`, `type`, `status`; `limit` 1-50, default 20. Not paged: it returns the best matches; narrow `q` or the filters, or read every document a page at a time with `list-documents` (`search`, `page`).",
+      unpaginated:
+        "Returns the best matches by full-text relevance (at most 50) plus up to 10 folders; a search is narrowed, not paged, and list-documents pages the whole set.",
       access: "session",
       permission: ANY_ACCOUNT,
       input: {

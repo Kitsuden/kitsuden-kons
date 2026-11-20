@@ -82,7 +82,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
 
   app.get(
     "/members",
-    { id: "list-members", summary: "Who is on koe", description: "Every member with role, availability, capacity and teams.", access: "session", permission: USE, output: { schema: Output } },
+    { id: "list-members", summary: "Who is on koe", description: "Every member with role, availability, capacity and teams.", access: "session", permission: USE, unpaginated: "The people an admin put on the koe team: the staff of one inbox, read whole for assignment.", output: { schema: Output } },
     async (c, _i, h) => {
       await requireMember(db(), h.user);
       const members = (await db().select().from(koeMembers).orderBy(asc(koeMembers.displayName))) as Array<typeof koeMembers.$inferSelect>;
@@ -141,7 +141,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
 
   app.get(
     "/teams",
-    { id: "list-teams", summary: "Teams", description: "Support, sales and collections teams with their hours, assignment rule, SLAs and members.", access: "session", permission: USE, output: { schema: Output } },
+    { id: "list-teams", summary: "Teams", description: "Support, sales and collections teams with their hours, assignment rule, SLAs and members.", access: "session", permission: USE, unpaginated: "The teams leads set up (support, sales, collections): a handful per installation.", output: { schema: Output } },
     async (c, _i, h) => {
       await requireMember(db(), h.user);
       const teams = (await db().select().from(koeTeams).orderBy(asc(koeTeams.name))) as Array<typeof koeTeams.$inferSelect>;
@@ -212,7 +212,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
 
   app.get(
     "/channels",
-    { id: "list-channels", summary: "Channels", description: "Connected WhatsApp numbers, pages, Instagram accounts and web chats, with status and quality. Credentials are never returned.", access: "session", permission: USE, output: { schema: Output } },
+    { id: "list-channels", summary: "Channels", description: "Connected WhatsApp numbers, pages, Instagram accounts and web chats, with status and quality. Credentials are never returned.", access: "session", permission: USE, unpaginated: "The numbers, pages and web chats an admin connected: a handful per installation.", output: { schema: Output } },
     async (c, _i, h) => {
       await requireMember(db(), h.user);
       const rows = (await db().select().from(koeChannels).orderBy(asc(koeChannels.name))) as Channel[];
@@ -434,6 +434,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
       description: "The local copy of each channel's templates with status (approved, pending, rejected, paused…), category, language, quality and variables.",
       access: "session",
       permission: USE,
+      unpaginated: "The message templates of the connected WhatsApp accounts, a catalogue Meta caps per WhatsApp Business Account, read whole for the template picker.",
       input: { query: z.object({ channelId: z.string().max(100).optional(), status: z.string().max(20).optional() }) },
       output: { schema: Output },
     },

@@ -458,16 +458,24 @@ export const campaignOperations: OperationsModule = (app, ctx) => {
     {
       id: "list-campaigns",
       summary: "List campaigns",
-      description: "Campaigns, newest first, with their status and counters. Supervisors and admins.",
+      description: "Campaigns, newest first, with their status and counters. Paged with `limit` (1-100, default 50) and `offset`; `hasMore` says whether another page follows. Supervisors and admins.",
       access: "session",
       permission: USE,
-      input: { query: z.object({ status: z.enum(["draft", "scheduled", "running", "paused", "done", "cancelled"]).optional(), limit: z.coerce.number().int().min(1).max(100).default(50) }) },
+      input: {
+        query: z.object({
+          status: z.enum(["draft", "scheduled", "running", "paused", "done", "cancelled"]).optional(),
+          limit: z.coerce.number().int().min(1).max(100).default(50),
+          offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
+        }),
+      },
       output: { schema: Output },
     },
     async (c, input, h) => {
       await requireLead(db(), h.user);
       const where = input.query.status ? eq(koeCampaigns.status, input.query.status) : undefined;
-      return c.json({ data: await db().select().from(koeCampaigns).where(where).orderBy(desc(koeCampaigns.createdAt)).limit(input.query.limit) });
+      const { limit, offset } = input.query;
+      const rows = await db().select().from(koeCampaigns).where(where).orderBy(desc(koeCampaigns.createdAt), desc(koeCampaigns.id)).limit(limit + 1).offset(offset);
+      return c.json({ data: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 

@@ -17,7 +17,7 @@ pushed in by a sync job; the kon calls no streaming platform itself.
   `streamers:*`; or a fine scope such as `kon:streamers:update-streamer`. `content:edit` is not
   enough. Example for a sync agent: `["streamer:sync"]`.
 - MCP tools (`streamers__<op>`): `list-streamers` (`docs` plus pagination totals), `list-live`
-  (`docs`, `totalDocs`), `get-streamer-by-slug` (the streamer plus `games`), `get-streamer`,
+  (`docs`, `totalDocs` of the page, `hasMore`; `limit` 1-20, default 20, and `offset`), `get-streamer-by-slug` (the streamer plus `games`), `get-streamer`,
   `create-streamer` (the new row, 201), `update-streamer` (the updated row), `delete-streamer`
   (`{ deleted, id }`), `sync-live` (`{ synced, total }`).
 - `sync-live` and `delete-streamer` are sensitive: they may come back
@@ -80,5 +80,6 @@ pushed in by a sync job; the kon calls no streaming platform itself.
 pnpm vitest run tests/unit/sec-esports-streamers.test.ts                    # policy, writes, sorting
 pnpm vitest run tests/unit/streamers-and-collections-malformed-ids.test.ts  # :id handling
 pnpm vitest run tests/unit/streamers-unique-channel.test.ts                 # 409s, live fields, migration 0002
+pnpm vitest run tests/unit/kon-streamers-live-pagination.test.ts          # list-live pages
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-streamers"            # these docs
 ```

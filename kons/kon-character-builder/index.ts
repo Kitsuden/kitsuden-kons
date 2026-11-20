@@ -284,6 +284,8 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The builders that can be embedded in a page, by name: id, slug, name and published state. The public sees only published ones; the editorial team (or an agent with the kon's scope) also sees drafts. Use the slug with get-definition.",
       access: "optional",
+      unpaginated:
+        "The builders the editorial team defines, a few per site, listed whole for a selector.",
       output: {
         schema: z.object({
           data: z.array(
@@ -744,6 +746,7 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
         "Your own builds (private ones included) in the planner `builder` (a definition id or `link:<game>:<path>`), most recently updated first, up to 100. 401 without a session, 400 without `builder`.",
       // `optional` and not `session`: the 401 "A session is required" belongs to the handler.
       access: "optional",
+      unpaginated: `A person keeps at most ${MAX_PER_PLANNER} builds per planner (refused on save), all listed.`,
       input: {
         query: query({ builder: text("Required. Planner id (definition id or link:…)") }),
       },
@@ -798,22 +801,37 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
       id: "list-builds",
       summary: "List the public builds of a planner (the gallery)",
       description:
-        "The PUBLIC builds of planner `builder`, optionally of one `subject` (e.g. one character), most voted first and then most recent; `limit` 1-100 (24 by default). Each one says whether you voted it (`voted`). No session needed. 400 without `builder`.",
+        "The PUBLIC builds of planner `builder`, optionally of one `subject` (e.g. one character), most voted first and then most recent; in pages of `limit` (1-100, 24 by default) from `offset`, and `hasMore` says whether more follow. Each one says whether you voted it (`voted`). No session needed. 400 without `builder`.",
       access: "optional",
       input: {
         query: query({
           builder: text("Required. Planner id (definition id or link:…)"),
           subject: text("Only the builds of this subject (slug)"),
           limit: text("How many, up to 100 (24 by default)"),
+          offset: z.coerce
+            .number()
+            .int()
+            .min(0)
+            .default(0)
+            .describe("Builds to skip; `hasMore` says whether more follow."),
         }),
       },
-      output: { schema: z.object({ docs: z.array(PublicBuild) }) },
+      output: {
+        schema: z.object({
+          docs: z.array(PublicBuild),
+          hasMore: z.boolean().describe("More builds follow: ask with `offset` + `limit`"),
+        }),
+      },
     },
-    async (c) => {
+    async (c, input) => {
       const user = (c.get("user") ?? null) as AuthzUser | null;
       const builderId = c.req.query("builder");
       const subject = c.req.query("subject");
-      const limit = Math.min(Number(c.req.query("limit") ?? 24) || 24, 100);
+      // `limit` keeps its lenient parsing (a non-number is 24); at least 1, because a
+      // negative one reached Postgres as an error. Rows past it were unreachable until
+      // `offset` (api-contract, 2026-11-18).
+      const limit = Math.max(Math.min(Number(c.req.query("limit") ?? 24) || 24, 100), 1);
+      const { offset } = input.query as { offset: number };
       if (!builderId) return c.json({ error: "`builder` is missing" }, 400);
 
       const conditions = [
@@ -824,12 +842,16 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
 
       // The type, by hand: `ctx.db.instance` arrives untyped and without this every `.map`
       // over the result is an implicit `any` that TypeScript rejects
-      const rows: BuilderBuildRow[] = await db
+      const read: BuilderBuildRow[] = await db
         .select()
         .from(builderBuilds)
         .where(and(...conditions))
-        .orderBy(desc(builderBuilds.votes), desc(builderBuilds.publishedAt))
-        .limit(limit);
+        // The id breaks the last ties, so pages neither repeat nor skip a build.
+        .orderBy(desc(builderBuilds.votes), desc(builderBuilds.publishedAt), desc(builderBuilds.id))
+        .limit(limit + 1)
+        .offset(offset);
+      const hasMore = read.length > limit;
+      const rows = hasMore ? read.slice(0, limit) : read;
 
       /**
        * What the viewer has voted, in ONE query and not one per build: the vote
@@ -855,6 +877,7 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
 
       return c.json({
         docs: rows.map((f) => ({ ...forOutside(f, user), voted: mine.has(f.id) })),
+        hasMore,
       });
     }
   );

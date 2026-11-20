@@ -952,6 +952,7 @@ export function onlineOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The stations of the tournament with their access details. Tournament staff only.",
       access: "session",
+      unpaginated: "The stations (setups or lobbies) of one tournament: as many as it has places to play.",
       permission: ORGANIZATION_ONLY,
       input: { params: TournamentParam },
       output: { schema: withData(z.array(Row)) },

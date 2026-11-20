@@ -43,6 +43,7 @@ import {
 import { isAddress, sourceOf, SourceError } from "./crm.inbox.sources";
 import { fetchChanges, storeChanges, type SyncResult } from "./crm.inbox.sync";
 import { OWN, SEND, registry } from "./crm.inbox.operations";
+import { pageOfRows, pageOffset } from "./operations";
 
 const QUEUE = "kon-crm:inbox";
 const SYNC_EVERY_MS = 5 * 60_000;
@@ -70,12 +71,14 @@ const UpdateMailbox = z
 const ParamId = z.object({ id: z.string().uuid() });
 const ThreadsQuery = z.object({
   mailboxId: z.string().uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(200).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional().describe("Rows per page, 1-200 (default 50)"),
+  offset: pageOffset,
 });
 const EventsQuery = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
-  limit: z.coerce.number().int().min(1).max(500).optional(),
+  limit: z.coerce.number().int().min(1).max(500).optional().describe("Rows per page, 1-500 (default 200)"),
+  offset: pageOffset,
 });
 const SetVisibility = z.object({ visibility: Visibility }).strict();
 const Send = z
@@ -176,6 +179,7 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
     "/inbox/mailboxes",
     {
       id: "list-mailboxes",
+      unpaginated: "The mailboxes the caller added: a few per person.",
       summary: "Your synced mailboxes",
       description: "The mailboxes you added: address, what is synced (mail, calendar), default visibility, status and last sync. Only yours.",
       access: "session",
@@ -312,21 +316,23 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
       id: "list-threads",
       summary: "Email threads you may read",
       description:
-        "Your threads, newest first, and for admins and editors the threads others marked `team`: subject, visibility, message count, last message. Filter by `mailboxId`. Never a message body (none is stored).",
+        "Your threads, newest first, and for admins and editors the threads others marked `team`: subject, visibility, message count, last message. Filter by `mailboxId`. A page at a time: `limit` 1-200 (default 50), `offset` skips rows, `hasMore` says there are more. Never a message body (none is stored).",
       access: "session",
       permission: OWN,
       input: { query: ThreadsQuery },
-      output: { schema: z.object({ data: z.array(Out) }) },
+      output: { schema: z.object({ data: z.array(Out), hasMore: z.boolean() }) },
     },
     async (c, input) => {
       const q = input.query as z.infer<typeof ThreadsQuery>;
+      const limit = q.limit ?? 50;
       const rows = await db()
         .select()
         .from(inboxThreads)
         .where(q.mailboxId ? eq(inboxThreads.mailboxId, q.mailboxId) : undefined)
-        .orderBy(desc(inboxThreads.lastMessageAt))
-        .limit(q.limit ?? 50);
-      return c.json({ data: rows });
+        .orderBy(desc(inboxThreads.lastMessageAt), asc(inboxThreads.id))
+        .limit(limit + 1)
+        .offset(q.offset);
+      return c.json(pageOfRows(rows, limit));
     }
   );
 
@@ -382,23 +388,26 @@ export function inboxOperations(ctx: KonContext): AnyOperation[] {
     {
       id: "list-events",
       summary: "Calendar events you may read",
-      description: "Synced calendar events between `from` and `to` (ISO dates; default: the next 30 days), yours and those marked `team` for admins and editors.",
+      description:
+        "Synced calendar events between `from` and `to` (ISO dates; default: the next 30 days), soonest first, yours and those marked `team` for admins and editors. A page at a time: `limit` 1-500 (default 200), `offset` skips rows, `hasMore` says there are more; send the same `from` and `to` on every page, since the default window moves with the clock.",
       access: "session",
       permission: OWN,
       input: { query: EventsQuery },
-      output: { schema: z.object({ data: z.array(Out) }) },
+      output: { schema: z.object({ data: z.array(Out), hasMore: z.boolean() }) },
     },
     async (c, input) => {
       const q = input.query as z.infer<typeof EventsQuery>;
       const from = q.from ? new Date(q.from) : new Date();
       const to = q.to ? new Date(q.to) : new Date(from.getTime() + 30 * 86_400_000);
+      const limit = q.limit ?? 200;
       const rows = await db()
         .select()
         .from(inboxEvents)
         .where(and(or(isNull(inboxEvents.startsAt), gte(inboxEvents.startsAt, from)), or(isNull(inboxEvents.startsAt), lte(inboxEvents.startsAt, to))))
-        .orderBy(asc(inboxEvents.startsAt))
-        .limit(q.limit ?? 200);
-      return c.json({ data: rows });
+        .orderBy(asc(inboxEvents.startsAt), asc(inboxEvents.id))
+        .limit(limit + 1)
+        .offset(q.offset);
+      return c.json(pageOfRows(rows, limit));
     }
   );
 

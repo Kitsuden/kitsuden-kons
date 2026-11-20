@@ -7,7 +7,7 @@ newsletter service.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.1.0 | `/api/newsletter` | core `auth`; optional: kon-blog, kon-payments |
+| beta | content | 1.2.0 | `/api/newsletter` | core `auth`; optional: kon-blog, kon-payments |
 
 ## Install
 
@@ -108,13 +108,13 @@ Administration (newsletter admin only, see [Who can do what](#who-can-do-what)):
 | Route | Who | What it does |
 | --- | --- | --- |
 | `GET /api/newsletter/newsletters` | admin | Every newsletter, oldest first. |
-| `GET /api/newsletter/members` | admin | Latest members (`limit`, default 100, max 500): email, name, status, locale, consent date. |
-| `GET /api/newsletter/suppressions` | admin | Latest 500 suppressed addresses. |
+| `GET /api/newsletter/members` | admin | Latest members, newest first (`limit`, default 100, max 500, and `offset`; the answer adds `hasMore`): email, name, status, locale, consent date. |
+| `GET /api/newsletter/suppressions` | admin | Suppressed addresses, newest first: `limit` (1-500, default 500) and `offset`; the answer adds `hasMore`. |
 | `POST /api/newsletter/suppressions` | admin | Body `{ email, detail? }`. Suppresses an address (`201`). Suppressing twice keeps the first reason. |
 | `DELETE /api/newsletter/suppressions/:email` | admin | Removes a suppression (URL-encoded address). `ok` whether or not it existed. |
 | `POST /api/newsletter/segments/preview` | admin | Body `{ filter?, newsletterId? }`. How many members a filter reaches, with 10 sample emails. Sends nothing. |
 | `GET /api/newsletter/segments` | admin | Every saved segment. |
-| `GET /api/newsletter/campaigns` | admin | Latest 100 campaigns, newest first. |
+| `GET /api/newsletter/campaigns` | admin | Campaigns, newest first: `limit` (1-100, default 100) and `offset`; the answer adds `hasMore`. |
 | `POST /api/newsletter/campaigns` | admin | Body `{ newsletterId, subject, html, segmentId?, previewText?, text?, scheduledAt? }`. Creates a draft (`201`). `400` with `issues` for an invalid body. |
 | `GET /api/newsletter/campaigns/:id/preview` | admin | Renders the email as an address would receive it (`?email=`, default `preview@example.com`); `?format=html` returns the HTML itself. |
 | `POST /api/newsletter/campaigns/:id/prepare` | admin | Resolves the segment and creates one pending delivery per recipient (suppressed excluded). Returns `{ ok, recipients }`. `400` if the campaign does not exist or is sending or sent. |

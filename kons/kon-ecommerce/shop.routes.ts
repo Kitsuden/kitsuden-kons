@@ -216,6 +216,32 @@ const StatusChange = z.object({
 /** The order token: a header (preferred) or `?token=` (links in emails). Never in the body. */
 const TokenQuery = z.object({ token: z.string().max(200).optional() }).passthrough();
 
+/** One page of the buyer's orders. The default is the cap the list always had (100). */
+const MyOrdersQuery = TokenQuery.extend({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .default(100)
+    .describe("Orders per page (1-100). The default is the maximum, what the list always returned."),
+  offset: z.coerce.number().int().min(0).default(0).describe("Orders to skip."),
+});
+
+/** One page of discount codes. The default is the cap the list always had (500). */
+const PromotionsQuery = z
+  .object({
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(500)
+      .default(500)
+      .describe("Codes per page (1-500). The default is the maximum, what the list always returned."),
+    offset: z.coerce.number().int().min(0).default(0).describe("Codes to skip."),
+  })
+  .passthrough();
+
 const CheckoutInput = z.object({
   provider: z.string().min(1).max(32),
   successUrl: z.string().url().max(2000),
@@ -303,8 +329,17 @@ const ParamSlug = z.object({ slug: z.string() });
 const PageQuery = z
   .object({ limit: z.string().optional(), offset: z.string().optional() })
   .passthrough();
+/**
+ * `limit` keeps its lenient parsing (text: a non-number is the default 50, a
+ * value over 200 is clamped), so requests that got a page before still do.
+ * `offset` reaches the rows past it (api-contract, 2026-11-18).
+ */
 const OrdersQuery = z
-  .object({ status: z.string().optional(), limit: z.string().optional() })
+  .object({
+    status: z.string().optional(),
+    limit: z.string().optional(),
+    offset: z.coerce.number().int().min(0).default(0).describe("Orders to skip."),
+  })
   .passthrough();
 
 /** The TRIMMED shape of the catalog (`withVariants`). */
@@ -773,18 +808,19 @@ export function shopOperations(ctx: KonContext, deps: ShopDependencies = {}): An
       id: "list-my-orders",
       summary: "List my orders (buyer, with a link token)",
       description:
-        "The orders placed with the email a \"my orders\" token was sent to, newest first (number, status, total, date). Use each order's id with the same token on GET /orders/:id. 404 for a missing or expired token. Public.",
+        "The orders placed with the email a \"my orders\" token was sent to, newest first (number, status, total, date), one page at a time (`limit` up to 100, the default, and `offset`; `hasMore` says whether there are more). Use each order's id with the same token on GET /orders/:id. 404 for a missing or expired token. Public.",
       access: "public",
-      input: { query: TokenQuery },
-      output: { schema: z.object({ orders: z.array(Row) }) },
+      input: { query: MyOrdersQuery },
+      output: { schema: z.object({ orders: z.array(Row), hasMore: z.boolean() }) },
       errors: ["KITSUDEN_E_NOT_FOUND"],
       mcp: { exclude: "Opened by the buyer with a token from their email, never by an agent" },
     },
-    async (c) => {
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit: number; offset: number };
       const token = tokenOf(c);
       const email = token ? await asSystem(() => emailOfLink(db, token)) : null;
       if (!email) throw AppError.notFound("Link not found or expired");
-      const orders = await asSystem(
+      const rows = await asSystem(
         () =>
           db
             .select({
@@ -797,10 +833,12 @@ export function shopOperations(ctx: KonContext, deps: ShopDependencies = {}): An
             })
             .from(shopOrders)
             .where(sql`lower(${shopOrders.customerEmail}) = ${email}`)
-            .orderBy(desc(shopOrders.createdAt))
-            .limit(100) as Promise<Array<{ id: string }>>
+            // The id breaks ties between orders created in the same instant.
+            .orderBy(desc(shopOrders.createdAt), desc(shopOrders.id))
+            .limit(limit + 1)
+            .offset(offset) as Promise<Array<{ id: string }>>
       );
-      return c.json({ orders });
+      return c.json({ orders: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 
@@ -984,14 +1022,17 @@ export function shopOperations(ctx: KonContext, deps: ShopDependencies = {}): An
       id: "list-orders",
       summary: "List orders (staff)",
       description:
-        "The orders, newest first, with the buyer's email, name and address. `status` filters (pending, paid, in_production, ready, shipped, delivered, cancelled, refunded; another value is ignored), `limit` up to 200 (default 50). Shop staff only: buyers never list orders.",
+        "The orders, newest first, with the buyer's email, name and address. `status` filters (pending, paid, in_production, ready, shipped, delivered, cancelled, refunded; another value is ignored). One page at a time: `limit` up to 200 (default 50) and `offset`; `hasMore` says whether there are more. Shop staff only: buyers never list orders.",
       access: "session",
       // It was `authorize(user, "view", { id: "*" }, "shop-order")`, before everything.
       permission: policy("shop-order", "view"),
       input: { query: OrdersQuery },
-      output: { schema: z.object({ orders: z.array(Row) }) },
+      output: { schema: z.object({ orders: z.array(Row), hasMore: z.boolean() }) },
     },
-    async (c) => {
+    async (c, input) => {
+      const { offset } = input.query as { offset: number };
+      // At least 1: a negative `limit` reached Postgres as an error.
+      const limit = Math.max(Math.min(Number(c.req.query("limit")) || 50, 200), 1);
       const statusValue = c.req.query("status");
       // Conditions accumulate and `.where()` is called ONCE: chaining two
       // `.where()` on the same Drizzle builder does not add them, it REPLACES the
@@ -1005,10 +1046,12 @@ export function shopOperations(ctx: KonContext, deps: ShopDependencies = {}): An
         .select()
         .from(shopOrders)
         .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(shopOrders.createdAt))
-        .limit(Math.min(Number(c.req.query("limit")) || 50, 200));
+        // The id breaks ties between orders created in the same instant.
+        .orderBy(desc(shopOrders.createdAt), desc(shopOrders.id))
+        .limit(limit + 1)
+        .offset(offset);
 
-      return c.json({ orders: requests });
+      return c.json({ orders: requests.slice(0, limit), hasMore: requests.length > limit });
     }
   );
 
@@ -1122,6 +1165,7 @@ export function shopOperations(ctx: KonContext, deps: ShopDependencies = {}): An
       description:
         "The files a paid order of this product receives (id, media id, variant — null is every variant —, filename). 404 if the product does not exist. Shop staff only.",
       access: "session",
+      unpaginated: "The few files one product delivers, attached by hand by the shop staff.",
       permission: onTheRow("shop-product"),
       input: { params: ParamId },
       output: { schema: z.object({ files: z.array(Row) }) },
@@ -1296,14 +1340,22 @@ export function shopOperations(ctx: KonContext, deps: ShopDependencies = {}): An
       id: "list-promotions",
       summary: "List discount codes (staff)",
       description:
-        "Every discount code, newest first, with its application (percentage or fixed, on the order or on shipping), rules (dates, minimum, products, limit) and how many times it was used. Shop staff only.",
+        "The discount codes, newest first, one page at a time (`limit` up to 500, the default, and `offset`; `hasMore` says whether there are more), with their application (percentage or fixed, on the order or on shipping), rules (dates, minimum, products, limit) and how many times each was used. Shop staff only.",
       access: "session",
       permission: policy("shop-promotion", "view"),
-      output: { schema: z.object({ promotions: z.array(Row) }) },
+      input: { query: PromotionsQuery },
+      output: { schema: z.object({ promotions: z.array(Row), hasMore: z.boolean() }) },
     },
-    async (c) => {
-      const promotions = await db.select().from(shopPromotions).orderBy(desc(shopPromotions.createdAt)).limit(500);
-      return c.json({ promotions });
+    async (c, input) => {
+      const { limit, offset } = input.query as { limit: number; offset: number };
+      // It stopped at 500 codes with no sign. The id breaks ties.
+      const rows = await db
+        .select()
+        .from(shopPromotions)
+        .orderBy(desc(shopPromotions.createdAt), desc(shopPromotions.id))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json({ promotions: rows.slice(0, limit), hasMore: rows.length > limit });
     }
   );
 

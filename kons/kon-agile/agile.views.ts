@@ -124,7 +124,10 @@ export function viewOperations(db: { instance: AgileDb }, access: AgileAccess): 
 
   routes.get(
     "/:projectId/views",
-    declare("list-views", "List my saved views of a project", `The project's shared views and the caller's private ones, in order. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declare("list-views", "List my saved views of a project", `The project's shared views and the caller's private ones, in order. ${WHO_SEES}`, { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Saved views of one project for the caller: the shared ones plus its own, a short menu people set up by hand.",
+    },
     async (c, input) => {
       const { project, user } = await projectFor(c, input.params.projectId, "view");
       const docs = await db.instance

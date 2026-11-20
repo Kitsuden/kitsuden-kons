@@ -60,3 +60,7 @@ request body under `body`:
 ```json
 { "projectId": "…", "body": { "title": "Login fails with 500", "suggestedType": "bug" } }
 ```
+
+Since 1.5 `agile_list_comments` takes an optional page: `{ "key": "PLAT-12", "limit": 50, "offset": 0 }`
+answers at most 50 comments and `hasMore: true` when more follow. Without `limit` it answers every
+comment, as before.

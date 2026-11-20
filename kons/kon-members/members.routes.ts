@@ -155,6 +155,7 @@ export function membersOperations(ctx: KonContext): AnyOperation[] {
       description:
         "The active, visible membership tiers (plans) ordered by level, with prices and benefits. Public: the pricing page needs it.",
       access: "public",
+      unpaginated: "The membership tiers of the pricing page: a few plans, shown together.",
       output: { schema: z.object({ data: z.array(Row) }) },
     },
     async (c) => {

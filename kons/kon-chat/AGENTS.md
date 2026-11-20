@@ -18,6 +18,9 @@ for channel turns, only their cost (`chat_channel_turns`).
   `chat__delete-chatbot`, `chat__list-chatbot-knowledge`, `chat__add-chatbot-knowledge`,
   `chat__delete-chatbot-knowledge`, `chat__list-chatbot-conversations`, `chat__get-chatbot-usage`,
   `chat__list-chatbot-feedback`, `chat__get-chat-conversation`). Each returns `{ data: ... }`.
+- `chat__list-chatbot-conversations` and `chat__list-chatbot-feedback` take `limit` (1-200, default 200) and
+  `offset`; `chat__list-chatbot-knowledge` takes an optional `limit` (1-500; without it, every document) and
+  `offset`. They answer `hasMore` next to `data`: ask for the next page while it is true.
 - Scopes: the kon-wide `chat:*` (or `kon:chat:*`) for everything, the policy scope `chat:configure` for
   every admin operation, or one operation's fine scope (`kon:chat:list-chatbots`). The route and the tables'
   row security accept the same scopes (`migrations/0002_fine_scopes_in_rls.sql`). `get-chat-conversation`
@@ -103,6 +106,7 @@ for channel turns, only their cost (`chat_channel_turns`).
 pnpm vitest run tests/unit/kon-chat.test.ts
 pnpm vitest run tests/unit/kon-chat-routes.test.ts
 pnpm vitest run tests/unit/kon-chat-channel.test.ts
+pnpm vitest run tests/unit/kon-chat-pagination.test.ts
 pnpm vitest run tests/unit/kon-koe-ai.test.ts
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-chat"
 ```

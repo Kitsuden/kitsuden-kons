@@ -65,6 +65,7 @@ const ListQuery = z.object({
   scope: z.enum(["personal", "team", "global"]).optional(),
   conversationId: z.string().max(100).optional().describe("Adds `preview`: the text resolved for this conversation's contact"),
   limit: z.coerce.number().int().min(1).max(100).default(30),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip."),
 });
 
 const SendQuick = z.object({
@@ -162,7 +163,7 @@ export const quickReplyOperations: OperationsModule = (app, ctx) => {
       id: "list-quick-replies",
       summary: "Quick replies",
       description:
-        'The canned answers you may use: global ones, your teams\' and your own. `shortcut` filters by prefix (what the composer\'s "/" menu calls), `q` by words. With `conversationId` each one has `preview`, its text resolved for that contact.',
+        'The canned answers you may use: global ones, your teams\' and your own. `shortcut` filters by prefix (what the composer\'s "/" menu calls), `q` by words. With `conversationId` each one has `preview`, its text resolved for that contact. By shortcut; paged with `limit` (1-100, default 30) and `offset`, and `hasMore` says whether another page follows.',
       access: "session",
       permission: USE,
       input: { query: ListQuery },
@@ -182,7 +183,15 @@ export const quickReplyOperations: OperationsModule = (app, ctx) => {
         const term = `%${likeEscape(q.q.trim())}%`;
         where.push(or(ilike(koeQuickReplies.shortcut, term), ilike(koeQuickReplies.title, term), ilike(koeQuickReplies.body, term))!);
       }
-      const rows = (await db().select().from(koeQuickReplies).where(and(...where)).orderBy(asc(koeQuickReplies.shortcut), asc(koeQuickReplies.scope)).limit(q.limit)) as QuickReply[];
+      const page = (await db()
+        .select()
+        .from(koeQuickReplies)
+        .where(and(...where))
+        .orderBy(asc(koeQuickReplies.shortcut), asc(koeQuickReplies.scope), asc(koeQuickReplies.id))
+        .limit(q.limit + 1)
+        .offset(q.offset)) as QuickReply[];
+      const hasMore = page.length > q.limit;
+      const rows = page.slice(0, q.limit);
 
       // Attachment summaries in one query: the menu shows "📷 + 📄", not signed URLs.
       const ids = [...new Set(rows.flatMap((r) => r.attachments.map((a) => a.mediaId)))];
@@ -203,7 +212,7 @@ export const quickReplyOperations: OperationsModule = (app, ctx) => {
         }),
         ...(resolve ? { preview: r.body ? resolve(r.body) : null } : {}),
       }));
-      return c.json({ data });
+      return c.json({ data, hasMore });
     }
   );
 

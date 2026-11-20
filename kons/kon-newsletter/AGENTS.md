@@ -19,8 +19,11 @@ bounces and complaints come back through signed provider webhooks.
   `newsletter:*` with denies (`!kon:newsletter:send-campaign`, `!kon:newsletter:remove-suppression`)
   rather than fine scopes alone.
 - **MCP tools** (`newsletter__<operation>`), what they return:
-  - `list-newsletters` `{ newsletters }`, `list-members` `{ members }`, `list-suppressions`
-    `{ suppressions }`, `list-segments` `{ segments }`, `list-campaigns` `{ campaigns }`.
+  - `list-newsletters` `{ newsletters }`, `list-members` `{ members, hasMore }`, `list-suppressions`
+    `{ suppressions, hasMore }`, `list-segments` `{ segments }`, `list-campaigns` `{ campaigns, hasMore }`.
+    `list-members` (default 100, max 500), `list-suppressions` (default and max 500) and
+    `list-campaigns` (default and max 100) take `limit` and `offset`: ask for the next page while
+    `hasMore` is true.
   - `preview-segment` `{ total, sample }` (10 emails); `preview-campaign` `{ message }`;
     `get-campaign-stats` `{ status, stats, breakdown }`.
   - `create-campaign` `{ campaign }` (201, draft); `prepare-campaign` `{ ok, recipients }`;

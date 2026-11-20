@@ -113,8 +113,11 @@ export const OrganizationParam = z.object({
 /** A database row: it carries `id`, and the rest as is. */
 export const Row = z.object({ id: z.string() }).passthrough();
 export const RowList = z.object({ docs: z.array(Row) }).passthrough();
+/** A page of rows: `hasMore` says there are rows after this page. */
+export const RowPage = z.object({ docs: z.array(Row), hasMore: z.boolean() }).passthrough();
+/** A page of rows with `totalDocs` (the rows on this page) and `hasMore` (rows after it). */
 export const ListWithTotal = z
-  .object({ docs: z.array(Row), totalDocs: z.number().int() })
+  .object({ docs: z.array(Row), totalDocs: z.number().int(), hasMore: z.boolean() })
   .passthrough();
 /** A record projected for whoever looks (public, colleague or full). */
 export const Card = z.record(z.string(), z.unknown());
@@ -123,3 +126,21 @@ export const Success = z.object({ success: z.literal(true) });
 /** Free-text query: whatever is not declared is ignored, as always. */
 export const query = <S extends z.ZodRawShape>(shape: S) => z.object(shape).passthrough();
 export const text = (that: string) => z.string().optional().describe(that);
+
+/**
+ * `limit` and `offset` of a list that used to stop at `max` rows with no sign. The default
+ * is still `max`, so a client that sends neither gets what it got before, plus `hasMore`.
+ */
+export const pageOf = (max: number) => ({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(max)
+    .default(max)
+    .describe(`Rows per page, 1-${max} (default ${max})`),
+  offset: z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)"),
+});
+export type Page = { limit: number; offset: number };
+/** `offset` alone, for a list whose `limit` was already there with its own default and maximum. */
+export const offsetOnly = z.coerce.number().int().min(0).default(0).describe("Rows to skip (default 0)");

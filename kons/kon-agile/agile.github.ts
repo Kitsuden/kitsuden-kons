@@ -145,7 +145,10 @@ export function githubOperations(
 
   routes.get(
     "/:projectId/github",
-    declareOp("list-github-repos", "Repositories connected to a project", "Each connected repository with its webhook URL, whether merging closes issues, and when GitHub last delivered. The secret is never shown again. Only for members of the project (and admin); anyone else gets 404.", { params: ProjectParam }, { schema: ListWithTotal }),
+    {
+      ...declareOp("list-github-repos", "Repositories connected to a project", "Each connected repository with its webhook URL, whether merging closes issues, and when GitHub last delivered. The secret is never shown again. Only for members of the project (and admin); anyone else gets 404.", { params: ProjectParam }, { schema: ListWithTotal }),
+      unpaginated: "Configuration of one project: the GitHub repositories a person connected to it, one at a time; a few per project.",
+    },
     async (c, input) => {
       const { project } = await projectFor(c, input.params.projectId, "view");
       const rows = await db.instance
@@ -224,7 +227,10 @@ export function githubOperations(
 
   routes.get(
     "/issues/:key/pull-requests",
-    declareOp("list-pull-requests", "Pull requests of an issue", "The GitHub pull requests that mention the issue: repository, number, title, URL, state (open, closed, merged), author and whether it closes the issue. Only for members of the project (and admin); anyone else gets 404.", { params: KeyParam }, { schema: ListWithTotal }),
+    {
+      ...declareOp("list-pull-requests", "Pull requests of an issue", "The GitHub pull requests that mention the issue: repository, number, title, URL, state (open, closed, merged), author and whether it closes the issue. Only for members of the project (and admin); anyone else gets 404.", { params: KeyParam }, { schema: ListWithTotal }),
+      unpaginated: "The pull requests that mention ONE issue, one row per pull request however often it changes: a few per issue.",
+    },
     async (c, input) => {
       const { issue } = await issueFor(c, input.params.key, "view");
       const docs = await db.instance

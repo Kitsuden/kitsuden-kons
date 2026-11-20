@@ -23,6 +23,12 @@ audit log. Mounted at `/api/dms`. Every route needs a session.
 - MCP tools are `dms__<op>` (see the README's table). They return the route's JSON: lists as
   `{ docs, … }` with pagination, single items as the row, the reader view as the rendered
   document with its table of contents.
+- Paging: `list-documents`, `list-comments` and `list-notices` take `limit` and `page`.
+  `list-versions`, `list-read-acknowledgments` and `list-incoming-links` return every row unless
+  you send `limit` (1-500); then `offset` moves on and `hasMore` says whether to ask again.
+  `list-folders` and `list-diagrams` are small and always whole. `search-documents` is not paged
+  (declared `unpaginated`): it returns the best matches by relevance, at most `limit` (1-50); to
+  read everything that matches a word, page `list-documents` with `search`.
 - Sensitive, may return `202 KITSUDEN_E_APPROVAL_REQUIRED` (report it, do not retry):
   `dms__publish-version`, `dms__import-documents`, `dms__archive-document`, `dms__delete-comment`,
   `dms__delete-diagram`.
@@ -87,6 +93,7 @@ audit log. Mounted at `/api/dms`. Every route needs a session.
 
 ```bash
 pnpm vitest run tests/unit/kon-dms-security.test.ts              # after any change here
+pnpm vitest run tests/unit/kon-dms-pagination.test.ts            # limit, offset, hasMore
 pnpm vitest run tests/unit/effective-agents-in-kons.test.ts      # policy, dms.access.ts, RLS
 pnpm vitest run tests/guards/kon-docs.test.ts -t "kon-dms"
 ```

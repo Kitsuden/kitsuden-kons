@@ -19,7 +19,7 @@ import { z } from "@kitsuden/engine/zod";
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
 import { crmActivities, crmContacts, crmDeals, crmScoreModels } from "./crm.schema";
-import { CONFIGURE, EDIT, VIEW, requiresEdit, type registry } from "./operations";
+import { CONFIGURE, EDIT, VIEW, cappedPage, pageOfRows, requiresEdit, type Page, type registry } from "./operations";
 
 export const SIGNALS = {
   hasEmail: "The contact has an email",
@@ -183,13 +183,23 @@ export function scoringOperations(routes: ReturnType<typeof registry>): void {
     {
       id: "list-score-model-versions",
       summary: "List earlier versions of the score model",
-      description: "Newest first, up to 50, with who saved each one. Requires CRM view access.",
+      description:
+        "Newest first, with who saved each one, a page at a time (`limit` 1-50, default 50; `offset`; `hasMore` says there are more). Requires CRM view access.",
       access: "session",
       permission: VIEW,
+      input: { query: z.object(cappedPage(50)).passthrough() },
       output: { schema: Output },
     },
-    async (c) =>
-      c.json({ data: await dbDe(c).select().from(crmScoreModels).orderBy(desc(crmScoreModels.version)).limit(50) })
+    async (c, input) => {
+      const { limit, offset } = input.query as Required<Page>;
+      const rows = await dbDe(c)
+        .select()
+        .from(crmScoreModels)
+        .orderBy(desc(crmScoreModels.version))
+        .limit(limit + 1)
+        .offset(offset);
+      return c.json(pageOfRows(rows, limit));
+    }
   );
 
   routes.post(
