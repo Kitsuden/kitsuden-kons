@@ -796,10 +796,10 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "delete-counterparty",
       summary: "Delete a counterparty",
       description:
-        "Deletes a counterparty. 400 if journals or projects still reference it; 404 if it does not exist. Write access to the ledger.",
+        "Deletes a counterparty. 409 if journals, projects or invoices still reference it; 404 if it does not exist. Write access to the ledger.",
       input: { params: ParamId },
       output: { schema: Done },
-      errors: ["KITSUDEN_E_NOT_FOUND"],
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
     }),
     async (c) => {
       const [cp] = await db
@@ -922,10 +922,10 @@ export function contaOperations(ctx: KonContext): AnyOperation[] {
       id: "delete-project",
       summary: "Delete a project",
       description:
-        "Deletes a project. 400 if ledger lines or disbursements still reference it; 404 if it does not exist. Write access to the ledger.",
+        "Deletes a project. 409 if ledger lines, disbursements or invoices still reference it; 404 if it does not exist. Write access to the ledger.",
       input: { params: ParamId },
       output: { schema: Done },
-      errors: ["KITSUDEN_E_NOT_FOUND"],
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_CONFLICT"],
     }),
     async (c) => {
       const [project] = await db

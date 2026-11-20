@@ -56,24 +56,6 @@
         "id": "dashboard",
         "type": "custom",
         "title": "Newsletter"
-      },
-      {
-        "id": "members",
-        "type": "grid",
-        "title": "Members",
-        "table": "nl_members"
-      },
-      {
-        "id": "campaigns",
-        "type": "grid",
-        "title": "Campaigns",
-        "table": "nl_campaigns"
-      },
-      {
-        "id": "suppressions",
-        "type": "grid",
-        "title": "Suppressions",
-        "table": "nl_suppressions"
       }
     ]
   }
