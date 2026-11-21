@@ -20,6 +20,8 @@
  *   LEMONSQUEEZY_ORDER_VARIANT_ID → a "pay what is asked" variant: lets the shop charge orders here
  *   PADDLE_API_KEY / PADDLE_WEBHOOK_SECRET / PADDLE_ENV
  *   PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID / PAYPAL_ENV
+ *   TILOPAY_API_USER / TILOPAY_API_PASSWORD / TILOPAY_API_KEY / TILOPAY_RETURN_URL   (one-time payments)
+ *   YAPPY_MERCHANT_ID / YAPPY_SECRET_KEY / YAPPY_DOMAIN / YAPPY_IPN_URL / YAPPY_ENV   (one-time payments, button)
  *   PAYMENTS_LEDGER=true  → generates entries in kon-conta
  *
  * One-time payments for an amount another kon computes (a shop order): `openOrderCheckout`
@@ -37,6 +39,8 @@ import { lemonSqueezyProvider } from "./providers/lemonsqueezy";
 import { paddleProvider } from "./providers/paddle";
 import { paypalProvider } from "./providers/paypal";
 import { stripeProvider } from "./providers/stripe";
+import { tilopayProvider } from "./providers/tilopay";
+import { yappyProvider } from "./providers/yappy";
 
 export * from "./payments.schema";
 export * from "./payments.types";
@@ -59,8 +63,8 @@ import manifest from "./kon.json" with { type: "json" };
 
 /** Version and tables come from kon.json, the one place they are written (tests/guards/kon-single-source). */
 const konTables = manifest.tables.map((t: string | { name: string }) => (typeof t === "string" ? t : t.name));
-export { stripeProvider, lemonSqueezyProvider, paddleProvider, paypalProvider };
-export { openOrderCheckout, orderProviderNames } from "./payments.orders";
+export { stripeProvider, lemonSqueezyProvider, paddleProvider, paypalProvider, tilopayProvider, yappyProvider };
+export { openOrderCheckout, orderProviderNames, newReference } from "./payments.orders";
 import { connectedHttp, followConnections, refreshConnectedProviders } from "./payments.connections";
 export type { OrderCheckoutResult } from "./payments.orders";
 
@@ -72,6 +76,8 @@ export function buildProviders(env = process.env): Map<string, PaymentProvider> 
     lemonSqueezyProvider(env, connectedHttp("lemonsqueezy")),
     paddleProvider(env, connectedHttp("paddle")),
     paypalProvider(env),
+    tilopayProvider(env),
+    yappyProvider(env),
   ];
 
   const map = new Map<string, PaymentProvider>();
@@ -89,6 +95,21 @@ export function buildProviders(env = process.env): Map<string, PaymentProvider> 
  * from the `pay_events` log. Losing a payment over an accounting problem
  * would be far worse than a pending entry.
  */
+/**
+ * Whose books a payment belongs in, when it is not this installation's ledger.
+ *
+ * A payment for an Odoo order (metadata `odooOrderId`, set by the shop when it opens the payment
+ * for kon-odoo) is recorded in Odoo's own books by the kitsuden_bridge module: posting it to
+ * kon-conta too would count the money twice. Any other system can claim a payment the same way
+ * with `booksKeptBy` in the metadata. Answers the system's name, or null.
+ */
+export function booksKeptElsewhere(event: Pick<PaymentEvent, "metadata">): string | null {
+  const metadata = event.metadata ?? {};
+  if (typeof metadata.booksKeptBy === "string" && metadata.booksKeptBy.trim()) return metadata.booksKeptBy.trim();
+  if (typeof metadata.odooOrderId === "string" && metadata.odooOrderId) return "odoo";
+  return null;
+}
+
 function makeLedgerBridge(ctx: KonContext) {
   // The ACCOUNTS must be configured: double entry requires knowing which account
   // gets the debit and which the credit, and that depends on each
@@ -100,6 +121,8 @@ function makeLedgerBridge(ctx: KonContext) {
   return async (event: PaymentEvent, userId: string | null): Promise<string | undefined> => {
     if (process.env.PAYMENTS_LEDGER !== "true") return undefined;
     if (!event.money || event.type === "payment.failed") return undefined;
+    // Another system keeps this payment's books: recording it here too would count it twice.
+    if (booksKeptElsewhere(event)) return undefined;
 
     if (!debitAccount || !creditAccount) {
       ctx.logger.warn(
@@ -174,7 +197,7 @@ export function createPaymentsKon(ctx: KonContext): Hono {
   if (providers.size === 0) {
     ctx.logger.warn(
       "kon-payments active but no providers configured — " +
-        "define STRIPE_SECRET_KEY, LEMONSQUEEZY_API_KEY, PADDLE_API_KEY or PAYPAL_CLIENT_ID"
+        "define STRIPE_SECRET_KEY, LEMONSQUEEZY_API_KEY, PADDLE_API_KEY, PAYPAL_CLIENT_ID, TILOPAY_API_USER or YAPPY_MERCHANT_ID"
     );
   }
 
@@ -193,7 +216,13 @@ const definition = defineKonSdk({
   id: KON_ID,
   name: "Payments",
   version: manifest.version,
-  description: "Payments and subscriptions: Stripe, Lemon Squeezy, Paddle and PayPal",
+  description: "Payments and subscriptions: Stripe, Lemon Squeezy, Paddle and PayPal; one-time payments also with Tilopay and Yappy",
+  rateLimits: [
+    // Each call opens a payment at a provider.
+    { path: "/orders/checkout", limit: 60, window: 60, failClosed: true },
+    // Tilopay confirms every return by asking Tilopay; a flood is refused, not forwarded.
+    { path: "/return/*", limit: 300, window: 60, failClosed: true },
+  ],
   icon: "CreditCard",
   mountPath: "/api/payments",
   operations: (ctx: KonContext) =>

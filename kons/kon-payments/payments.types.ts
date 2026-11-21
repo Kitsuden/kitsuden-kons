@@ -149,13 +149,72 @@ export interface PaymentCheckoutInput {
   metadata: Record<string, string>;
   /** How long the payment page stays open, when the provider lets it be set. */
   expiresInMinutes?: number;
+  /**
+   * The kon's own reference for this payment (`pay_checkouts.reference`), for providers that
+   * report the result by an order number of the merchant's (Tilopay, Yappy) instead of carrying
+   * metadata back. Set by `openOrderCheckout`; a provider that does not need it ignores it.
+   */
+  reference?: string;
+  /** Who pays, for providers that require a billing address (Tilopay). */
+  billing?: CheckoutBilling;
+  /** The payer's phone, without country prefix, for wallet providers that ask for it (Yappy). */
+  customerPhone?: string;
+}
+
+export interface CheckoutBilling {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  address2?: string;
+  city: string;
+  /** ISO 3166-2 subdivision, e.g. `CR-SJ`, `PA-8` */
+  state: string;
+  zip: string;
+  /** ISO 3166-1 alpha-2 */
+  country: string;
 }
 
 export interface CheckoutSession {
-  /** URL to redirect the user to. */
+  /**
+   * URL to redirect the user to. Empty for a provider whose payment happens in a button on the
+   * merchant's own page (`button` below): there is nowhere to redirect to.
+   */
   url: string;
   /** Session id at the provider. */
   id: string;
+  /**
+   * For a provider that pays inside the merchant's page (Yappy): the script to load and the
+   * values to hand to its component. The site renders the button; nothing here is secret.
+   */
+  button?: {
+    script: string;
+    params: Record<string, string>;
+  };
+}
+
+/**
+ * A one-time payment this kon opened, as `pay_checkouts` keeps it: what a provider that reports
+ * only an order number needs to rebuild the event (amount, metadata), read on the server and
+ * never taken from the request.
+ */
+export interface PendingCheckout {
+  reference: string;
+  provider: string;
+  amount: number;
+  currency: string;
+  metadata: Record<string, string>;
+  successUrl: string;
+  cancelUrl: string | null;
+}
+
+/** What a provider makes of a return to the site or a GET notification. */
+export interface ReturnResult {
+  /** The normalized event; `null` when the request is not authentic; `undefined` when it says nothing new. */
+  event: PaymentEvent | null | undefined;
+  /** Where to send the browser, when the request came from one. Absent: answer JSON (a server notification). */
+  redirect?: string;
 }
 
 // ── Provider ─────────────────────────────────────────────────────────────────
@@ -186,6 +245,23 @@ export interface PaymentProvider {
     rawBody: string,
     headers: Record<string, string>
   ): Promise<PaymentEvent | null | undefined>;
+
+  /**
+   * `redirect` (the default): `createPaymentCheckout` answers a URL to send the buyer to.
+   * `button`: it answers `button`, and the site renders the provider's component.
+   */
+  readonly checkoutStyle?: "redirect" | "button";
+
+  /**
+   * For providers that report a result by sending the buyer back, or by a GET notification,
+   * instead of a signed POST: `GET /return/:provider`. `find` reads the payment this kon opened
+   * by its reference, on the server: the request's own values are never trusted for the amount
+   * or the metadata.
+   */
+  parseReturn?(
+    query: Record<string, string>,
+    find: (reference: string) => Promise<PendingCheckout | null>
+  ): Promise<ReturnResult>;
 
   /** Customer portal URL (change card, cancel). Optional. */
   createPortalSession?(customerId: string, returnUrl: string): Promise<{ url: string }>;

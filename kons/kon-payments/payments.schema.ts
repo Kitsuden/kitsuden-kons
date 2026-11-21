@@ -106,6 +106,35 @@ export const payEvents = pgTable(
   ]
 );
 
+// ── One-time payments opened here ────────────────────────────────────────────
+
+/**
+ * Each one-time payment `openOrderCheckout` opened. Providers that report a result only by an
+ * order number (Tilopay's return, Yappy's notification) carry no metadata and, for Yappy, no
+ * amount: both are read back from here, on the server, by `reference`. Written and read by the
+ * system only (migration 0002).
+ */
+export const payCheckouts = pgTable(
+  "pay_checkouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** The merchant's order number at the provider: 1 to 15 letters and digits (Yappy's limit). */
+    reference: varchar("reference", { length: 15 }).notNull(),
+    provider: varchar("provider", { length: 32 }).notNull(),
+    /** Cents. */
+    amount: integer("amount").notNull(),
+    currency: varchar("currency", { length: 3 }).notNull(),
+    metadata: jsonb("metadata").$type<Record<string, string>>().default({}).notNull(),
+    successUrl: text("success_url").notNull(),
+    cancelUrl: text("cancel_url"),
+    /** Session id at the provider, when it gives one. */
+    providerRef: varchar("provider_ref", { length: 191 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("pay_checkouts_reference_idx").on(t.reference)]
+);
+
 export type PayCustomer = typeof payCustomers.$inferSelect;
 export type PaySubscription = typeof paySubscriptions.$inferSelect;
 export type PayEvent = typeof payEvents.$inferSelect;
+export type PayCheckout = typeof payCheckouts.$inferSelect;
