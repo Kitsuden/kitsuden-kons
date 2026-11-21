@@ -28,6 +28,7 @@ import {
   type SharedSource,
   type TableEvent,
 } from "./cardsim.relay.js";
+import { withoutTrailingSlashes } from "./cardsim.images.client.js";
 
 export type Fetcher = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -84,7 +85,7 @@ export interface CreateRoomInput {
 }
 
 export function createTableApi(options: { apiBase: string; fetcher?: Fetcher }) {
-  const base = options.apiBase.replace(/\/+$/, "");
+  const base = withoutTrailingSlashes(options.apiBase);
   const fetcher: Fetcher = options.fetcher ?? ((u, i) => fetch(u, i));
 
   async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<T> {

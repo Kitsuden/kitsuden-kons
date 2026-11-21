@@ -878,6 +878,16 @@ function safeStorage(storage?: PrefsStoreOptions["storage"]) {
   };
 }
 
+/**
+ * `https://x/api/` → `https://x/api`. A loop, not a `/+$` pattern: that one backtracks on a long
+ * run of slashes (CodeQL js/polynomial-redos), and the base comes from the page that mounts us.
+ */
+export function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end--;
+  return url.slice(0, end);
+}
+
 function parseSources(value: unknown): ImageSource[] | null {
   const parsed = ImagePrefsSchema.safeParse({ sources: value });
   return parsed.success ? parsed.data.sources : null;
@@ -887,7 +897,7 @@ export function createPrefsStore(options: PrefsStoreOptions): PrefsStore {
   const fetcher = options.fetcher ?? ((u, i) => fetch(u, i));
   const storage = safeStorage(options.storage);
   const url = options.apiBase
-    ? `${options.apiBase.replace(/\/+$/, "")}/image-prefs/${encodeURIComponent(options.game)}`
+    ? `${withoutTrailingSlashes(options.apiBase)}/image-prefs/${encodeURIComponent(options.game)}`
     : null;
 
   const local = (): ImageSource[] => {

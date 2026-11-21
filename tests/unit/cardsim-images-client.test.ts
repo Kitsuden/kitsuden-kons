@@ -25,6 +25,7 @@ import {
   runtimesFromSources,
   sniffImageType,
   templateSource,
+  withoutTrailingSlashes,
   zipSource,
   type CardRef,
   type Fetcher,
@@ -474,6 +475,15 @@ describe("settings through the kon", () => {
       throw new TypeError("offline");
     };
     expect((await createPrefsStore({ game: "op", apiBase: "https://a.example.org", fetcher: offline, storage }).load()).synced).toBe(false);
+  });
+
+  test("the kon's base URL loses its trailing slashes, fast even with very many", () => {
+    expect(withoutTrailingSlashes("https://a.example.org/api/cardsim///")).toBe("https://a.example.org/api/cardsim");
+    expect(withoutTrailingSlashes("/api/cardsim")).toBe("/api/cardsim");
+    expect(withoutTrailingSlashes("///")).toBe("");
+    const t0 = performance.now();
+    expect(withoutTrailingSlashes(`x${"/".repeat(200_000)}y`)).toHaveLength(200_002);
+    expect(performance.now() - t0).toBeLessThan(200);
   });
 
   test("invalid settings are not saved anywhere", async () => {
