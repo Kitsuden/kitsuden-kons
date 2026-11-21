@@ -67,11 +67,12 @@ trail). One ledger for the whole installation: there are no per-user rows. Human
 | `conta.billing.ts` | `BillingService`: invoices, payments, work, expenses, client funds, fees, bank, close, audit |
 | `conta.reports.ts` | `ContaReports`: aging, WIP, DSO, monthly series, profitability, billing reports |
 | `conta.bridge.ts` | Stable in-process surface for other kons (`ensureProject`, `ensureClient`, `clientStatement`, `recordProjectWork`, `recordProjectExpense`, `applyContaPreset`) |
+| `conta.connected.ts` | What the ledger does when another kon announces something: `listenToOtherKons` (subscribed at startup), `invoiceFromOdooOrder`, `paymentFromOdoo` |
 | `conta.policy.ts` | The `conta` policy: `view`, `write`, `administer` from the accounting role or agent scopes |
 | `conta.schema.ts` | Drizzle tables, enums, `CONTA_ROLES`, `BILLING_TYPES` |
 | `http-errors.ts` | Translates errors: `AppError` as is, Postgres codes to 409/400/404, the rest a generic 500 |
 | `types.ts` | `ContaDb` type |
-| `migrations/` | SQL migrations 0000-0008 and `history.json`; `0008_fine_scopes_in_rls.sql` maps each operation to its action (`conta_operation_action`) for `conta_agent_can` |
+| `migrations/` | SQL migrations 0000-0009 and `history.json`; `0009_external_documents.sql` makes an invoice from another system unique by its reference; `0008_fine_scopes_in_rls.sql` maps each operation to its action (`conta_operation_action`) for `conta_agent_can` |
 | `package.json`, `tsconfig.json` | Package metadata and shipped files; TypeScript config |
 
 ## Rules that must hold
@@ -97,10 +98,17 @@ trail). One ledger for the whole installation: there are no per-user rows. Human
 - **Money is `Decimal` / `numeric(19,4)`**, never a JS `number`.
 - **The bridge stays stable**: kon-crm and kon-payments import it at runtime by path. Guard:
   `tests/unit/kon-crm-conta-bridge.test.ts`.
+- **Another system's document is recorded once.** `conta.connected.ts` looks for the invoice
+  (`source` `odoo`, `externalRef` `odoo-so:<id>`) before creating it, and the partial unique index
+  of `migrations/0009_external_documents.sql` refuses a second one. A payment is keyed by its
+  `reference` (`odoo-payment:<id>`). Guard: `tests/unit/kon-odoo-conta.test.ts`.
+- **The listener never guesses and never breaks the emitter.** Another currency, a missing
+  customer or an unknown order is skipped with a warning; an error is logged and dropped. It
+  writes as the system, in its own transaction.
 
 ## Changing it
 
-- New migration: the next number in `migrations/` (now `0009_...sql`). Never edit an applied one.
+- New migration: the next number in `migrations/` (now `0010_...sql`). Never edit an applied one.
   `migrations/history.json` records renamed files and earlier checksums; add to it only when
   renaming or rewording an applied migration. Enable and force row security on any new table,
   with the same reader/writer rules as `0007_billing.sql`.

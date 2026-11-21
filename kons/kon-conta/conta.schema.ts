@@ -629,6 +629,10 @@ export const invoices = pgTable(
     index("idx_conta_invoices_project").on(t.projectId),
     index("idx_conta_invoices_issue_date").on(t.issueDate),
     index("idx_conta_invoices_due_date").on(t.dueDate),
+    // Another system's document is recorded once (migration 0009, conta.connected.ts).
+    uniqueIndex("idx_conta_invoices_external_document")
+      .on(t.source, t.externalRef)
+      .where(sql`${t.source} = 'odoo' AND ${t.externalRef} IS NOT NULL`),
   ]
 );
 
