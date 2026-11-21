@@ -1,0 +1,157 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-odoo",
+  "name": "Odoo",
+  "description": "Odoo as the ERP behind a shop: a mirror of its catalog, stock and prices kept in step by signed notices, orders made in Odoo, store credit, and events other kons keep books from",
+  "version": "0.1.0",
+  "sdk": 1,
+  "maturity": "experimental",
+  "category": "business",
+  "type": "kon",
+  "tier": "specialized",
+  "icon": "Package",
+  "kitsuden": ">=0.9.0",
+  "mount": {
+    "path": "/api/odoo"
+  },
+  "tables": [
+    {
+      "name": "odoo_products",
+      "label": "Odoo products",
+      "icon": "Package",
+      "searchableFields": [
+        "name",
+        "sku"
+      ],
+      "filterableFields": [
+        "published",
+        "in_stock"
+      ]
+    },
+    {
+      "name": "odoo_variants",
+      "label": "Odoo variants",
+      "icon": "Package",
+      "searchableFields": [
+        "sku"
+      ]
+    },
+    {
+      "name": "odoo_categories",
+      "label": "Odoo categories",
+      "icon": "Package",
+      "searchableFields": [
+        "name"
+      ]
+    },
+    {
+      "name": "odoo_partners",
+      "label": "Odoo customers",
+      "icon": "Package",
+      "searchableFields": [
+        "name",
+        "email"
+      ]
+    },
+    {
+      "name": "odoo_orders",
+      "label": "Odoo orders",
+      "icon": "Package",
+      "searchableFields": [
+        "client_ref",
+        "odoo_name"
+      ],
+      "filterableFields": [
+        "status"
+      ]
+    },
+    {
+      "name": "odoo_conflicts",
+      "label": "Odoo conflicts",
+      "icon": "Package",
+      "filterableFields": [
+        "kind"
+      ]
+    },
+    {
+      "name": "odoo_sync_runs",
+      "label": "Odoo sync runs",
+      "icon": "Package",
+      "filterableFields": [
+        "status"
+      ]
+    },
+    {
+      "name": "odoo_notices",
+      "label": "Odoo change notices",
+      "icon": "Package"
+    },
+    {
+      "name": "odoo_settings",
+      "label": "Odoo settings",
+      "icon": "Package"
+    },
+    {
+      "name": "odoo_carts",
+      "label": "Odoo carts",
+      "icon": "Package"
+    },
+    {
+      "name": "odoo_cart_lines",
+      "label": "Odoo cart lines",
+      "icon": "Package"
+    },
+    {
+      "name": "odoo_holds",
+      "label": "Odoo stock holds",
+      "icon": "Package"
+    }
+  ],
+  "admin": {
+    "category": "tools",
+    "defaultView": "odoo-status",
+    "views": [
+      {
+        "id": "odoo-status",
+        "type": "element",
+        "title": "Odoo",
+        "element": "odoo-status",
+        "src": "admin/odoo-status.js"
+      },
+      {
+        "id": "grid-odoo-products",
+        "type": "grid",
+        "title": "Odoo products",
+        "table": "odoo_products"
+      },
+      {
+        "id": "grid-odoo-orders",
+        "type": "grid",
+        "title": "Odoo orders",
+        "table": "odoo_orders"
+      },
+      {
+        "id": "grid-odoo-conflicts",
+        "type": "grid",
+        "title": "Odoo conflicts",
+        "table": "odoo_conflicts"
+      },
+      {
+        "id": "grid-odoo-sync-runs",
+        "type": "grid",
+        "title": "Odoo sync runs",
+        "table": "odoo_sync_runs"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  }
+}

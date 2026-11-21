@@ -45,13 +45,15 @@ Mounted at `/api/payments`. Experimental.
 | `payments.routes.ts` | The six operations, `returnOrigins()` and `allowedReturnUrl()`, reserved metadata keys, 1 MB webhook limit. |
 | `payments.policy.ts` | Policy `payments`: `checkout`, `portal`, `cancel` for the owner only (never role `agent`), `actAsUser`. |
 | `payments.service.ts` | `applyPaymentEvent` (idempotent), `statusAfterEvent`, `hasActiveAccess`, `listSubscriptions`, `customerOfUser`. |
-| `payments.orders.ts` | `openOrderCheckout` and `orderProviderNames`: one-time charges for other kons. |
+| `payments.orders.ts` | `openOrderCheckout`, `orderProviderNames` and `newReference`: one-time charges for other kons; button providers are listed only to callers that ask for them. |
 | `payments.types.ts` | Provider contract and normalized event types. |
 | `payments.schema.ts` | Drizzle tables `pay_customers`, `pay_subscriptions`, `pay_events`. |
 | `providers/stripe.ts` | Stripe: checkout, one-time checkout, portal, cancel, webhook verification and mapping. |
 | `providers/lemonsqueezy.ts` | Lemon Squeezy: the same, one-time charges through `LEMONSQUEEZY_ORDER_VARIANT_ID`. |
 | `providers/paddle.ts` | Paddle: checkout, cancel, webhook. |
 | `providers/paypal.ts` | PayPal: checkout, cancel, webhook verification through PayPal's API. |
+| `providers/tilopay.ts` | Tilopay: hosted payment page for one-time amounts; the return is confirmed by asking Tilopay (`/consult`), because its `OrderHash` algorithm is not public. |
+| `providers/yappy.ts` | Yappy button v2: validate merchant, create order, answer the component's values; the GET notification is checked with Yappy's HMAC (`yappySignature`). |
 | `providers/wait.ts` | 15 s timeout signal for provider calls. |
 | `migrations/` | `0000_initial.sql`, `0001_english_names.sql`, `history.json`. |
 | `kon.json`, `package.json`, `tsconfig.json` | Manifest, package, compiler settings. |
@@ -73,6 +75,13 @@ Mounted at `/api/payments`. Experimental.
 | A ledger failure never loses a payment; the bridge needs both accounts. | `index.ts`, `applyPaymentEvent` | no dedicated test |
 | The webhook answers 500 without internal details when applying fails, so the provider retries. | `payments.routes.ts` | `security-payments.test.ts` |
 | kon-conta is imported at runtime through a variable, so this kon compiles without it. | `index.ts` | no dedicated test |
+
+- **A result reported by order number is never believed from the request.** Tilopay's return is
+  confirmed with Tilopay (`/consult`, `code: "1"`); Yappy's notification needs a valid HMAC. The
+  amount and metadata come from `pay_checkouts`, by reference and provider. Guard:
+  `tests/unit/payments-tilopay-yappy.test.ts`.
+- **`pay_checkouts` is the system's.** Written before the provider is asked (a buyer can come back
+  first), read by the return route, both as the system (migration 0002).
 
 ## Changing it
 

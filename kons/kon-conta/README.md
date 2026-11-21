@@ -7,7 +7,7 @@ books in Kitsuden, whatever it sells.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.1.0 | `/api/conta` | — (core `auth`) |
+| beta | business | 1.2.0 | `/api/conta` | — (core `auth`) |
 
 ## Install
 
@@ -230,7 +230,8 @@ also answers 404 (Postgres permission errors are translated to 404 in `http-erro
 
 ## Configuration
 
-No environment variables. Settings live in the `conta_settings` row and are changed through
+`CONTA_FOLLOW_ODOO=true` makes the ledger record what kon-odoo announces (see "Agents and MCP");
+off by default. Settings live in the `conta_settings` row and are changed through
 `PATCH /api/conta/settings`: base currency, default tax rate, numbering, payment terms, account
 code per kind of movement, bank charge keywords, `labels`, `billingTypes`, `issuer` and `targets`.
 The closed date changes only through the period routes.
@@ -254,6 +255,23 @@ Operations marked sensitive, which an admin can hold for human approval
 Other kons call the ledger in process through `conta.bridge.ts` (`ensureProject`, `ensureClient`,
 `clientStatement`, `recordProjectWork`, `recordProjectExpense`, `applyContaPreset`): kon-crm and
 kon-payments do. With `externalRef`, a repeated call records once and answers `created: false`.
+
+The ledger can also listen, when it is asked to (`CONTA_FOLLOW_ODOO=true`). With kon-odoo
+installed, `conta.connected.ts` then keeps the books from what Odoo announces, with neither kon
+importing the other. Leave it off when Odoo keeps its own books (its Invoicing app, with the
+kitsuden_bridge module recording web payments): the same sales would be in two sets of books.
+
+| Event | What the ledger records |
+| --- | --- |
+| `odoo:sale_order.confirmed` | The customer as a client (`odoo-partner:<id>`) and an issued invoice for the order (`source` `odoo`, `externalRef` `odoo-so:<id>`) |
+| `odoo:payment.received` | A payment on the invoices of the orders it settled, oldest first (`reference` `odoo-payment:<id>`) |
+
+Each is recorded once however often it is announced. Left out, with a warning in the log: a
+document in a currency that is not the base currency, an order with no customer, a payment that
+names no order invoiced here, and whatever a payment leaves over after its invoices are paid.
+A cancelled order is not voided automatically. The bus delivers at most once: an event the
+process never heard leaves no invoice until Odoo announces that order again.
+
 Details for agents: [AGENTS.md](AGENTS.md).
 
 ## Tests
@@ -266,6 +284,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-conta-reads.test.ts` | Bridge, invoice and journal reads, income statement, settings, attention, recurring fees |
 | `tests/unit/kon-conta-billing.test.ts` | Work, invoices, payments, client funds, fees, bank, reports, closed periods, labels, bridge, upgrade from 0006 |
 | `tests/unit/kon-crm-conta-bridge.test.ts` | The bridge as kon-crm uses it |
+| `tests/unit/kon-odoo-conta.test.ts` | What the ledger records from kon-odoo events: invoice, payment, repeats, what is left out |
 | `tests/unit/kon-conta-pagination.test.ts` | `limit`, `offset` and `hasMore` on client funds, recurring and success fees, accounts, counterparties, projects, disbursements and the client funds statement |
 
 ```bash

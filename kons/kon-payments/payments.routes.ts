@@ -8,6 +8,8 @@
  *   POST /api/payments/portal            → customer portal (auth, ONLY their own)
  *   POST /api/payments/cancel            → cancel subscription (auth, ONLY their own)
  *   GET  /api/payments/providers         → configured providers
+ *   POST /api/payments/orders/checkout   → one-time payment for an order (shop backend, team)
+ *   GET  /api/payments/return/:provider  → a result sent back by the buyer or by a GET (Tilopay, Yappy)
  *
  * CRITICAL DETAIL: webhooks need the RAW BODY, unparsed. Signatures
  * are computed over the exact bytes the provider sent; if Hono
@@ -28,7 +30,7 @@
 
 import { operationsRouter, type AuthzUser, type AnyOperation } from "@kitsuden/engine";
 import type { KonContext } from "@kitsuden/shared";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
@@ -41,8 +43,9 @@ import {
   hasActiveAccess,
   listSubscriptions,
 } from "./payments.service";
-import { paySubscriptions } from "./payments.schema";
-import type { PaymentEvent, PaymentProvider } from "./payments.types";
+import { openOrderCheckout } from "./payments.orders";
+import { payCheckouts, paySubscriptions } from "./payments.schema";
+import type { PaymentEvent, PaymentProvider, PendingCheckout } from "./payments.types";
 
 /** A real webhook weighs a few KB. More than 1 MB is something else. */
 const MAX_WEBHOOK_BYTES = 1_000_000;
@@ -65,6 +68,54 @@ const CheckoutSchema = z
         "That metadata key is set by the server"
       )
       .optional(),
+  })
+  .strict();
+
+const Billing = z
+  .object({
+    firstName: z.string().trim().min(1).max(100),
+    lastName: z.string().trim().min(1).max(100),
+    email: z.string().email().max(254),
+    phone: z.string().trim().min(4).max(30),
+    address: z.string().trim().min(1).max(200),
+    address2: z.string().max(200).optional(),
+    city: z.string().trim().min(1).max(100),
+    state: z.string().trim().min(1).max(20),
+    zip: z.string().trim().min(1).max(20),
+    country: z.string().length(2),
+  })
+  .strict();
+
+const OrderCheckoutSchema = z
+  .object({
+    provider: z.string().min(1).max(32),
+    lines: z
+      .array(
+        z
+          .object({
+            name: z.string().trim().min(1).max(200),
+            unitAmount: z.number().int().min(0).max(100_000_000).describe("Per unit, in cents"),
+            quantity: z.number().int().min(1).max(10_000),
+          })
+          .strict()
+      )
+      .min(1)
+      .max(100),
+    currency: z.string().regex(/^[A-Za-z]{3}$/),
+    successUrl: z.string().url().max(2000),
+    cancelUrl: z.string().url().max(2000).optional(),
+    customerEmail: z.string().email().max(254).optional(),
+    customerPhone: z.string().regex(/^[0-9]{7,15}$/).optional(),
+    billing: Billing.optional(),
+    metadata: z
+      .record(z.string().regex(/^[A-Za-z0-9_]{1,40}$/), z.string().max(200))
+      .refine((m) => Object.keys(m).length <= 10, "At most 10 keys")
+      .refine(
+        (m) => Object.keys(m).every((k) => !RESERVED_METADATA.has(k.toLowerCase())),
+        "That metadata key is set by the server"
+      )
+      .optional(),
+    expiresInMinutes: z.number().int().min(5).max(1440).optional(),
   })
   .strict();
 
@@ -131,7 +182,7 @@ function invalid(c: { json: (b: unknown, s: 422) => Response }, error: z.ZodErro
 /** What a provider returns when opening a checkout or a portal: the URL, and the rest as is. */
 const ProviderSession = z.object({ url: z.string() }).passthrough();
 const ProviderParam = z.object({
-  provider: z.string().describe("Provider name: stripe | lemonsqueezy | paddle | paypal"),
+  provider: z.string().describe("Provider name: stripe | lemonsqueezy | paddle | paypal | tilopay | yappy"),
 });
 
 /** The bridge to the ledger (kon-conta), optional: the usual one. */
@@ -373,6 +424,172 @@ export function paymentsOperations(
         // retrying safe. The detail (SQL, tables) stays in the log.
         return c.json({ error: "Could not process the event" }, 500);
       }
+    }
+  );
+
+  // ── One-time payments for an order computed elsewhere ─────────────────────
+  app.post(
+    "/orders/checkout",
+    {
+      id: "open-order-checkout",
+      summary: "Open a one-time payment for an order",
+      description:
+        "Opens a payment for an amount another system computed (a shop order in kon-odoo, a site's own cart). For the shop's backend or the team, not the buyer: the caller is trusted to have computed the amount, and must check it again when `payment:payment.succeeded` arrives (its metadata comes back). Return URLs must be on the site's own origins. Answers `url` to redirect to, or, for Yappy, `button` with the script and values for its component. `providers` lists who can charge.",
+      access: "session",
+      permission: { policy: { resource: "payments", action: "openOrder" } },
+      input: { body: OrderCheckoutSchema },
+      output: {
+        schema: z.object({
+          reference: z.string(),
+          provider: z.string(),
+          url: z.string(),
+          id: z.string(),
+          button: z.object({ script: z.string(), params: z.record(z.string(), z.string()) }).optional(),
+        }),
+      },
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_VALIDATION", "KITSUDEN_E_BAD_GATEWAY"],
+    },
+    async (c, input) => {
+      const body = input.body as z.infer<typeof OrderCheckoutSchema>;
+      const store = (row: PendingCheckout) =>
+        asSystem(async () => {
+          await db.insert(payCheckouts).values({
+            reference: row.reference,
+            provider: row.provider,
+            amount: row.amount,
+            currency: row.currency,
+            metadata: row.metadata,
+            successUrl: row.successUrl,
+            cancelUrl: row.cancelUrl,
+          });
+        });
+      const result = await openOrderCheckout(
+        providers,
+        body.provider,
+        {
+          lines: body.lines,
+          currency: body.currency,
+          successUrl: body.successUrl,
+          cancelUrl: body.cancelUrl,
+          customerEmail: body.customerEmail,
+          customerPhone: body.customerPhone,
+          billing: body.billing,
+          metadata: body.metadata ?? {},
+          expiresInMinutes: body.expiresInMinutes,
+        },
+        process.env,
+        store
+      );
+      if (!result.ok) {
+        if (result.status === 502) {
+          ctx.logger.error("Failed to open an order payment", { provider: body.provider, message: result.message });
+          return c.json({ error: { code: "PROVIDER_ERROR", message: "The payment provider did not respond" } }, 502);
+        }
+        return c.json(
+          { error: { code: result.status === 404 ? "NOT_FOUND" : "VALIDATION", message: result.message } },
+          result.status
+        );
+      }
+      return c.json({ reference: result.reference, provider: body.provider, ...result.session });
+    }
+  );
+
+  // ── Results reported by sending the buyer back, or by a GET ───────────────
+  // Public on purpose, like the webhook. Nothing in the query is believed by itself: Tilopay's
+  // result is confirmed by asking Tilopay, Yappy's by its HMAC, and the amount and metadata come
+  // from `pay_checkouts`, never from the request.
+  app.get(
+    "/return/:provider",
+    {
+      id: "receive-return",
+      summary: "Receive a payment result by return or notification",
+      description:
+        "Where Tilopay sends the buyer back and where Yappy notifies (GET). The result is verified with the provider (Tilopay) or by its signature (Yappy), matched to a payment this kon opened, and applied like a webhook. A browser is redirected to the order's return URL; a notification gets JSON. 400 when it cannot be verified.",
+      access: "public",
+      input: { params: ProviderParam },
+      output: {
+        schema: z.union([
+          z.object({ received: z.literal(true), applied: z.boolean() }),
+          z.object({ ignored: z.literal(true) }),
+        ]),
+        otherStatuses: [302],
+      },
+      errors: ["KITSUDEN_E_NOT_FOUND", "KITSUDEN_E_BAD_REQUEST"],
+      mcp: { exclude: "Reached by the buyer's browser or the provider, never by an agent" },
+    },
+    async (c) => {
+      const provider = providers.get(c.req.param("provider"));
+      if (!provider?.parseReturn) return c.json({ error: "Unknown provider" }, 404);
+
+      const query: Record<string, string> = {};
+      for (const [key, value] of new URL(c.req.url).searchParams) {
+        if (key.length <= 64 && value.length <= 512 && Object.keys(query).length < 40) query[key] = value;
+      }
+      const find = (reference: string) =>
+        asSystem(async (): Promise<PendingCheckout | null> => {
+          const [row] = await db
+            .select()
+            .from(payCheckouts)
+            .where(and(eq(payCheckouts.reference, reference), eq(payCheckouts.provider, provider.name)))
+            .limit(1);
+          return row
+            ? {
+                reference: row.reference,
+                provider: row.provider,
+                amount: row.amount,
+                currency: row.currency,
+                metadata: row.metadata ?? {},
+                successUrl: row.successUrl,
+                cancelUrl: row.cancelUrl,
+              }
+            : null;
+        });
+
+      let result;
+      try {
+        result = await provider.parseReturn(query, find);
+      } catch (err) {
+        // The provider did not answer the confirmation: the buyer may come back, Yappy retries.
+        ctx.logger.error("Could not confirm a payment result", {
+          provider: provider.name,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        return c.json({ error: "Could not confirm the payment" }, 502);
+      }
+
+      if (result.event === null) {
+        ctx.logger.warn("Payment result that could not be verified REJECTED", { provider: provider.name });
+        return c.json({ error: "Invalid payment result" }, 400);
+      }
+
+      let applied = false;
+      if (result.event) {
+        const event = result.event;
+        try {
+          const outcome = await asSystem(() => applyPaymentEvent(db, event, onLedger));
+          applied = outcome.applied;
+          if (outcome.applied) {
+            ctx.events.emit(`payment:${event.type}`, {
+              provider: event.provider,
+              userId: outcome.userId ?? null,
+              subscriptionId: outcome.subscriptionId,
+              subscription: outcome.subscription ?? null,
+              paymentEventId: outcome.eventId ?? null,
+              event,
+            });
+          }
+        } catch (err) {
+          ctx.logger.error("Failed to apply payment event", {
+            provider: provider.name,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          return c.json({ error: "Could not process the event" }, 500);
+        }
+      }
+
+      // The return URL was checked when the payment was opened; checked again, it costs nothing.
+      if (result.redirect && allowedReturnUrl(result.redirect)) return c.redirect(result.redirect, 302);
+      return result.event ? c.json({ received: true, applied }) : c.json({ ignored: true });
     }
   );
 
