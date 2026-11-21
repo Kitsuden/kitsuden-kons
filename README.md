@@ -82,14 +82,15 @@ use a kon has had, not how many features it has:
 | `kon-academy-lms` | beta | 1.2.0 | 1 | `/api/academy` | Complete Learning Management System with courses, modules, topics, quizzes, student progress, assignment… |
 | `kon-agile` | beta | 1.5.0 | 1 | `/api/agile` | Agile management where agents work as teammates: projects, customizable states, issues with unique keys… |
 | `kon-booking` | beta | 1.1.0 | 1 | `/api/booking` | Room and resource reservation system with availability tracking, amenities management and conflict detection. |
-| `kon-conta` | beta | 1.1.0 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
+| `kon-conta` | beta | 1.2.0 | 1 | `/api/conta` | General Ledger Engine with double entry, multi-currency, journal templates and JSONB metadata, plus what a… |
 | `kon-crm` | beta | 1.2.0 | 1 | `/api/crm` | Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view… |
 | `kon-directory` | beta | 1.1.0 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.1.0 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.3.0 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
 | `kon-koe` | experimental | 0.2.0 | 1 | `/api/koe` | One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and… |
 | `kon-listings` | experimental | 0.2.0 | 1 | `/api/listings` | Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from… |
-| `kon-payments` | experimental | 1.2.1 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
+| `kon-odoo` | experimental | 0.1.0 | 1 | `/api/odoo` | Odoo as the ERP behind a shop: a mirror of its catalog, stock and prices kept in step by signed notices… |
+| `kon-payments` | experimental | 1.3.0 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
 
 ### Content and community
 

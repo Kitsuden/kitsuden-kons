@@ -36,7 +36,10 @@ export {
   recordProjectExpense,
   applyContaPreset,
 } from "./conta.bridge";
+import { contaEvents, listenToOtherKons } from "./conta.connected";
 import manifest from "./kon.json" with { type: "json" };
+
+export { listenToOtherKons, invoiceFromOdooOrder, paymentFromOdoo, followsOdoo } from "./conta.connected";
 
 /** Version and tables come from kon.json, the one place they are written (tests/guards/kon-single-source). */
 const konTables = manifest.tables.map((t: string | { name: string }) => (typeof t === "string" ? t : t.name));
@@ -98,6 +101,8 @@ const definition = defineKonSdk({
      * boot. To seed again on purpose: `POST /api/conta/seed` (`seed-chart-of-accounts`).
      */
     onStartup: async (ctx: KonContext) => {
+      // What other kons announce reaches the ledger from here on (conta.connected.ts).
+      listenToOtherKons(ctx);
       try {
         const missing: string[] = [];
         for (const table of konTables) {
@@ -129,6 +134,12 @@ const definition = defineKonSdk({
   },
 });
 
-export const kon: KonDefinition = { ...definition, createRouter: createKonConta };
+// The events declaration is spread on, as kon-crm does: a host older than the event contract
+// ignores the field instead of refusing the kon.
+export const kon: KonDefinition = {
+  ...definition,
+  ...({ events: contaEvents } as object),
+  createRouter: createKonConta,
+};
 
 export default kon;

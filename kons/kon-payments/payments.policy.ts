@@ -9,7 +9,7 @@
  * managing a customer's billing is done in the provider's panel,
  * not by impersonating them here.
  */
-import { actsAsUserIn, type AuthzUser, definePolicy } from "@kitsuden/engine";
+import { actsAsUserIn, type AuthzUser, definePolicy, isEffectiveStaff } from "@kitsuden/engine";
 
 export interface PaymentResource {
   userId?: string | null;
@@ -31,6 +31,13 @@ export function registerPaymentsPolicy(): void {
     checkout: (u, r) => isTheirs(u, r),
     portal: (u, r) => isTheirs(u, r),
     cancel: (u, r) => isTheirs(u, r),
+
+    /**
+     * Opening a one-time payment for an order another system computed (`POST /orders/checkout`).
+     * The buyer is not the caller: the caller is the shop's own backend, with a key that opens
+     * this kon, or a person of the team. A visitor's session gives nothing here.
+     */
+    openOrder: (u) => isEffectiveStaff(u, "payments"),
 
     /**
      * The routes that used to require only a session (the status of my subscription). They were

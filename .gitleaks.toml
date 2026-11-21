@@ -33,3 +33,9 @@ description = "A made-up start.gg token in kon-broadcast's tests"
 condition = "AND"
 paths = ['''^tests/unit/kon-broadcast\.test\.ts$''']
 regexes = ['''tok-0123456789''']
+
+[[allowlists]]
+description = "The made-up webhook and purge secrets of kon-odoo's test bench"
+condition = "AND"
+paths = ['''^tests/unit/helpers/odoo-bench\.ts$''']
+regexes = ['''webhook-secret-0123456789abcdef''', '''purge-secret-0123456789abcdef00''']
