@@ -1,0 +1,54 @@
+{
+  "name": "@kitsuden/kon-odoo",
+  "version": "0.1.0",
+  "description": "Odoo as the ERP behind a shop: a mirror of its catalog, stock and prices, orders made in Odoo, and events other kons keep books from",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "admin",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "odoo.catalog.ts",
+    "odoo.checkout.ts",
+    "odoo.client.ts",
+    "odoo.connection.ts",
+    "odoo.events.ts",
+    "odoo.holds.ts",
+    "odoo.mirror.ts",
+    "odoo.orders.ts",
+    "odoo.policy.ts",
+    "odoo.queues.ts",
+    "odoo.routes.ts",
+    "odoo.schema.ts",
+    "odoo.state.ts",
+    "odoo.sync.ts",
+    "odoo.webhook.ts"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm exec tsc"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "odoo",
+    "erp",
+    "ecommerce",
+    "inventory"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "drizzle-orm": "^0.45.0",
+    "hono": "^4.7.0"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-odoo",
+    "core": false,
+    "defaultEnabled": false
+  }
+}
