@@ -11,10 +11,15 @@ at `/api/cardsim`:
 - **The hand generator** (`/api/cardsim/hands/...`) — upload a card dataset with four rules (hand
   size, deck size, copies) and deal hands and statistics, with no game to define. It was
   kon-handlab.
+- **The board** (`@kitsuden/kon-cardsim/board`) — a Svelte component that plays any game solo in
+  the browser, with the card images each player brings (`@kitsuden/kon-cardsim/images`). See
+  [Card images: bring your own](#card-images-bring-your-own).
+- **The table** (`@kitsuden/kon-cardsim/board/table`) — play another person: lobby, rooms, a two-seat
+  board kept in sync over the host's WebSocket. See [Playing another person](#playing-another-person).
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 2.4.0 | `/api/cardsim` | — (core: `auth`) |
+| beta | gaming | 2.5.0 | `/api/cardsim` | — (core: `auth`) |
 
 ## Install
 
@@ -45,11 +50,162 @@ carry a secret seed (`secret_rng`) that never leaves the server while the game i
 | `cardsim_matches` | Finished matches. |
 | `cardsim_ratings` | Elo ratings per game. |
 | `cardsim_queue` | Matchmaking queue. |
+| `cardsim_image_prefs` | Where a person's card images come from, per game: the order of their sources and the links they typed. Never an image. Owner-isolated (migration `0013`). |
 | `deckshow_entries` | Showcase entries: who published a deck, how they describe it, featured, hidden. |
 | `deckshow_likes` | One like per person and entry. |
 | `handlab_datasets` | Hand generator datasets: a name and four rules. |
 | `handlab_cards` | The cards of each dataset. |
 | `handlab_decks` | Hand generator decks. |
+
+## Card images: bring your own
+
+A game is in one of two **image modes** (`set-image-mode`, staff):
+
+- `hosted` (the default) — card responses carry `imageUrl`, as always.
+- `byod` — "bring your own data": **no response of the kon names an image** (not `imageUrl`, not
+  an image field inside a card's `data`). Each player brings their own images in the browser. The
+  stored `imageUrl`s are kept, so switching back needs no re-import.
+
+`tests/unit/cardsim-byod-no-image-urls.test.ts` walks every operation of the kon in a `byod` game
+and scans each response; a new operation must be added to that walk or excused there with its
+reason. The hand generator is excused: its datasets are uploaded by their owners and have no
+cardsim game.
+
+**What the server keeps** is settings, never pictures: `/image-prefs/:gameKey` stores the order of
+a person's sources and the links they typed. A folder or a zip is stored as "there is one, called
+X" — no path, no file. Links must be `https:` to a public host (no localhost, LAN addresses,
+`.local`, or credentials), so a link shared with another player cannot make their browser probe
+their network. `gameKey` is a cardsim slug or the site's own game slug.
+
+**In the browser** (`@kitsuden/kon-cardsim/images`), `createImageResolver` finds each card's image:
+
+1. the persistent cache (IndexedDB; works offline and survives reloads; `requestPersistentStorage`
+   asks the browser not to evict it);
+2. the player's sources, in their order: a **folder** (`showDirectoryPicker`, kept between visits
+   in Chromium; a file list elsewhere), a **zip** (read in the browser, zip bombs refused), images
+   **dropped or pasted** on a card, a **link template** (`https://…/{id}.webp`, `{name}`), **per-card
+   links**, and a **community pack**;
+3. a card **drawn by code** (`placeholderSvg`): name, and cost, type and color when known.
+
+What enters the cache is checked by its bytes (PNG, JPEG, WebP, GIF, AVIF; never SVG), at most
+15 MB and 8000 px a side, and re-encoded to a 480×672 WebP. Remote images are fetched without
+cookies or referrer; a site that does not allow reading them (no CORS) is shown with a plain
+`<img>` and not cached. `resolveBlob` gives the bytes, for renderers that build textures.
+
+**A community pack** is a JSON file someone else hosts; the kon never lists, recommends or fetches
+packs — a player pastes the link of one they chose:
+
+```json
+{
+  "format": "kitsuden-cardsim-pack",
+  "version": 1,
+  "game": "one-piece-card-game",
+  "name": "My scans",
+  "keyBy": "id",
+  "template": "https://example.org/op/{id}.webp",
+  "cards": { "OP01-001": "https://example.org/op/OP01-001-alt.webp" }
+}
+```
+
+At most 30,000 cards and 4 MB; `cards` wins over `template`. Schema: `CommunityPackSchema` in
+`cardsim.images.ts`.
+
+## The board
+
+`@kitsuden/kon-cardsim/board` is a Svelte 5 component (peer dependency `svelte`, optional for
+installs that do not use it). It plays any game definition solo, in the browser: no account, no
+database, offline. Free table mode relaxes deck construction for meta samples
+(`@kitsuden/kon-cardsim/solo`).
+
+```astro
+---
+import Board from "@kitsuden/kon-cardsim/board";
+import { ONEPIECE_CARD_GAME } from "@kitsuden/kon-cardsim/presets";
+---
+<Board
+  client:only="svelte"
+  game="one-piece-card-game"
+  definition={ONEPIECE_CARD_GAME}
+  catalog={{ "Roronoa Zoro": { name: "Roronoa Zoro", data: { cost: 3, color: "Green" } } }}
+  imageMode="byod"
+  apiBase="https://api.example.org/api/cardsim"
+/>
+```
+
+- `catalog` is keyed by what the deck list uses (usually the card name); `id` and `data` help find
+  and draw the card. In `byod` an `image` in the catalog is ignored; in `hosted` it is used when the
+  player has no image of their own.
+- `apiBase` keeps the player's image settings in their account (`/image-prefs`); without it, or
+  without a session, they stay in that browser.
+- Texts in Spanish, English and Portuguese, picked from `lang` or `<html lang>`; override single
+  strings with `texts`.
+- Theme it with CSS custom properties on any ancestor: `--cardsim-surface`, `--cardsim-surface-2`,
+  `--cardsim-input`, `--cardsim-border`, `--cardsim-text`, `--cardsim-muted`, `--cardsim-faint`,
+  `--cardsim-accent`, `--cardsim-on-accent`, `--cardsim-danger`, `--cardsim-radius`,
+  `--cardsim-card-width`, `--cardsim-hand-width`.
+- Other renderers (a WebGL table, a game engine) can drive the same images without Svelte:
+  `createImagesController` (`@kitsuden/kon-cardsim/images/controller`) holds the sources and the
+  resolver, and `resolver.resolveBlob(card)` returns the bytes for a texture.
+
+## Playing another person
+
+`@kitsuden/kon-cardsim/board/table` (Svelte 5) is the lobby and the two-seat table. It needs the game
+PUBLISHED in the kon (decks are validated against its catalog on the server) and a signed-in player;
+spectators need neither a session nor a seat if the room admits them.
+
+```astro
+---
+import TableBoard from "@kitsuden/kon-cardsim/board/table";
+---
+<TableBoard client:only="svelte" apiBase="/api/cardsim" game="one-piece-card-game" />
+```
+
+- **Lobby**: your decks of the game (or a pasted list, saved with `import-deck`), create a room
+  (password, spectators, clock, best of), join or watch with a code, open rooms.
+- **Table**: your seat at the bottom, the rival's hand as card backs, clocks, undo by agreement,
+  concede, the result, and a rematch both players land in (pressing it twice opens ONE game,
+  migration `0014`). `sessionId` opens a table directly; `onTable` lets the page keep it in its URL.
+- **Images**: the player's own, exactly as on the solo board. A player can offer their link
+  template or community pack to the rival (`share-image-source`); the rival sees the offer and adds
+  it only if they accept. Folders, zips and per-card links cannot be shared.
+
+**The relay** (`cardsim.relay.ts`). The kon broadcasts on `kon:cardsim:session:<id>` (players, and
+spectators where the room admits them) and `kon:cardsim:session:<id>:players` (seated players only),
+through the host's kon channels (`ctx.realtime.channels`). Until 2.5.0 it broadcast on
+`cardsim:session:<id>`, a channel the host only lets admins hear: no player ever received an event.
+What travels is "what happened, and its number" — never an action's contents, a card, a deck or an
+image; each client then reads its own seat's view (`get-session`), so `viewFor` stays the only place
+that decides what a seat sees. The one message with a link is a shared source, on the players'
+channel. `tests/unit/cardsim-relay.test.ts` plays a whole game and checks every message.
+
+**The client** (`@kitsuden/kon-cardsim/table`, no Svelte): `createTableApi`, `connectRealtime` (subscribes,
+pings, reconnects with backoff 1 s → 30 s and subscribes again) and `createTableSession` (the table
+as a store; polls while the socket is down; reads again when a clock runs out). Actions go one at a
+time with `expectActionCount`: if the table moved, or a retried action already went through, the
+server answers 409 `stale` instead of applying it twice. Writes also carry `Idempotency-Key`.
+
+## Other renderers and a rules arbiter
+
+- **Drawing contract** (`@kitsuden/kon-cardsim/render`): `sceneFor(view, definition, seat, { width })`
+  lays the table out as rectangles (deterministic), `hitTest` and `zoneAt` turn a pointer into a card
+  or a zone, and `CardRenderer` is what a renderer implements (`mount`, `setScene`, `setTexture`,
+  `onPointer`, `dispose`). Textures come from `resolver.resolveBlob(card)`.
+- **Estella** (github.com/esengine/estella) fits that contract as a renderer, verified 2026-11-20:
+  its core was built from source (Emscripten 5.0.0, `-DES_ENABLE_SPINE=OFF`) and a probe project was
+  exported with its open exporter (`node pipeline/bin/estella.mjs export <dir> --platform web`), no
+  editor. In that page this kon's engine created a session, `sceneFor` placed 12 cards as Sprites,
+  every texture came from bytes made at runtime (`decodeImagePixels(blob)` → `Assets.createTexture`),
+  a tapped card rotated, and clicks resolved through `hitTest`. So BYOD needs no service worker or
+  virtual URLs. Notes: the SDK is not on npm (its package is `private`; npm `esengine` is another
+  project), so a site ships a build or an export; with Spine off the core is named `esengine-core`
+  and the build tool expects `esengine` (copy it); SVG cannot be decoded into an ImageBitmap, so the
+  drawn card is rasterized through an `<img>` first; Estella's own picking is for UI nodes only.
+  Apache-2.0 (Spine runtimes excluded).
+- **Arbiter contract** (`@kitsuden/kon-cardsim/arbiter`): an `Arbiter` knows a game's rules; `check`
+  may refuse an action before it is applied and `after` answers with follow-up actions.
+  `arbitrate` runs it against the engine; follow-ups are logged as ordinary actions, so an arbitrated
+  game replays without the arbiter, and free rooms and rules rooms share engine, relay and log.
+  Not wired into `send-action` yet; no game ships an arbiter.
 
 ## HTTP API
 
@@ -67,6 +223,11 @@ the shipped presets, and the games and datasets the team curates.
 | `GET /api/cardsim/games` | `list-games` | public |
 | `GET /api/cardsim/games/:slug` | `get-game` | public |
 | `GET /api/cardsim/games/:slug/cards` | `search-cards` | public |
+| `POST /api/cardsim/games/:slug/cards/lookup` | `lookup-cards` | public (up to 200 ids) |
+| `PUT /api/cardsim/games/:slug/image-mode` | `set-image-mode` | staff (`cardsim:manageCatalog`) |
+| `GET /api/cardsim/image-prefs/:gameKey` | `get-image-prefs` | session (own) |
+| `PUT /api/cardsim/image-prefs/:gameKey` | `put-image-prefs` | session (own) |
+| `DELETE /api/cardsim/image-prefs/:gameKey` | `delete-image-prefs` | session (own) |
 | `PUT /api/cardsim/games` | `publish-game` | staff (`cardsim:manageCatalog`) |
 | `POST /api/cardsim/games/:slug/cards` | `import-cards` | staff |
 | `POST /api/cardsim/games/:slug/sync-catalog` | `sync-catalog` | staff |
@@ -87,6 +248,7 @@ the shipped presets, and the games and datasets the team curates.
 | `POST /api/cardsim/sessions/:id/action` | `send-action` | session |
 | `POST /api/cardsim/sessions/:id/undo` | `request-undo` | session |
 | `DELETE /api/cardsim/sessions/:id/undo` | `cancel-undo` | session |
+| `POST /api/cardsim/sessions/:id/share-source` | `share-image-source` | session (seated) |
 | `GET /api/cardsim/sessions/:id/replay` | `get-replay` | public |
 | `POST /api/cardsim/sessions/:id/rematch` | `request-rematch` | session |
 | `GET /api/cardsim/matches/:id` | `get-match` | public |
@@ -169,6 +331,9 @@ Three policies, one per part: `cardsim` (`cardsim.policy.ts`), `deckshow` (`deck
 | Agent | `user:act`, `admin` or a cardsim scope to act as a user; `cardsim:create` to save decks and open rooms; `cardsim:manageCatalog` for the catalog | `deckshow:create` to save and like; `deckshow:moderate` to moderate | `handlab-deck:create` for decks; `handlab:create`/`update`/`delete` for datasets |
 
 - `content:edit` does not open the simulator's catalog.
+- Image settings (`cardsim_image_prefs`) are owner-isolated in the database by migration `0013`
+  (the core's template: system with an empty role, admin, or the owner), and every route also
+  filters by the caller.
 - Row security: `cardsim_decks` and `handlab_decks` are owner-isolated by the core's
   `rls-owned-tables.sql`; migration `0007_english_rls.sql` keeps decks with no owner usable
   (`cardsim_decks_ownerless`). A published showcase entry shows its deck to everyone (read as the
@@ -194,10 +359,10 @@ The policy scopes keep their resource names: `cardsim:create`, `cardsim:manageCa
 
 Writes that can be held for human approval (`202 KITSUDEN_E_APPROVAL_REQUIRED`):
 
-- declared sensitive: `publish-game`, `import-cards`, `sync-catalog`, `publish-post`,
+- declared sensitive: `publish-game`, `set-image-mode`, `import-cards`, `sync-catalog`, `publish-post`,
   `moderate-post`, `import-dataset`, `upload-cards`;
 - `DELETE`s, sensitive by default: `delete-deck`, `delete-post`, `unlike`, `delete-dataset`
-  (`cancel-undo` and `leave-queue` are declared not sensitive).
+  (`cancel-undo`, `leave-queue`, `delete-image-prefs` and `share-image-source` are declared not sensitive).
 
 More for agents: [AGENTS.md](AGENTS.md).
 
@@ -240,6 +405,13 @@ Until 2.3.0 the showcase was `kon-deckshow` (mounted at `/api/deckshow`) and the
 | `tests/unit/handlab-definition.test.ts`, `tests/unit/handlab-delete-dataset-rls.test.ts`, `tests/unit/security-handlab.test.ts` | The hand generator: minimal definition, deleting datasets, permissions and rate limits |
 | `tests/unit/kons-from-dataset.test.ts` | Cards read from a dataset |
 | `tests/unit/cardsim-pagination.test.ts` | Pages of `list-my-decks` and `list-rooms` (`limit`, `offset`, `hasMore`); `/showcase/entries/:ref` keeps its URLs |
+| `tests/unit/cardsim-byod-no-image-urls.test.ts` | Every operation in a `byod` game: no response names an image; `hosted` keeps them; `set-image-mode` is editorial |
+| `tests/unit/cardsim-image-prefs.test.ts` | Image settings: validation, per-person isolation through the routes and in the database (non-superuser role), shared URL rules |
+| `tests/unit/cardsim-images-client.test.ts` | The browser module: zip reader, image checks, each source, the chain, the cache, the drawn card, settings through the kon |
+| `tests/unit/cardsim-solo.test.ts` | The board's solo rules on the seven presets |
+| `tests/unit/cardsim-relay.test.ts` | A whole two-player game over the relay: every message zero-asset and on the kon's channels, who may listen, stale actions, the clock, one rematch, sharing a source, `lookup-cards` |
+| `tests/unit/cardsim-table-client.test.ts` | The table client: reconnection and backoff, resubscribing, reading on events, actions in order, offers, rematch, polling, clocks |
+| `tests/unit/cardsim-render-arbiter.test.ts` | The drawing contract (layout, hit test) and the arbiter contract (veto, follow-ups, replay without it, loop guard) |
 
 ```bash
 pnpm vitest run tests/unit/cardsim-engine.test.ts
