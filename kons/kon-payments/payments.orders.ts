@@ -18,7 +18,7 @@
  * when the `payment:payment.succeeded` event arrives — the provider charges what it is told.
  */
 
-import { randomBytes } from "node:crypto";
+import { randomInt } from "node:crypto";
 
 import { allowedReturnUrl } from "./payments.routes";
 import type { CheckoutSession, PaymentCheckoutInput, PaymentProvider, PendingCheckout } from "./payments.types";
@@ -46,11 +46,16 @@ export function orderProviderNames(
     .map((p) => p.name);
 }
 
-/** 15 letters and digits: what Yappy accepts as an order id, and unguessable enough. */
+/**
+ * 15 letters and digits: what Yappy accepts as an order id, and unguessable enough. `randomInt`
+ * draws each character evenly; a byte modulo the alphabet would favour some (CodeQL
+ * js/biased-cryptographic-random).
+ */
 export function newReference(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(14);
-  return `K${[...bytes].map((byte) => alphabet[byte % alphabet.length]).join("")}`;
+  let reference = "K";
+  for (let i = 0; i < 14; i++) reference += alphabet[randomInt(alphabet.length)];
+  return reference;
 }
 
 /** Keeps the payment this kon is about to open. */

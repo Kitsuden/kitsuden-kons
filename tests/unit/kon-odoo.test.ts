@@ -101,6 +101,15 @@ describe("the JSON-2 client", () => {
     expect(((await client.searchCount("res.partner").catch((e: unknown) => e)) as OdooError).kind).toBe("unavailable");
   });
 
+  it("drops the address's trailing slashes, fast even with very many", async () => {
+    const { withoutTrailingSlashes } = await import("../../kons/kon-odoo/odoo.client");
+    expect(withoutTrailingSlashes("https://erp.test///")).toBe("https://erp.test");
+    expect(withoutTrailingSlashes("https://erp.test")).toBe("https://erp.test");
+    const started = Date.now();
+    expect(withoutTrailingSlashes("x" + "/".repeat(200_000) + "y")).toHaveLength(200_002);
+    expect(Date.now() - started).toBeLessThan(200);
+  });
+
   it("refuses a private method or a strange model before any request", async () => {
     const { client, calls } = recording(() => Response.json(true));
     await expect(client.call("res.partner", "_read_group")).rejects.toThrow(TypeError);

@@ -134,8 +134,19 @@ export interface OdooClient {
   write(model: string, ids: number[], values: Record<string, unknown>): Promise<boolean>;
 }
 
+/**
+ * `https://erp/` → `https://erp`. A loop, not a slash-run pattern anchored at the end: that one
+ * backtracks on a long run of slashes (CodeQL js/polynomial-redos), and the address comes from
+ * the environment.
+ */
+export function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url.charCodeAt(end - 1) === 47) end--;
+  return url.slice(0, end);
+}
+
 export function createOdooClient(options: OdooClientOptions): OdooClient {
-  const base = options.baseUrl.replace(/\/+$/, "");
+  const base = withoutTrailingSlashes(options.baseUrl);
   const transport: OdooTransport = options.transport ?? ((url, init) => fetch(url, init));
   const defaultTimeout = options.timeoutMs ?? 15_000;
 
