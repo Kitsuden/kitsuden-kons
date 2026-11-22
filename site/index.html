@@ -262,6 +262,20 @@
       .brand:hover img {
         transform: scale(1.08) rotate(-6deg);
       }
+      /* the lockup: the Kitsuden kitsune (the parent) beside the KON medallion */
+      .brand-marks {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .brand img.brand-kitsuden {
+        border-radius: 9px;
+        box-shadow: 0 0 0 1px rgb(255 255 255 / 0.08);
+        filter: brightness(1.25) saturate(1.15) drop-shadow(0 0 8px rgb(255 40 78 / 0.45));
+      }
+      .brand:hover img.brand-kitsuden {
+        transform: scale(1.08) rotate(6deg);
+      }
       .kon-ico {
         width: 2rem;
         height: 2rem;
@@ -1666,7 +1680,10 @@
     <header class="top on-stage" id="bar">
       <div class="wrap">
         <a class="brand" href="#top" aria-label="Kitsuden kons, home">
-          <img src="logos/kon-principal.png" alt="" width="32" height="32" />
+          <span class="brand-marks">
+            <img class="brand-kitsuden" src="logos/kitsuden.png" alt="" width="32" height="32" />
+            <img src="logos/kon-principal.png" alt="" width="32" height="32" />
+          </span>
           Kitsuden kons
         </a>
         <nav aria-label="Sections">
