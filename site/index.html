@@ -6,14 +6,14 @@
     <title>Kitsuden kons — add a blog, a CRM or payments to your backend with one command</title>
     <meta
       name="description"
-      content="30 optional modules for Kitsuden, the backend for apps that AI agents use. Each kon brings its tables, API routes, MCP tools and permissions. MIT licensed."
+      content="34 optional modules for Kitsuden, the backend for apps that AI agents use. Each kon brings its tables, API routes, MCP tools and permissions. MIT licensed."
     />
     <link rel="canonical" href="https://kitsuden.github.io/kitsuden-kons/" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Kitsuden kons — one command adds a blog, a CRM or payments" />
     <meta
       property="og:description"
-      content="30 optional modules for Kitsuden. Each kon brings its tables, API routes, MCP tools and permissions."
+      content="34 optional modules for Kitsuden. Each kon brings its tables, API routes, MCP tools and permissions."
     />
     <meta property="og:url" content="https://kitsuden.github.io/kitsuden-kons/" />
     <meta property="og:image" content="https://kitsuden.github.io/kitsuden-kons/og.png" />
@@ -247,9 +247,52 @@
       .brand:hover {
         color: var(--text);
       }
-      .brand svg {
-        width: 1.75rem;
-        height: 1.75rem;
+      .brand svg,
+      .brand img {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        filter: drop-shadow(0 0 8px rgb(168 85 247 / 0.55));
+        transition: transform 0.25s ease;
+      }
+      .brand:hover img {
+        transform: scale(1.08) rotate(-6deg);
+      }
+      .kon-ico {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        object-fit: contain;
+        flex: none;
+        filter: drop-shadow(0 0 8px rgb(168 85 247 / 0.4));
+      }
+      .tip-row {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+      }
+      .tip-row .kon-ico {
+        width: 2.3rem;
+        height: 2.3rem;
+      }
+      .kname-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+      }
+      .tilt-3d {
+        transform-style: preserve-3d;
+        transition:
+          transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+          box-shadow 0.25s ease,
+          border-color 0.25s ease;
+      }
+      .tilt-3d:hover {
+        border-color: rgb(192 132 252 / 0.65);
+        box-shadow:
+          0 0 0 1px rgb(255 255 255 / 0.06) inset,
+          0 18px 50px -22px rgb(168 85 247 / 0.55),
+          0 28px 60px -30px #000;
       }
       .top nav {
         display: flex;
@@ -1490,14 +1533,11 @@
     <header class="top on-stage" id="bar">
       <div class="wrap">
         <a class="brand" href="#top" aria-label="Kitsuden kons, home">
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <rect x="2.5" y="2.5" width="27" height="27" rx="7" fill="none" stroke="currentColor" stroke-width="2.4" />
-            <path d="M11 9v14M11 16l9-7M13.5 14l7.5 9" fill="none" stroke="var(--seal)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
+          <img src="logos/kon-principal.png" alt="" width="32" height="32" />
           Kitsuden kons
         </a>
         <nav aria-label="Sections">
-          <a class="wide" href="#catalog">The 30 kons</a>
+          <a class="wide" href="#catalog">The 34 kons</a>
           <a class="wide" href="#install">Install one</a>
           <a class="wide" href="#write">Write your own</a>
           <a href="https://github.com/Kitsuden/kitsuden-kons">GitHub</a>
@@ -1514,7 +1554,7 @@
       <a href="#top"><span>Start</span></a>
       <a href="#dock"><span>One command</span></a>
       <a href="#gains"><span>What it adds</span></a>
-      <a href="#orbit"><span>Any of the 30</span></a>
+      <a href="#orbit"><span>Any of the 34</span></a>
     </nav>
 
     <main id="main">
@@ -1526,7 +1566,7 @@
           <div class="ch-pin">
             <div class="wrap">
               <div class="ch-col">
-                <span class="tag rise"><i></i>30 kons · MIT</span>
+                <span class="tag rise"><i></i>34 kons · MIT</span>
                 <h1 class="rise">Add a blog, a CRM or payments <span class="grad">with one command.</span></h1>
                 <p class="lede rise">
                   Kons are optional modules for <a href="https://kitsuden.github.io/kitsuden/">Kitsuden</a>, the backend
@@ -1534,7 +1574,7 @@
                   Install the ones you need; the rest never touch your project.
                 </p>
                 <div class="cta rise">
-                  <a class="btn primary" href="#catalog">Browse the 30 kons</a>
+                  <a class="btn primary" href="#catalog">Browse the 34 kons</a>
                   <a class="btn" href="#install">Install one</a>
                 </div>
                 <p class="fineprint rise">MIT licensed. Beta, version 0.9.0. Needs a Kitsuden project.</p>
@@ -1551,7 +1591,7 @@
                 <p class="eyebrow"><b>01</b> One command</p>
                 <h2 id="dock-h">What one command does</h2>
                 <p class="lede">It copies the kon, installs it and runs its migrations. After a restart your backend has the feature.</p>
-                <div class="term" role="group" aria-label="Demo: the command that installs a kon, and what it prints">
+                <div class="term tilt-3d" role="group" aria-label="Demo: the command that installs a kon, and what it prints">
                   <div class="term-bar"><i></i><i></i><i></i><span>In your Kitsuden folder</span></div>
                   <ol class="tape" id="tape">
                     <li class="req">$ pnpm kitsuden kon add blog --from ../kitsuden-kons</li>
@@ -1591,10 +1631,11 @@
           <div class="ch-pin">
             <div class="wrap">
               <div class="ch-col">
-                <p class="eyebrow"><b>03</b> Any of the 30</p>
+                <p class="eyebrow"><b>03</b> Any of the 34</p>
                 <h2 id="orbit-h">Install the ones you need. <span class="grad">The rest never touch your project.</span></h2>
-                <div class="probe" id="probe" hidden>
+                <div class="probe tilt-3d" id="probe" hidden>
                   <div class="probe-head">
+                    <img class="kon-ico" id="probe-ico" src="logos/kon-principal.png" alt="" width="32" height="32" />
                     <h3 id="probe-name"></h3>
                     <code id="probe-id"></code>
                     <span class="mat" id="probe-mat"></span>
@@ -1623,7 +1664,7 @@
         <div class="wrap">
           <h2>The same install, as a clip</h2>
           <p>The command <code>pnpm kitsuden kon add blog</code>, and what the backend gains from it.</p>
-          <div class="clip glass reveal">
+          <div class="clip glass reveal tilt-3d">
             <video controls loop muted playsinline preload="metadata" poster="media/kon-add.jpg" width="1280" height="720" aria-label="Animation: the command pnpm kitsuden kon add blog installs the kon, and the backend gains tables, a REST API, MCP tools, permissions and panel views">
               <source src="media/kon-add.mp4" type="video/mp4" />
             </video>
@@ -1634,7 +1675,7 @@
 
       <section class="block" id="catalog">
         <div class="wrap">
-          <h2>The 30 kons</h2>
+          <h2>The 34 kons</h2>
           <p>Business, content, gaming and documents. Open one to see what it adds and how to install it.</p>
           <noscript>
             <p class="notice">
@@ -1685,7 +1726,7 @@
             (<a href="https://kitsuden.github.io/kitsuden/#start">install Kitsuden</a>). Then clone this repository
             next to it and add the kon.
           </p>
-          <div class="reveal start glass">
+          <div class="reveal start glass tilt-3d">
             <div class="tabs" role="tablist" aria-label="How do you want to install a kon" id="how">
               <button role="tab" id="h-agent" aria-controls="q-agent" aria-selected="true">With my coding agent</button>
               <button role="tab" id="h-term" aria-controls="q-term" aria-selected="false" tabindex="-1">In a terminal</button>
@@ -1777,7 +1818,7 @@ pnpm test</code></pre>
           <h2>Questions people ask first</h2>
           <div class="faq">
             <details>
-              <summary>Do I need all 30?</summary>
+              <summary>Do I need all 34?</summary>
               <p>No. Kitsuden's core is a complete backend by itself. Install only the kons whose feature you want; the others are never copied into your project.</p>
             </details>
             <details>
@@ -1834,6 +1875,52 @@ pnpm test</code></pre>
         const plural = (n, one, many) => n + " " + (n === 1 ? one : many);
         const addCmd = (id) => "pnpm kitsuden kon add " + id + " --from ../kitsuden-kons";
         const byId = Object.fromEntries(KONS.map((k) => [k.id, k]));
+
+        /* ── 3D KON medallion color mapping (shared across orbit, probe, tooltip & catalogue) ── */
+        const KON_COLORS = {
+          principal: { src: "logos/kon-principal.png", rgb: [168, 85, 247], rim: "#7c4dff" },
+          verde:     { src: "logos/kon-verde.png",     rgb: [24, 235, 82],  rim: "#18eb52" },
+          cian:      { src: "logos/kon-cian.png",      rgb: [0, 230, 240],  rim: "#00e6f0" },
+          azul:      { src: "logos/kon-azul.png",      rgb: [36, 152, 255], rim: "#2498ff" },
+          morado:    { src: "logos/kon-morado.png",    rgb: [176, 72, 255], rim: "#b048ff" },
+          rosa:      { src: "logos/kon-rosa.png",      rgb: [255, 42, 210], rim: "#ff2ad2" },
+          rojo:      { src: "logos/kon-rojo.png",      rgb: [255, 40, 78],  rim: "#ff284e" },
+          naranja:   { src: "logos/kon-naranja.png",   rgb: [255, 118, 18], rim: "#ff7612" },
+          amarillo:  { src: "logos/kon-amarillo.png",  rgb: [255, 214, 10], rim: "#ffd60a" },
+          dorado:    { src: "logos/kon-dorado.png",    rgb: [245, 185, 36], rim: "#f5b924" },
+        };
+        const CAT_PALETTES = {
+          core:      ["verde", "cian"],
+          documents: ["cian", "dorado", "azul"],
+          content:   ["morado", "rosa", "azul", "cian", "verde", "naranja"],
+          business:  ["dorado", "naranja", "amarillo", "azul", "cian", "morado", "verde", "rosa", "rojo"],
+          gaming:    ["rojo", "rosa", "morado", "azul", "amarillo", "verde", "naranja", "cian", "dorado"],
+        };
+        const konColorKey = {};
+        {
+          const seen = {};
+          for (const k of KONS) {
+            const pal = CAT_PALETTES[k.category] || CAT_PALETTES.gaming;
+            const idx = (seen[k.category] = (seen[k.category] || 0) + 1) - 1;
+            konColorKey[k.id] = pal[idx % pal.length];
+          }
+        }
+        const konTheme = (id) => KON_COLORS[konColorKey[id] || "morado"] || KON_COLORS.principal;
+
+        /* ── subtle 3D perspective card tilt on pointer-fine devices ── */
+        if (!still.matches && matchMedia("(pointer: fine)").matches) {
+          for (const card of $$(".tilt-3d")) {
+            card.addEventListener("pointermove", (ev) => {
+              const r = card.getBoundingClientRect();
+              const dx = clamp((ev.clientX - r.left) / r.width, 0, 1) - 0.5;
+              const dy = clamp((ev.clientY - r.top) / r.height, 0, 1) - 0.5;
+              card.style.transform = `perspective(1100px) rotateX(${(-dy * 5).toFixed(2)}deg) rotateY(${(dx * 6).toFixed(2)}deg) translateZ(4px)`;
+            });
+            card.addEventListener("pointerleave", () => {
+              card.style.transform = "";
+            });
+          }
+        }
 
         /* ── theme ── */
         $("#theme").addEventListener("click", () => {
@@ -1997,7 +2084,12 @@ pnpm test</code></pre>
             el(
               "summary",
               {},
-              el("span", { className: "kname" }, k.name, el("code", { textContent: "kon-" + k.id })),
+              el(
+                "span",
+                { className: "kname kname-wrap" },
+                el("img", { className: "kon-ico", src: konTheme(k.id).src, alt: "", width: 32, height: 32, loading: "lazy" }),
+                el("span", {}, k.name, el("code", { textContent: "kon-" + k.id }))
+              ),
               el("span", { className: "kdesc", textContent: k.description }),
               mat(k.maturity)
             ),
@@ -2107,6 +2199,8 @@ pnpm test</code></pre>
           for (const b of $$("button", pick)) b.setAttribute("aria-pressed", String(b.dataset.id === k.id));
           $("#probe-name").textContent = k.name;
           $("#probe-id").textContent = "kon-" + k.id;
+          const pico = $("#probe-ico");
+          if (pico) pico.src = konTheme(k.id).src;
           const pm = $("#probe-mat");
           pm.textContent = pm.dataset.m = k.maturity;
           $("#probe-desc").textContent = k.description;
@@ -2148,7 +2242,7 @@ pnpm test</code></pre>
           const n = (m) => KONS.filter((k) => k.maturity === m).length;
           const item = (cls, m) => el("li", { className: cls }, el("i"), m + " " + n(m));
           const lg = $("#legend");
-          lg.append(item("s", "stable"), item("b", "beta"), item("e", "experimental"), el("li", { textContent: "dot size: number of tables" }));
+          lg.append(item("s", "stable"), item("b", "beta"), item("e", "experimental"), el("li", { textContent: "3D badge size: number of tables" }));
           lg.hidden = false;
         }
 
@@ -2226,14 +2320,25 @@ pnpm test</code></pre>
           }
         }
 
-        /* ── the scene: a core, and thirty kons in orbit around it ── */
+        /* ── the scene: 3D Blender KON Principal core + 34 colored 3D KON medallions in orbit ── */
         const scene = (() => {
           const wrap = $("#scene-wrap"), cv = $("#scene");
           const ctx = cv.getContext("2d");
-          const TAU = Math.PI * 2, F = 8;
-          const MAT = { stable: [0, 230, 118], beta: [168, 85, 247], experimental: [255, 171, 0] };
-          const PINK = [255, 45, 111], VIOLET = [168, 85, 247], WHITE = [250, 250, 250];
+          const TAU = Math.PI * 2, F = 7.2;
+          const PINK = [255, 45, 111], VIOLET = [168, 85, 247], CYAN = [24, 184, 255];
           const css = (c, a = 1) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+
+          /* Preload all 10 Blender 3D raytraced KON medallions */
+          const coinImgs = {};
+          let kickRef = () => {};
+          for (const [key, cfg] of Object.entries(KON_COLORS)) {
+            const im = new Image();
+            im.decoding = "async";
+            im.onload = () => kickRef();
+            im.src = cfg.src;
+            coinImgs[key] = im;
+          }
+
           const sprites = new Map();
           const sprite = (c) => {
             const key = c.join();
@@ -2242,9 +2347,9 @@ pnpm test</code></pre>
               s = el("canvas", { width: 96, height: 96 });
               const g = s.getContext("2d");
               const grad = g.createRadialGradient(48, 48, 0, 48, 48, 48);
-              grad.addColorStop(0, css(c, 0.9));
-              grad.addColorStop(0.18, css(c, 0.42));
-              grad.addColorStop(0.5, css(c, 0.1));
+              grad.addColorStop(0, css(c, 0.92));
+              grad.addColorStop(0.2, css(c, 0.44));
+              grad.addColorStop(0.52, css(c, 0.11));
               grad.addColorStop(1, css(c, 0));
               g.fillStyle = grad;
               g.fillRect(0, 0, 96, 96);
@@ -2252,31 +2357,54 @@ pnpm test</code></pre>
             }
             return s;
           };
-          /* a ring per category; an unknown category joins the outer one */
+
+          /* 5 tilted 3D orbital rings (one per category, stronger 3D inclination!) */
           const RINGS = [
-            ["core", 1.0, 0.17, 0.12, 0.3],
-            ["documents", 1.42, 0.125, -0.15, 1.4],
-            ["content", 1.86, 0.095, 0.1, 2.6],
-            ["business", 2.34, 0.075, -0.08, 4.0],
-            ["gaming", 2.84, 0.06, 0.06, 5.2],
+            ["core",      1.08, 0.16,  0.22, 0.3],
+            ["documents", 1.50, 0.115, -0.26, 1.4],
+            ["content",   1.94, 0.088, 0.19, 2.6],
+            ["business",  2.42, 0.068, -0.15, 4.0],
+            ["gaming",    2.94, 0.054, 0.13, 5.2],
           ].map(([cat, R, w, inc, om]) => ({ cat, R, w, si: Math.sin(inc), ci: Math.cos(inc), so: Math.sin(om), co: Math.cos(om) }));
+
           const nodes = [];
           RINGS.forEach((ring, ri) => {
             const ks = KONS.filter((k) => {
               const at = RINGS.findIndex((r) => r.cat === k.category);
               return (at < 0 ? RINGS.length - 1 : at) === ri;
             });
-            ks.forEach((k, j) =>
-              nodes.push({ k, ring, a0: (j / ks.length) * TAU + ri * 1.1, size: 2.4 + Math.sqrt(k.tables) * 1.1, col: MAT[k.maturity] || MAT.beta, dk: 0, want: false, port: 0, x: 0, y: 0, r: 0, z: 0, e: 0, born: nodes.length })
-            );
+            ks.forEach((k, j) => {
+              const cKey = konColorKey[k.id] || "morado";
+              const theme = KON_COLORS[cKey] || KON_COLORS.principal;
+              nodes.push({
+                k,
+                ring,
+                a0: (j / ks.length) * TAU + ri * 1.15,
+                size: 8.5 + Math.sqrt(k.tables) * 1.9,
+                cKey,
+                col: theme.rgb,
+                rim: theme.rim,
+                dk: 0,
+                want: false,
+                port: 0,
+                x: 0,
+                y: 0,
+                r: 0,
+                z: 0,
+                s: 1,
+                e: 0,
+                born: nodes.length,
+              });
+            });
           });
           const nodeOf = Object.fromEntries(nodes.map((n) => [n.k.id, n]));
-          /* a fixed sky, so the still page always draws the same picture */
+
+          /* 3D starfield + drifting volumetric cosmic dust motes */
           let seed = 7;
           const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
-          const stars = Array.from({ length: 130 }, () => {
-            const a = rnd() * TAU, b = Math.acos(rnd() * 2 - 1), R = 7 + rnd() * 7;
-            return [R * Math.sin(b) * Math.cos(a), R * Math.cos(b) * 0.7, R * Math.sin(b) * Math.sin(a), 0.2 + rnd() * 0.6, rnd() * TAU];
+          const stars = Array.from({ length: 160 }, () => {
+            const a = rnd() * TAU, b = Math.acos(rnd() * 2 - 1), R = 6.5 + rnd() * 8;
+            return [R * Math.sin(b) * Math.cos(a), R * Math.cos(b) * 0.72, R * Math.sin(b) * Math.sin(a), 0.22 + rnd() * 0.65, rnd() * TAU, rnd() > 0.8 ? CYAN : rnd() > 0.5 ? VIOLET : [255, 255, 255]];
           });
 
           let W = 0, H = 0, res = 1, wide = true;
@@ -2287,7 +2415,6 @@ pnpm test</code></pre>
           const shocks = [];
           let slow = 0, frames = 0, tipTimer = 0;
 
-          /* never more than about three million pixels: glow does not need them, a laptop GPU cannot fill them */
           let cap = 2;
           function resize() {
             const w = wrap.clientWidth, h = wrap.clientHeight;
@@ -2305,16 +2432,16 @@ pnpm test</code></pre>
           }
 
           const KEYS_WIDE = [
-            [0.685, 0.52, 1.06, 0.66, 1],
-            [0.69, 0.5, 1.4, 0.5, 0.3],
-            [0.69, 0.5, 1.62, 0.8, 0.12],
-            [0.7, 0.53, 1.08, 0.6, 1],
+            [0.685, 0.52, 1.06, 0.56, 1],
+            [0.69, 0.50, 1.38, 0.44, 0.28],
+            [0.69, 0.50, 1.58, 0.72, 0.10],
+            [0.70, 0.53, 1.08, 0.52, 1],
           ];
           const KEYS_TALL = [
-            [0.5, 0, 1, 0.5, 0.85],
-            [0.5, 0, 1.3, 0.46, 0.25],
-            [0.5, 0, 1.12, 0.7, 0.1],
-            [0.5, 0, 1, 0.5, 0.85],
+            [0.5, 0, 1.02, 0.48, 0.85],
+            [0.5, 0, 1.28, 0.42, 0.25],
+            [0.5, 0, 1.12, 0.66, 0.1],
+            [0.5, 0, 1.02, 0.48, 0.85],
           ];
           function camera(c) {
             const keys = wide ? KEYS_WIDE : KEYS_TALL;
@@ -2322,13 +2449,12 @@ pnpm test</code></pre>
             const j = Math.min(i + 1, keys.length - 1);
             const b = motion && chapters[i] ? smooth(0, 1, chapters[i].leave) : 0;
             const k = keys[i].map((v, n) => mix(v, keys[j][n], b));
-            /* narrow: the scene takes the room between the bar and the text */
             const free = Math.max(60, textTop * H - 64);
             const base = wide ? Math.min(W * 0.62, H) * 0.15 : Math.max(W * 0.1, Math.min(W * 0.158, free * 0.27));
             cx = W * k[0];
             cy = wide ? H * k[1] : 64 + free * 0.5;
             unit = base * k[2];
-            const yaw = pxS * 0.5, pitch = k[3] + pyS * 0.1;
+            const yaw = pxS * 0.68, pitch = k[3] + pyS * 0.22;
             sy = Math.sin(yaw);
             cyw = Math.cos(yaw);
             sp = Math.sin(pitch);
@@ -2352,19 +2478,138 @@ pnpm test</code></pre>
             const y = -lz * ring.si, z = lz * ring.ci;
             return proj(lx * ring.co + z * ring.so, y, -lx * ring.so + z * ring.co);
           }
-          function rrect(x, y, w, h, r) {
-            ctx.beginPath();
-            ctx.moveTo(x + r, y);
-            ctx.arcTo(x + w, y, x + w, y + h, r);
-            ctx.arcTo(x + w, y + h, x, y + h, r);
-            ctx.arcTo(x, y + h, x, y, r);
-            ctx.arcTo(x, y, x + w, y, r);
-            ctx.closePath();
-          }
           const glow = (c, x, y, r, a) => {
             ctx.globalAlpha = a;
             ctx.drawImage(sprite(c), x - r, y - r, r * 2, r * 2);
           };
+
+          /* Draw a 3D extruded physical KON medallion with dynamic rim thickness & live specular sweep */
+          function draw3DCoin(img, x, y, r, colRgb, alpha, tiltX, tiltY, extrudePx, highlight) {
+            if (alpha < 0.015 || r < 2) return;
+            const sx = 1 - Math.abs(tiltX) * 0.14;
+            const sy2 = 1 - Math.abs(tiltY) * 0.14;
+            const ex = -tiltX * extrudePx;
+            const ey = -tiltY * extrudePx;
+
+            ctx.save();
+            ctx.translate(x, y);
+
+            /* 3D extruded metallic/neon coin rim stack behind front face */
+            const layers = extrudePx >= 6 ? 6 : 3;
+            for (let i = layers; i >= 1; i--) {
+              const f = i / layers;
+              ctx.save();
+              ctx.translate(ex * f, ey * f);
+              ctx.scale(sx, sy2);
+              ctx.globalAlpha = alpha * (0.45 + 0.35 * (1 - f));
+              ctx.fillStyle = i === layers ? "#080712" : css(colRgb, 0.35 + 0.35 * (1 - f));
+              ctx.beginPath();
+              ctx.arc(0, 0, r * 0.99, 0, TAU);
+              ctx.fill();
+              ctx.restore();
+            }
+
+            /* Front face of the Blender 3D raytraced KON medallion */
+            ctx.save();
+            ctx.scale(sx, sy2);
+            ctx.globalAlpha = alpha;
+            if (img && img.complete && img.naturalWidth > 0) {
+              ctx.drawImage(img, -r, -r, r * 2, r * 2);
+            } else {
+              ctx.fillStyle = "#141320";
+              ctx.beginPath();
+              ctx.arc(0, 0, r, 0, TAU);
+              ctx.fill();
+              ctx.strokeStyle = css(colRgb, 0.95);
+              ctx.lineWidth = Math.max(1.5, r * 0.14);
+              ctx.stroke();
+            }
+
+            /* Live 3D diagonal glass specular highlight gliding with tilt */
+            const shineOff = (tiltX * 0.8 + tiltY * 0.5) * r;
+            const sg = ctx.createLinearGradient(-r + shineOff, -r, r + shineOff, r);
+            sg.addColorStop(0, "rgba(255,255,255,0)");
+            sg.addColorStop(0.42, "rgba(255,255,255,0)");
+            sg.addColorStop(0.5, "rgba(255,255,255," + (highlight ? "0.28" : "0.14") + ")");
+            sg.addColorStop(0.58, "rgba(255,255,255,0)");
+            sg.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.globalCompositeOperation = "lighter";
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = sg;
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.96, 0, TAU);
+            ctx.fill();
+            ctx.restore();
+
+            /* Crisp highlight halo ring on hover or docked */
+            if (highlight) {
+              ctx.save();
+              ctx.scale(sx, sy2);
+              ctx.globalAlpha = alpha * 0.9;
+              ctx.strokeStyle = "#ffffff";
+              ctx.lineWidth = Math.max(1.6, r * 0.07);
+              ctx.beginPath();
+              ctx.arc(0, 0, r + 3, 0, TAU);
+              ctx.stroke();
+              ctx.restore();
+            }
+            ctx.restore();
+          }
+
+          /* Draw depth-split 3D rings (backHalf=true draws z>0 behind core; false draws z<=0 in front) */
+          function drawRingHalf(ring, R, colorStr, lineW, baseAlpha, backHalf) {
+            const segs = 72;
+            ctx.strokeStyle = colorStr;
+            ctx.lineCap = "round";
+            let prev = null;
+            for (let i = 0; i <= segs; i++) {
+              const p = onRing(ring, (i / segs) * TAU, R);
+              const cur = [p[0], p[1], p[2], p[3]];
+              if (prev) {
+                const mz = (prev[3] + cur[3]) * 0.5;
+                if ((mz > 0) === backHalf) {
+                  const depthF = clamp(1 - (mz + 3.2) / 7.0, 0.22, 1.0);
+                  ctx.globalAlpha = baseAlpha * (backHalf ? depthF * 0.58 : 0.65 + depthF * 0.55);
+                  ctx.lineWidth = lineW * (backHalf ? 0.85 : 1.15);
+                  ctx.beginPath();
+                  ctx.moveTo(prev[0], prev[1]);
+                  ctx.lineTo(cur[0], cur[1]);
+                  ctx.stroke();
+                }
+              }
+              prev = cur;
+            }
+          }
+
+          /* Draw counter-rotating 3D holographic gyro rings around the central medallion */
+          function drawGyroHalf(radius, tiltA, tiltB, spin, colStr, backHalf, alpha) {
+            const segs = 64;
+            const sa = Math.sin(tiltA), ca = Math.cos(tiltA);
+            const sb = Math.sin(tiltB), cb = Math.cos(tiltB);
+            ctx.strokeStyle = colStr;
+            ctx.lineCap = "round";
+            let prev = null;
+            for (let i = 0; i <= segs; i++) {
+              const th = (i / segs) * TAU + spin;
+              const x0 = radius * Math.cos(th), z0 = radius * Math.sin(th);
+              const y1 = -z0 * sa, z1 = z0 * ca;
+              const x2 = x0 * cb + z1 * sb, z2 = -x0 * sb + z1 * cb;
+              const p = proj(x2, y1, z2);
+              const cur = [p[0], p[1], p[3]];
+              if (prev) {
+                const mz = (prev[2] + cur[2]) * 0.5;
+                if ((mz > 0) === backHalf) {
+                  ctx.globalAlpha = alpha * (backHalf ? 0.25 : 0.72);
+                  ctx.lineWidth = backHalf ? 1.1 : 1.9;
+                  ctx.beginPath();
+                  ctx.moveTo(prev[0], prev[1]);
+                  ctx.lineTo(cur[0], cur[1]);
+                  ctx.stroke();
+                }
+              }
+              prev = cur;
+            }
+          }
 
           function draw(dt) {
             const c = motion ? cS : 3;
@@ -2380,47 +2625,52 @@ pnpm test</code></pre>
             ctx.setTransform(res, 0, 0, res, 0, 0);
             ctx.clearRect(0, 0, W, H);
 
-            /* sky */
-            ctx.fillStyle = "#fff";
+            /* 3D depth starfield & cosmic dust */
             for (const s of stars) {
               const p = proj(s[0], s[1], s[2]);
               if (p[0] < 0 || p[0] > W || p[1] < 0 || p[1] > H) continue;
-              ctx.globalAlpha = s[3] * (0.6 + 0.4 * Math.sin(time * 0.8 + s[4])) * intro;
-              ctx.fillRect(p[0], p[1], 1.3, 1.3);
+              const sz = Math.max(1, p[2] * 1.9);
+              ctx.globalAlpha = s[3] * (0.55 + 0.45 * Math.sin(time * 0.9 + s[4])) * intro;
+              ctx.fillStyle = css(s[5], 1);
+              ctx.fillRect(p[0], p[1], sz, sz);
             }
 
-            /* a haze lying in the plane of the orbits */
+            /* 3D volumetric holographic floor plane & nebula glow */
             ctx.save();
             ctx.translate(cx, cy);
-            ctx.scale(1, Math.max(0.25, sp));
+            ctx.scale(1, Math.max(0.24, sp));
             ctx.globalCompositeOperation = "lighter";
-            ctx.globalAlpha = 0.55 * intro;
-            ctx.drawImage(sprite(VIOLET), -unit * 3.6, -unit * 3.6, unit * 7.2, unit * 7.2);
+            ctx.globalAlpha = 0.52 * intro;
+            ctx.drawImage(sprite(VIOLET), -unit * 3.8, -unit * 3.8, unit * 7.6, unit * 7.6);
+            ctx.globalAlpha = 0.25 * intro;
+            ctx.drawImage(sprite(CYAN), -unit * 2.5, -unit * 2.5, unit * 5.0, unit * 5.0);
             ctx.restore();
 
-            /* orbits */
+            /* Subtle 3D perspective floor ring below orbital center */
+            ctx.strokeStyle = "rgba(168, 85, 247, 0.11)";
             ctx.lineWidth = 1;
-            for (const ring of RINGS) {
+            for (const rFloor of [1.5, 2.5, 3.5]) {
               ctx.beginPath();
-              for (let i = 0; i <= 72; i++) {
-                const p = onRing(ring, (i / 72) * TAU, ring.R * intro);
+              for (let i = 0; i <= 48; i++) {
+                const a = (i / 48) * TAU;
+                const p = proj(Math.cos(a) * rFloor, 1.35, Math.sin(a) * rFloor);
                 i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
               }
-              ctx.globalAlpha = 0.2 * intro;
-              ctx.strokeStyle = "#c084fc";
+              ctx.globalAlpha = 0.5 * intro;
               ctx.stroke();
             }
 
-            /* where every kon is this frame */
-            const portR = unit * 0.6;
+            /* Compute 3D positions for all 34 kons */
+            const portR = unit * 0.92;
             let primary = null;
             for (const n of nodes) {
               const born = smooth(0, 1, intro * 1.7 - (n.born / nodes.length) * 0.7);
               const p = onRing(n.ring, n.a0 + time * n.ring.w, n.ring.R * (0.15 + 0.85 * born));
+              n.s = p[2];
               n.z = p[3];
               n.dk += ((n.want ? D : 0) - n.dk) * ease;
               const e = (n.e = n.dk < 0.001 ? 0 : n.dk * n.dk * (3 - 2 * n.dk));
-              const orbR = n.size * p[2] * (unit / 100) * (wide ? 1.15 : 1.5);
+              const orbR = n.size * p[2] * (unit / 100) * (wide ? 1.18 : 1.35);
               if (e > 0) {
                 const th = -0.62 + n.port * 0.72;
                 const tx = cx + Math.cos(th) * portR, ty = cy + Math.sin(th) * portR;
@@ -2428,15 +2678,14 @@ pnpm test</code></pre>
                 const bump = Math.sin(Math.PI * e) * 0.22;
                 n.x = p[0] + dx * e - dy * bump;
                 n.y = p[1] + dy * e + dx * bump;
-                n.r = mix(orbR, Math.max(5, unit * (n.port ? 0.055 : 0.075)), e);
+                n.r = mix(orbR, Math.max(16, unit * (n.port ? 0.16 : 0.22)), e);
                 if (n.port === 0 && n.want) primary = n;
               } else {
                 n.x = p[0];
                 n.y = p[1];
-                n.r = Math.max(1.6, orbR);
+                n.r = Math.max(9.5, orbR);
               }
-              /* a kon dims as it passes behind the text, so the text always wins */
-              const veil = wide ? 0.1 + 0.9 * smooth(W * 0.4, W * 0.52, n.x) : 1 - 0.92 * smooth(textTop * H - 30, textTop * H + 24, n.y);
+              const veil = wide ? 0.16 + 0.84 * smooth(W * 0.39, W * 0.52, n.x) : 1 - 0.9 * smooth(textTop * H - 30, textTop * H + 24, n.y);
               n.a = born * mix(veil, 1, e);
             }
             if (primary) {
@@ -2444,7 +2693,29 @@ pnpm test</code></pre>
               primary.fired = primary.e > 0.97;
             }
 
-            /* a short wake behind each kon */
+            /* BACK HALF of 3D orbital rings (behind core) */
+            for (let ri = 0; ri < RINGS.length; ri++) {
+              drawRingHalf(RINGS[ri], RINGS[ri].R * intro, ri % 2 === 0 ? "#c084fc" : "#38bdf8", 1.1, 0.24 * intro, true);
+            }
+
+            /* Dependency dashed lines */
+            ctx.strokeStyle = "#c084fc";
+            ctx.lineCap = "butt";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 5]);
+            for (const n of nodes)
+              for (const need of n.k.needs) {
+                const m = nodeOf[need];
+                if (!m) continue;
+                ctx.globalAlpha = 0.24 * intro;
+                ctx.beginPath();
+                ctx.moveTo(n.x, n.y);
+                ctx.lineTo(m.x, m.y);
+                ctx.stroke();
+              }
+            ctx.setLineDash([]);
+
+            /* Wake trails behind orbiting kons */
             ctx.lineCap = "round";
             for (const n of nodes) {
               if (n.e > 0.3 || n.a < 0.05) continue;
@@ -2452,10 +2723,10 @@ pnpm test</code></pre>
               let p = onRing(n.ring, a1, n.ring.R);
               let px0 = p[0], py0 = p[1];
               ctx.strokeStyle = css(n.col);
-              ctx.lineWidth = Math.max(1, n.r * 0.7);
+              ctx.lineWidth = Math.max(1.2, n.r * 0.22);
               for (let i = 1; i <= 5; i++) {
-                p = onRing(n.ring, a1 - i * 0.045, n.ring.R);
-                ctx.globalAlpha = 0.34 * n.a * (1 - i / 6) * (1 - n.e) * (n.z > 0 ? 0.5 : 1);
+                p = onRing(n.ring, a1 - i * 0.04, n.ring.R);
+                ctx.globalAlpha = 0.28 * n.a * (1 - i / 6) * (1 - n.e) * (n.z > 0 ? 0.45 : 0.9);
                 ctx.beginPath();
                 ctx.moveTo(px0, py0);
                 ctx.lineTo(p[0], p[1]);
@@ -2465,90 +2736,76 @@ pnpm test</code></pre>
               }
             }
 
-            /* what needs what */
-            ctx.strokeStyle = "#c084fc";
-            ctx.lineCap = "butt";
-            ctx.lineWidth = 1;
-            ctx.setLineDash([3, 5]);
-            for (const n of nodes)
-              for (const need of n.k.needs) {
-                const m = nodeOf[need];
-                if (!m) continue;
-                ctx.globalAlpha = 0.28 * intro;
-                ctx.beginPath();
-                ctx.moveTo(n.x, n.y);
-                ctx.lineTo(m.x, m.y);
-                ctx.stroke();
-              }
-            ctx.setLineDash([]);
-
-            const pass = (far) => {
-              ctx.globalCompositeOperation = "lighter";
-              for (const n of nodes)
-                if (n.z > 0 === far && n.e < 0.5) glow(n.col, n.x, n.y, n.r * 4.4, (far ? 0.3 : 0.55) * n.a);
-              ctx.globalCompositeOperation = "source-over";
-              for (const n of nodes) {
-                if (n.z > 0 !== far || n.e >= 0.5) continue;
-                ctx.globalAlpha = (far ? 0.6 : 1) * n.a;
-                ctx.fillStyle = css(n.col);
-                ctx.beginPath();
-                ctx.arc(n.x, n.y, n.r, 0, TAU);
-                ctx.fill();
-                ctx.globalAlpha = 0.55 * n.a;
-                ctx.fillStyle = "#fff";
-                ctx.beginPath();
-                ctx.arc(n.x - n.r * 0.25, n.y - n.r * 0.25, n.r * 0.32, 0, TAU);
-                ctx.fill();
+            /* Exact painter's Z-sorting for FAR orbiting 3D KON coins (z > 0) */
+            const drawOrbitPass = (far) => {
+              const bucket = nodes.filter((n) => (n.z > 0) === far && n.e < 0.5).sort((a, b) => b.z - a.z);
+              for (const n of bucket) {
+                const isHov = n === hover;
+                const drawR = isHov ? n.r * 1.24 : n.r;
+                const depthAlpha = (far ? clamp(0.55 + (1.2 - n.z) * 0.15, 0.48, 0.86) : 1.0) * n.a;
+                ctx.globalCompositeOperation = "lighter";
+                glow(n.col, n.x, n.y, drawR * (isHov ? 2.8 : 2.1), (far ? 0.28 : 0.48) * n.a);
+                ctx.globalCompositeOperation = "source-over";
+                const tX = clamp((n.x - cx) / (unit * 3.4) + pxS * 0.5, -0.7, 0.7);
+                const tY = clamp((n.y - cy) / (unit * 3.4) + pyS * 0.5, -0.7, 0.7);
+                draw3DCoin(coinImgs[n.cKey], n.x, n.y, drawR, n.col, depthAlpha, tX, tY, Math.max(2.5, drawR * 0.24), isHov);
               }
             };
-            pass(true);
+            drawOrbitPass(true);
 
-            /* the core */
-            const hs = unit * 0.3, beat = 0.5 + 0.5 * Math.sin(time * 1.6);
+            /* BACK HALF of 3D holographic gyro rings around core */
+            drawGyroHalf(0.76, 0.55, 0.4, time * 0.45, "#18b8ff", true, 0.65 * intro);
+            drawGyroHalf(0.86, -0.62, -0.35, -time * 0.34, "#e000ff", true, 0.58 * intro);
+
+            /* ── THE CENTRAL 3D BLENDER KON PRINCIPAL NEON CORE ── */
+            const coreR = unit * 0.56;
+            const beat = 0.5 + 0.5 * Math.sin(time * 1.6);
+            const bobY = motion ? Math.sin(time * 1.45) * Math.min(5, unit * 0.045) : 0;
+            const coreY = cy + bobY;
+
             ctx.globalCompositeOperation = "lighter";
-            glow(VIOLET, cx, cy, unit * (1.9 + 0.12 * beat), 0.75 * intro);
-            glow(PINK, cx, cy, unit * (0.95 + 0.1 * beat), 0.5 * intro);
+            glow(VIOLET, cx, coreY, unit * (2.2 + 0.14 * beat), 0.82 * intro);
+            glow(CYAN, cx, coreY - coreR * 0.35, unit * (1.15 + 0.08 * beat), 0.42 * intro);
+            glow(PINK, cx, coreY + coreR * 0.35, unit * (1.25 + 0.1 * beat), 0.52 * intro);
             ctx.globalCompositeOperation = "source-over";
+
+            /* 5-facet dock energy ring */
             const dockA = primary ? primary.e : 0;
             ctx.lineCap = "round";
             for (let k = 0; k < 5; k++) {
-              const mid = -Math.PI / 2 + k * (TAU / 5), half = TAU / 10 - 0.09, R = unit * 0.9, f = facet[k] * dockA;
-              ctx.globalAlpha = 0.16 * intro + 0.84 * f;
-              ctx.strokeStyle = f > 0.02 ? css([Math.round(mix(168, 255, k / 4)), Math.round(mix(85, 45, k / 4)), Math.round(mix(247, 111, k / 4))]) : "#71717a";
-              ctx.lineWidth = Math.max(1.2, unit * mix(0.012, 0.035, f));
+              const mid = -Math.PI / 2 + k * (TAU / 5), half = TAU / 10 - 0.09, R = unit * 1.05, f = facet[k] * dockA;
+              ctx.globalAlpha = 0.14 * intro + 0.86 * f;
+              ctx.strokeStyle = f > 0.02 ? css([Math.round(mix(24, 224, k / 4)), Math.round(mix(184, 45, k / 4)), Math.round(mix(255, 255, k / 4))]) : "#71717a";
+              ctx.lineWidth = Math.max(1.4, unit * mix(0.012, 0.036, f));
               ctx.beginPath();
-              ctx.arc(cx, cy, R, mid - half, mid + half);
+              ctx.arc(cx, coreY, R, mid - half, mid + half);
               ctx.stroke();
             }
-            ctx.globalAlpha = 0.5 * intro;
-            ctx.strokeStyle = "#c084fc";
-            ctx.lineWidth = 1;
-            ctx.setLineDash([2, 7]);
-            ctx.beginPath();
-            ctx.arc(cx, cy, unit * 0.46, time * 0.25, time * 0.25 + TAU);
-            ctx.stroke();
-            ctx.setLineDash([]);
+
+            /* Shockwaves on dock */
             for (let i = shocks.length - 1; i >= 0; i--) {
               const t = (shocks[i] += dt / 0.9);
-              if (t >= 1) {
-                shocks.splice(i, 1);
-                continue;
-              }
-              ctx.globalAlpha = (1 - t) * 0.8;
-              ctx.strokeStyle = "#ff2d6f";
-              ctx.lineWidth = 2 + (1 - t) * 3;
+              if (t >= 1) { shocks.splice(i, 1); continue; }
+              ctx.globalAlpha = (1 - t) * 0.82;
+              ctx.strokeStyle = "#c084fc";
+              ctx.lineWidth = 2 + (1 - t) * 3.5;
               ctx.beginPath();
-              ctx.arc(cx, cy, unit * (0.4 + t * 1.5), 0, TAU);
+              ctx.arc(cx, coreY, unit * (0.55 + t * 1.65), 0, TAU);
               ctx.stroke();
             }
-            /* docked kons and their links to the core */
+
+            /* Energy tethers from core to docked kons */
             for (const n of nodes) {
               if (n.e < 0.02) continue;
-              const dx = n.x - cx, dy = n.y - cy, d = Math.hypot(dx, dy) || 1;
-              const x0 = cx + (dx / d) * hs * 1.1, y0 = cy + (dy / d) * hs * 1.1;
-              ctx.globalAlpha = n.e;
-              ctx.strokeStyle = "#ff2d6f";
-              ctx.lineWidth = Math.max(1.5, unit * 0.014);
+              const dx = n.x - cx, dy = n.y - coreY, d = Math.hypot(dx, dy) || 1;
+              const x0 = cx + (dx / d) * coreR * 0.98, y0 = coreY + (dy / d) * coreR * 0.98;
+              const beam = ctx.createLinearGradient(x0, y0, n.x, n.y);
+              beam.addColorStop(0, "#18b8ff");
+              beam.addColorStop(0.5, "#c084fc");
+              beam.addColorStop(1, css(n.col, 1));
+              ctx.globalAlpha = n.e * 0.92;
+              ctx.strokeStyle = beam;
+              ctx.lineWidth = Math.max(1.8, unit * 0.018);
               ctx.beginPath();
               ctx.moveTo(x0, y0);
               ctx.lineTo(n.x, n.y);
@@ -2556,86 +2813,74 @@ pnpm test</code></pre>
               if (n.e > 0.9 && motion) {
                 ctx.fillStyle = "#fff";
                 for (let j = 0; j < 3; j++) {
-                  const t = 1 - ((time * 0.7 + j / 3) % 1);
-                  ctx.globalAlpha = 0.9 * Math.sin(Math.PI * t);
+                  const t = 1 - ((time * 0.72 + j / 3) % 1);
+                  ctx.globalAlpha = 0.95 * Math.sin(Math.PI * t);
                   ctx.beginPath();
-                  ctx.arc(mix(x0, n.x, t), mix(y0, n.y, t), Math.max(1.2, unit * 0.012), 0, TAU);
+                  ctx.arc(mix(x0, n.x, t), mix(y0, n.y, t), Math.max(1.6, unit * 0.016), 0, TAU);
                   ctx.fill();
                 }
               }
             }
-            ctx.globalAlpha = intro;
-            rrect(cx - hs, cy - hs, hs * 2, hs * 2, hs * 0.52);
-            ctx.fillStyle = "#0c0a12";
-            ctx.fill();
-            const rim = ctx.createLinearGradient(cx - hs, cy - hs, cx + hs, cy + hs);
-            rim.addColorStop(0, "#c084fc");
-            rim.addColorStop(1, "#ff2d6f");
-            ctx.strokeStyle = rim;
-            ctx.lineWidth = Math.max(1.5, unit * 0.022);
-            ctx.stroke();
-            const k = (hs * 2) / 32;
-            ctx.strokeStyle = "#ff2d6f";
-            ctx.lineWidth = 2.8 * k;
-            ctx.lineJoin = "round";
-            ctx.beginPath();
-            ctx.moveTo(cx - 5 * k, cy - 7 * k);
-            ctx.lineTo(cx - 5 * k, cy + 7 * k);
-            ctx.moveTo(cx - 5 * k, cy);
-            ctx.lineTo(cx + 4 * k, cy - 7 * k);
-            ctx.moveTo(cx - 2.5 * k, cy - 2 * k);
-            ctx.lineTo(cx + 5 * k, cy + 7 * k);
-            ctx.stroke();
 
-            pass(false);
-            ctx.globalCompositeOperation = "lighter";
-            for (const n of nodes) if (n.e >= 0.5) glow(PINK, n.x, n.y, n.r * 3.6, 0.7 * n.e);
-            ctx.globalCompositeOperation = "source-over";
-            for (const n of nodes) {
-              if (n.e < 0.5) continue;
-              ctx.globalAlpha = 1;
-              ctx.fillStyle = css(n.col);
-              ctx.beginPath();
-              ctx.arc(n.x, n.y, n.r, 0, TAU);
-              ctx.fill();
-              ctx.strokeStyle = "#fafafa";
-              ctx.lineWidth = Math.max(1.5, n.r * 0.22);
-              ctx.stroke();
+            /* Render the Central 3D Blender KON Principal Neon Medallion! */
+            const coreTiltX = clamp(pxS * 0.95 + Math.sin(time * 0.7) * 0.14, -0.75, 0.75);
+            const coreTiltY = clamp(pyS * 0.85 + Math.cos(time * 0.6) * 0.12, -0.75, 0.75);
+            draw3DCoin(coinImgs.principal, cx, coreY, coreR, VIOLET, intro, coreTiltX, coreTiltY, Math.max(7, coreR * 0.16), false);
+
+            /* FRONT HALF of 3D holographic gyro rings (sweeping IN FRONT of central 3D medallion!) */
+            drawGyroHalf(0.76, 0.55, 0.4, time * 0.45, "#18b8ff", false, 0.78 * intro);
+            drawGyroHalf(0.86, -0.62, -0.35, -time * 0.34, "#e000ff", false, 0.68 * intro);
+
+            /* FRONT HALF of 3D orbital rings */
+            for (let ri = 0; ri < RINGS.length; ri++) {
+              drawRingHalf(RINGS[ri], RINGS[ri].R * intro, ri % 2 === 0 ? "#c084fc" : "#38bdf8", 1.15, 0.30 * intro, false);
             }
 
-            /* names */
+            /* NEAR orbiting 3D KON coins (z <= 0, passing IN FRONT of the core!) */
+            drawOrbitPass(false);
+
+            /* Docked 3D KON coins (prominent & glowing beside core) */
+            for (const n of nodes) {
+              if (n.e < 0.5) continue;
+              ctx.globalCompositeOperation = "lighter";
+              glow(n.col, n.x, n.y, n.r * 2.6, 0.7 * n.e);
+              ctx.globalCompositeOperation = "source-over";
+              draw3DCoin(coinImgs[n.cKey], n.x, n.y, n.r, n.col, 1, coreTiltX * 0.6, coreTiltY * 0.6, Math.max(4, n.r * 0.22), true);
+            }
+
+            /* Floating labels */
             const fs = wide ? 11 : 10;
             ctx.textBaseline = "middle";
             for (const n of nodes) {
               const docked = n.e >= 0.5, isHover = n === hover, isSel = n.k.id === sel;
-              let a = docked || isHover ? 1 : labels * (n.z > 0 ? 0.42 : 0.9) * n.a * (wide || n.z <= 0.4 ? 1 : 0);
+              let a = docked || isHover ? 1 : labels * (n.z > 0 ? 0.38 : 0.92) * n.a * (wide || n.z <= 0.4 ? 1 : 0);
               if (wide && !docked && !isHover) a *= smooth(W * 0.47, W * 0.6, n.x);
-              if (isSel && !docked) a = Math.max(a, 0.9 * n.a);
-              if (isHover || (isSel && !docked)) {
+              if (isSel && !docked) a = Math.max(a, 0.92 * n.a);
+              if (isSel && !docked && !isHover) {
                 ctx.globalAlpha = n.a;
-                ctx.strokeStyle = isHover ? "#fafafa" : "#ff2d6f";
-                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = "#ff2d6f";
+                ctx.lineWidth = 1.8;
                 ctx.beginPath();
-                ctx.arc(n.x, n.y, n.r + 5, 0, TAU);
+                ctx.arc(n.x, n.y, n.r + 4, 0, TAU);
                 ctx.stroke();
               }
               if (a < 0.03) continue;
               const strong = docked || isHover;
               ctx.font = (strong ? "700 " : "500 ") + (strong ? fs + 2 : fs) + 'px "JetBrains Mono", ui-monospace, monospace';
               ctx.textAlign = n.x >= cx ? "left" : "right";
-              const tx = n.x + (n.x >= cx ? 1 : -1) * (n.r + 7);
+              const tx = n.x + (n.x >= cx ? 1 : -1) * (n.r + 8);
               if (strong) {
-                ctx.globalAlpha = 0.8;
+                ctx.globalAlpha = 0.86;
                 ctx.fillStyle = "#09090b";
                 const tw = ctx.measureText(n.k.id).width;
                 ctx.fillRect(n.x >= cx ? tx - 4 : tx - tw - 4, n.y - fs, tw + 8, fs * 2);
               }
               ctx.globalAlpha = a;
-              ctx.fillStyle = strong ? "#fafafa" : "#d4d4d8";
+              ctx.fillStyle = strong ? "#fafafa" : "#e4e4e7";
               ctx.fillText(n.k.id, tx, n.y);
             }
 
-            /* what the docked kon added, around the core */
+            /* Facet callouts around core in Chapter 02 */
             const kon = byId[sel];
             if (kon && dockA > 0.05 && facetLabels > 0.02) {
               const texts = [
@@ -2648,10 +2893,10 @@ pnpm test</code></pre>
               for (let j = 0; j < 5; j++) {
                 const f = facet[j] * dockA * facetLabels;
                 if (f < 0.03) continue;
-                const mid = -Math.PI / 2 + j * (TAU / 5), R = unit * 0.9;
+                const mid = -Math.PI / 2 + j * (TAU / 5), R = unit * 1.05;
                 const ex = Math.cos(mid), ey = Math.sin(mid);
-                const x1 = cx + ex * (R + unit * 0.05), y1 = cy + ey * (R + unit * 0.05);
-                const x2 = cx + ex * (R + unit * 0.2), y2 = cy + ey * (R + unit * 0.2);
+                const x1 = cx + ex * (R + unit * 0.05), y1 = coreY + ey * (R + unit * 0.05);
+                const x2 = cx + ex * (R + unit * 0.2), y2 = coreY + ey * (R + unit * 0.2);
                 ctx.globalAlpha = f * 0.8;
                 ctx.strokeStyle = "#fafafa";
                 ctx.lineWidth = 1;
@@ -2680,12 +2925,11 @@ pnpm test</code></pre>
             time += dt;
             cS += (cT - cS) * (1 - Math.exp(-dt * 9));
             if (Math.abs(cT - cS) < 0.0004) cS = cT;
-            pxS += (mx - pxS) * (1 - Math.exp(-dt * 3));
-            pyS += (my - pyS) * (1 - Math.exp(-dt * 3));
+            pxS += (mx - pxS) * (1 - Math.exp(-dt * 3.5));
+            pyS += (my - pyS) * (1 - Math.exp(-dt * 3.5));
             if (intro < 1) intro = Math.min(1, intro + dt / 1.5);
             applyDom(false);
             draw(dt);
-            /* a weak GPU gets fewer pixels, not fewer frames */
             if (++frames > 20) {
               slow = slow * 0.95 + (dt > 0.024 ? 1 : 0) * 0.05;
               if (slow > 0.3 && res > 1 && frames > 90) {
@@ -2708,6 +2952,7 @@ pnpm test</code></pre>
               raf = requestAnimationFrame(frame);
             }
           }
+          kickRef = kick;
           function dock(id) {
             const n = nodeOf[id];
             if (!n) return;
@@ -2738,9 +2983,18 @@ pnpm test</code></pre>
             tip.hidden = !n;
             if (n)
               tip.replaceChildren(
-                el("b", { textContent: n.k.name }),
-                el("code", { textContent: "kon-" + n.k.id + " · " + n.k.maturity }),
-                el("span", { textContent: plural(n.k.tables, "table", "tables") + " · " + (n.k.views ? plural(n.k.views, "panel view", "panel views") : "API only") })
+                el(
+                  "div",
+                  { className: "tip-row" },
+                  el("img", { className: "kon-ico", src: KON_COLORS[n.cKey].src, alt: "", width: 36, height: 36 }),
+                  el(
+                    "div",
+                    {},
+                    el("b", { textContent: n.k.name }),
+                    el("code", { textContent: "kon-" + n.k.id + " · " + n.k.maturity }),
+                    el("span", { textContent: plural(n.k.tables, "table", "tables") + " · " + (n.k.views ? plural(n.k.views, "panel view", "panel views") : "API only") })
+                  )
+                )
               );
             if (!motion) kick();
           }

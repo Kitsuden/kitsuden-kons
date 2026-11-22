@@ -1,9 +1,14 @@
 <p align="center">
-  <img src="assets/readme/hero.svg" width="100%" alt="kitsuden-kons: 30 optional modules for Kitsuden, the backend for AI agents. The kons, by category: core (blog, members), business (academy-lms, agile, booking, conta, crm, directory, dms, ecommerce, payments), content and community (analytics, comments, newsletter, wiki, chat), gaming (autobattler, broadcast, cardsim, character-builder, collection, esports, formulas, games, maps, streamers, tierlist), documents and OCR (ingest, ocr-training, vekstudio).">
+  <img src="assets/social-preview.png" width="100%" alt="kitsuden-kons: 34 optional modules for Kitsuden with the 3D neon KON emblem and orbiting colored KON modules.">
+</p>
+
+<p align="center">
+  <img src="assets/readme/hero.svg" width="100%" alt="kitsuden-kons: 34 optional modules for Kitsuden, the backend for AI agents. The kons, by category: core (blog, members), business (academy-lms, agile, booking, conta, crm, directory, dms, ecommerce, koe, listings, odoo, payments), content and community (analytics, comments, newsletter, wiki, chat, dc), gaming (autobattler, broadcast, cardsim, character-builder, collection, esports, formulas, games, maps, streamers, tierlist), documents and OCR (ingest, ocr-training, vekstudio).">
 </p>
 
 <p align="center">
   <a href="https://github.com/Kitsuden/kitsuden-kons/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Kitsuden/kitsuden-kons/ci.yml?branch=main&label=CI"></a>
+  <img alt="34 kons" src="https://img.shields.io/badge/kons-34-a855f7">
   <img alt="Version 0.9.0-beta" src="https://img.shields.io/badge/version-0.9.0--beta-orange">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
