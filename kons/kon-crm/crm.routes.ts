@@ -29,7 +29,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "@kitsuden/engine/zod";
 
-import { accessOperations } from "./crm.access";
+import { accessOperations, keepHiddenFields } from "./crm.access";
 import { billingOperations } from "./crm.billing";
 import { StageActionSchema, StageRequirementsSchema } from "./crm.automation";
 import { rlsContext, dbDe, userOf } from "./crm.context";
@@ -815,6 +815,9 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
           }
         }
 
+        if (updateData.customFields) {
+          updateData.customFields = await keepHiddenFields(dbDe(c), crmCompanies, companyId, updateData.customFields as Record<string, unknown>);
+        }
         const [company] = await dbDe(c)
           .update(crmCompanies)
           .set(updateData)
@@ -1167,6 +1170,9 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
           updateData.lastContactedAt = dateOrNull(body.lastContactedAt);
         }
 
+        if (updateData.customFields) {
+          updateData.customFields = await keepHiddenFields(dbDe(c), crmContacts, contactId, updateData.customFields as Record<string, unknown>);
+        }
         const [contact] = await dbDe(c)
           .update(crmContacts)
           .set(updateData)
@@ -1936,6 +1942,9 @@ export function crmOperations(ctx: KonContext): AnyOperation[] {
           }
         }
 
+        if (updateData.customFields) {
+          updateData.customFields = await keepHiddenFields(dbDe(c), crmDeals, dealId, updateData.customFields as Record<string, unknown>);
+        }
         const [deal] = await dbDe(c)
           .update(crmDeals)
           .set(updateData)

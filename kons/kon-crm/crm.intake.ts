@@ -399,20 +399,25 @@ export function intakeOperations(routes: ReturnType<typeof registry>): void {
         .from(crmMergeRequests)
         .where(and(eq(crmMergeRequests.id, input.params.id), eq(crmMergeRequests.status, "pending")));
       if (!request) throw AppError.notFound("Request not found or already decided");
+      // Decided before merging: a pending request needs both contacts visible (migration 0016), and the merge deletes one.
+      const decide = (status: "pending" | "approved" | "rejected") =>
+        db
+          .update(crmMergeRequests)
+          .set(status === "pending" ? { status, decidedBy: null, decidedAt: null } : { status, decidedBy: user?.id ?? null, decidedAt: new Date() })
+          .where(eq(crmMergeRequests.id, request.id));
+      await decide(input.body.decision === "approve" ? "approved" : "rejected");
       if (input.body.decision === "approve") {
-        const result = await executeMerge(db, request.contactId, request.otherId, input.body.resolutions ?? {}, user?.id ?? null);
+        const result = await executeMerge(db, request.contactId, request.otherId, input.body.resolutions ?? {}, user?.id ?? null).catch(
+          async (error: unknown) => {
+            await decide("pending");
+            throw error;
+          }
+        );
         if ("conflicts" in result) {
+          await decide("pending");
           throw AppError.conflict("Some fields differ: choose a side for each", { conflicts: result.conflicts });
         }
       }
-      await db
-        .update(crmMergeRequests)
-        .set({
-          status: input.body.decision === "approve" ? "approved" : "rejected",
-          decidedBy: user?.id ?? null,
-          decidedAt: new Date(),
-        })
-        .where(eq(crmMergeRequests.id, request.id));
       return c.json({ status: input.body.decision === "approve" ? "approved" : "rejected" });
     }
   );

@@ -17,6 +17,7 @@ import { and, desc, eq, gt, sql, asc } from "drizzle-orm";
 import { z } from "@kitsuden/engine/zod";
 
 import { dbDe, userOf } from "./crm.context";
+import { accessOf, hiddenFieldKeys } from "./crm.access";
 import type { CrmDb } from "./crm.db";
 import { crmActivities, crmContacts, crmDeals, crmScoreModels } from "./crm.schema";
 import { CONFIGURE, EDIT, VIEW, cappedPage, pageOfRows, requiresEdit, type Page, type registry } from "./operations";
@@ -208,7 +209,7 @@ export function scoringOperations(routes: ReturnType<typeof registry>): void {
       id: "score-contact",
       summary: "Calculate one contact's score",
       description:
-        "Returns the score and `matched`, the rules that produced it, and saves them. With `rules` it only previews what those rules would give and saves nothing. Requires CRM edit access.",
+        "Returns the score and `matched`, the rules that produced it, and saves them. With `rules` it only previews what those rules would give and saves nothing; a custom field you cannot read never matches in a preview. Requires CRM edit access.",
       access: "session",
       permission: EDIT,
       input: { params: ParamId, body: Preview },
@@ -218,7 +219,14 @@ export function scoringOperations(routes: ReturnType<typeof registry>): void {
       const db = dbDe(c);
       const [contact] = await db.select().from(crmContacts).where(eq(crmContacts.id, input.params.id));
       if (!contact) throw AppError.notFound("Contact not found");
-      if (input.body?.rules) return c.json(computeScore(input.body.rules, await signalsOf(db, contact)));
+      if (input.body?.rules) {
+        // A preview takes any rule: on a field the caller cannot read it would answer what the value is.
+        const hidden = await hiddenFieldKeys(db, await accessOf(db));
+        const signals = Object.fromEntries(
+          Object.entries(await signalsOf(db, contact)).filter(([k]) => !(k.startsWith("custom.") && hidden.has(k.slice(7))))
+        );
+        return c.json(computeScore(input.body.rules, signals));
+      }
       const model = await currentModel(db);
       return c.json(await scoreAndSave(db, contact, model.rules as ScoreRule[], model.version));
     }

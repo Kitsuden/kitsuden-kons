@@ -47,7 +47,7 @@ and agents use the same operations; some decisions are kept for people. Human do
   sensitive: with human approval on they come back `202 KITSUDEN_E_APPROVAL_REQUIRED`. Report the
   proposal; do not retry.
 - **404** means missing or outside your `records` dial (assigned or created by you). **403** on a
-  filter or `groupBy` by a custom field means you cannot read that field. **409** on billing
+  filter, `groupBy` or write of a custom field means you cannot read that field. **409** on billing
   routes means kon-conta is not installed; on a merge, `error.details.conflicts` to resolve.
 - **Idempotency.** POSTs are not idempotent; send `idempotency_key` when retrying
   `create-deal`, `create-activity`, `capture-lead` or `log-deal-work`.
@@ -98,7 +98,7 @@ and agents use the same operations; some decisions are kept for people. Human do
 | `CRM_PRESETS_DIR` (env) | The installation's own presets folder, read by `readPresets` next to `presets/` |
 | `admin-src/` | Svelte source of the two admin views (`CrmSettings.svelte`, `CrmSetup.svelte`, copied `tallao/`) |
 | `admin/settings.js`, `admin/setup.js` | Built admin views (generated; do not edit) |
-| `migrations/` | SQL 0000-0015 (0015 is the inbox) and `history.json` |
+| `migrations/` | SQL 0000-0016 (0015 is the inbox; 0016 scopes references, portal links and merge requests) and `history.json` |
 | `tests/` | Route registration and schema tests (vitest), a Playwright spec, `tests/README.md` |
 
 ## Rules that must hold

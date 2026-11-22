@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-ingest",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Document ingestion for Kitsuden: extract text, chunk it and search it by meaning (PDF and OCR optional).",
   "type": "module",
   "main": "index.ts",

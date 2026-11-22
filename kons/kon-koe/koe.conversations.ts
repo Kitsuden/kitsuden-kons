@@ -34,6 +34,19 @@ export interface ChangeInput {
   snoozedUntil?: Date | null;
   reason?: string;
   teamId?: string | null;
+  /** The member who asks, when a person does: one who is not a lead cannot touch what someone else holds. */
+  by?: { userId: string; lead: boolean };
+}
+
+/**
+ * A member who is not a supervisor or admin acts only on a conversation nobody else holds: one that is
+ * `human` or `snoozed` with another assignee stays theirs. Checked on the locked row, so it cannot race.
+ */
+export function assertMayAct(current: Pick<Conversation, "state" | "assigneeId">, by: { userId: string; lead: boolean } | undefined): void {
+  if (!by || by.lead) return;
+  if ((current.state === "human" || current.state === "snoozed") && current.assigneeId && current.assigneeId !== by.userId) {
+    throw AppError.forbidden("Someone else has this conversation: ask them or a supervisor");
+  }
 }
 
 async function locked(db: Db, id: string): Promise<Conversation> {
@@ -76,6 +89,7 @@ async function slaFor(db: Db, teamId: string | null, now: Date): Promise<{ first
 /** The one way to change who answers a conversation. Returns the updated row. */
 export async function changeState(ctx: KonContext, db: Db, conversationId: string, input: ChangeInput, actor: Actor): Promise<Conversation> {
   const current = await locked(db, conversationId);
+  assertMayAct(current, input.by);
   let result;
   try {
     result = transition({
@@ -212,15 +226,16 @@ export async function autoAssign(ctx: KonContext, db: Db, conversation: Conversa
 }
 
 /** Moves the conversation to another team (and back to the queue if a person had it). */
-export async function transfer(ctx: KonContext, db: Db, conversationId: string, teamId: string | null, actor: Actor): Promise<Conversation> {
+export async function transfer(ctx: KonContext, db: Db, conversationId: string, teamId: string | null, actor: Actor, by?: ChangeInput["by"]): Promise<Conversation> {
   const current = await locked(db, conversationId);
+  assertMayAct(current, by);
   if (teamId) {
     const [team] = await db.select({ id: koeTeams.id }).from(koeTeams).where(eq(koeTeams.id, teamId)).limit(1);
     if (!team) throw AppError.validation("Team not found");
   }
   let updated: Conversation;
   if (current.state === "human") {
-    updated = await changeState(ctx, db, conversationId, { trigger: "release", teamId, reason: "transfer" }, actor);
+    updated = await changeState(ctx, db, conversationId, { trigger: "release", teamId, reason: "transfer", by }, actor);
   } else {
     [updated] = (await db.update(koeConversations).set({ teamId, updatedAt: new Date() }).where(eq(koeConversations.id, conversationId)).returning()) as Conversation[];
     await recordEvent(db, conversationId, "transfer", actor, { data: { from: current.teamId, to: teamId } });

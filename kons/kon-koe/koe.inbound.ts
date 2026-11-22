@@ -66,6 +66,27 @@ export function parseAny(body: unknown): NormalizedEvent[] {
   return out;
 }
 
+/** Where the Meta webhook route records which channels signed a body (a key Meta never sends). */
+export const SIGNED_FOR = "_koeSignedFor";
+
+/**
+ * The channel an event speaks for, as the webhook route names its signers: `<kind>:<external id>` when the
+ * event names a channel (a number, a page, an Instagram account), else `account:<WABA id>`.
+ */
+export function signerKeyOf(e: NormalizedEvent): string {
+  if ("channelExternalId" in e && e.channelExternalId) return `${e.channelKind}:${e.channelExternalId}`;
+  return `account:${"accountId" in e ? (e.accountId ?? "") : ""}`;
+}
+
+/** The events of a stored body that its signers may speak for (a body without the list: all of them). */
+export function signedEvents(payload: unknown): NormalizedEvent[] {
+  const events = parseAny(payload);
+  const list = payload && typeof payload === "object" ? (payload as Record<string, unknown>)[SIGNED_FOR] : undefined;
+  if (!Array.isArray(list)) return events;
+  const signers = new Set(list.filter((x): x is string => typeof x === "string"));
+  return events.filter((e) => signers.has(signerKeyOf(e)));
+}
+
 export async function processWebhook(ctx: KonContext, job: QueueJob<{ eventId?: string }>): Promise<void> {
   const id = job.payload?.eventId;
   if (!id) throw new PermanentError("job without eventId");
@@ -73,7 +94,7 @@ export async function processWebhook(ctx: KonContext, job: QueueJob<{ eventId?: 
   await asSystem(async () => {
     const [row] = (await db.select().from(koeWebhookEvents).where(eq(koeWebhookEvents.id, id)).limit(1)) as Array<typeof koeWebhookEvents.$inferSelect>;
     if (!row || row.processedAt) return;
-    const events = parseAny(row.payload);
+    const events = row.channelKind === "meta" ? signedEvents(row.payload) : parseAny(row.payload);
     for (const e of events) await applyEvent(ctx, db, e);
     await db.update(koeWebhookEvents).set({ processedAt: new Date(), error: null }).where(eq(koeWebhookEvents.id, id));
   });

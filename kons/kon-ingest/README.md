@@ -6,7 +6,7 @@ OCR) are an optional dependency or a sidecar, never inside the API.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | documents | 0.2.0 | `/api/ingest` | — (pgvector in the database; the core's embeddings provider for search) |
+| experimental | documents | 0.2.1 | `/api/ingest` | — (pgvector in the database; the core's embeddings provider for search) |
 
 ## Install
 

@@ -7,7 +7,9 @@
  *   inbox                 any koe member: "conversation X changed" (ids and state only, never content)
  *   conversation:<id>     whoever may see that conversation: new messages, statuses, typing, collisions
  *   user:<userId>         that person: assignments, mentions, notices
- *   visitor:<sha256>      the web chat visitor whose key hashes to it (anonymous; the hash is the capability)
+ *   visitor:<capability>  one web chat visitor (anonymous): `ctx.realtime.capability` over the visitor hash, keyed
+ *                         by the installation's secret. Staff read the hash (it is the contact's identity) but
+ *                         cannot turn it into the channel; only the visitor, who proves their key, is told it.
  *
  * What travels is small on purpose: the client re-reads through the REST operations, which apply row-level
  * security. The authorizer is asked on subscribe and again every minute (core: lib/realtime-kon-channels.ts),
@@ -25,8 +27,23 @@ export const channelOf = {
   inbox: () => "kon:koe:inbox",
   conversation: (id: string) => `kon:koe:conversation:${id}`,
   user: (id: string) => `kon:koe:user:${id}`,
-  visitor: (hash: string) => `kon:koe:visitor:${hash}`,
+  /** Takes the capability, never the stored hash: see visitorChannel(). */
+  visitor: (capability: string) => `kon:koe:visitor:${capability}`,
 };
+
+/**
+ * The realtime channel of the web chat visitor whose key hashes to `hash`, or null on a host without
+ * capabilities (or without a secrets key): then nobody broadcasts to the visitor and the widget polls.
+ */
+export function visitorChannel(ctx: KonContext, hash: string): string | null {
+  const capability = (ctx.realtime as { capability?: (material: string) => string } | undefined)?.capability;
+  if (typeof capability !== "function") return null;
+  try {
+    return channelOf.visitor(capability.call(ctx.realtime, `visitor:${hash}`));
+  } catch {
+    return null;
+  }
+}
 
 const rest = {
   conversation: /^conversation:([A-Za-z0-9_-]{1,100})$/,
@@ -75,7 +92,7 @@ export function registerRealtime(ctx: KonContext): void {
     const db = dbOf(ctx);
     if (channel === "inbox") return (await koeRoleOf(db, user)) !== null;
     const v = rest.visitor.exec(channel);
-    if (v) return true; // knowing the hash is knowing the visitor's key
+    if (v) return true; // the name is a capability only the visitor is told (visitorChannel)
     const u = rest.user.exec(channel);
     if (u) return !!user.id && u[1] === user.id;
     const c = rest.conversation.exec(channel);

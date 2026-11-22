@@ -14,8 +14,8 @@ import { verifySignature } from "./channels/graph";
 import { webchatMessage } from "./channels/webchat";
 import { appSecretOf, authOf, channelById, publicChannel, seal } from "./koe.channels";
 import { dbOf, emit, newId, type Db } from "./koe.common";
-import { applyMessage, parseAny, receiveWebhook } from "./koe.inbound";
-import { channelOf } from "./koe.realtime";
+import { applyMessage, parseAny, receiveWebhook, SIGNED_FOR, signerKeyOf } from "./koe.inbound";
+import { visitorChannel } from "./koe.realtime";
 import { CONFIGURE, requireLead, requireMember, USE } from "./koe.policy";
 import { koeChannels, koeConfig, koeConversations, koeIdentities, koeMedia, koeMembers, koeMessages, koeTeamMembers, koeTeams, koeTemplates, type Channel, type Message, type Template } from "./koe.schema";
 import { createTemplate, deleteTemplate, fillTemplate, syncTemplates } from "./koe.templates";
@@ -384,7 +384,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
     {
       id: "receive-meta-webhook",
       summary: "Meta webhook",
-      description: "WhatsApp, Messenger and Instagram events. The signature is checked against the app secret of the channels the body names; the body is stored and processed by a job.",
+      description: "WhatsApp, Messenger and Instagram events. The signature is checked against the app secret of the channels the body names, and only the events of the channels whose secret signed it are applied; the body is stored and processed by a job.",
       access: "public",
       output: { schema: Output },
       // 400 for a body that is not JSON, 401 for a bad signature, 413 past 3 MB.
@@ -402,24 +402,25 @@ export const setupOperations: OperationsModule = (app, ctx) => {
       }
       // Which channels does it talk about? Their app secrets are the only ones that may sign it.
       const ids = new Set<string>();
-      for (const e of parseAny(body)) {
-        if ("channelExternalId" in e && e.channelExternalId) ids.add(`${e.channelKind}:${e.channelExternalId}`);
-        if ("accountId" in e && e.accountId) ids.add(`account:${e.accountId}`);
-      }
+      for (const e of parseAny(body)) ids.add(signerKeyOf(e));
       if (ids.size === 0) return c.json({ ok: true }); // nothing koe knows about
       const signature = c.req.header("x-hub-signature-256");
       const channels = (await asSystem(() => db().select().from(koeChannels))) as Channel[];
       const candidates = channels.filter((ch) => ids.has(`${ch.kind}:${ch.externalId}`) || (ch.accountId && ids.has(`account:${ch.accountId}`)));
-      let verified = false;
+      // Every channel whose secret produced the signature (several channels may share one Meta app).
+      const signedFor = new Set<string>();
       for (const ch of candidates) {
         const secret = await appSecretOf(ctx, ch).catch(() => null);
         if (secret && verifySignature(raw, signature, secret)) {
-          verified = true;
-          break;
+          signedFor.add(`${ch.kind}:${ch.externalId}`);
+          if (ch.accountId) signedFor.add(`account:${ch.accountId}`);
         }
       }
-      if (!verified) return c.json({ error: "invalid signature" }, 401);
-      await receiveWebhook(db(), "meta", sha256(raw), body);
+      if (signedFor.size === 0) return c.json({ error: "invalid signature" }, 401);
+      // Only the events of those channels are applied (processWebhook reads the list): a valid signature
+      // from one app secret must not carry events for a channel whose secret did not sign.
+      const record = { ...(body as Record<string, unknown>), [SIGNED_FOR]: [...signedFor] };
+      await receiveWebhook(db(), "meta", sha256(raw), record);
       return c.json({ ok: true });
     }
   );
@@ -582,7 +583,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
       });
       const applied = await asSystem(() => applyMessage(ctx, db(), event));
       if (!applied) throw AppError.notFound("Chat not found");
-      return c.json({ data: { id: applied.message.id, at: applied.message.createdAt, channel: channelOf.visitor(hash) } }, 201);
+      return c.json({ data: { id: applied.message.id, at: applied.message.createdAt, channel: visitorChannel(ctx, hash) } }, 201);
     }
   );
 
@@ -628,7 +629,7 @@ export const setupOperations: OperationsModule = (app, ctx) => {
           at: m.createdAt,
         });
       }
-      return c.json({ data, channel: channelOf.visitor(hash) });
+      return c.json({ data, channel: visitorChannel(ctx, hash) });
     }
   );
 };

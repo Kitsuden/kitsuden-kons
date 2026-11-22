@@ -430,7 +430,9 @@ describe("custom fields and setting up a firm", () => {
   it("defined fields are validated when written", async () => {
     const res = await request("staff", "PATCH", "/contacts/c1", { customFields: { kycStatus: "whatever" } });
     expect(res.status).toBe(422);
-    expect((await request("staff", "PATCH", "/contacts/c1", { customFields: { kycStatus: "approved", taxId: "8-123" } })).status).toBe(200);
+    // `taxId` is sensitive: only someone who can read it writes it (audit 2026-11-21).
+    expect((await request("staff", "PATCH", "/contacts/c1", { customFields: { kycStatus: "approved", taxId: "8-123" } })).status).toBe(403);
+    expect((await request("admin", "PATCH", "/contacts/c1", { customFields: { kycStatus: "approved", taxId: "8-123" } })).status).toBe(200);
   });
 
   it("a sensitive field needs the sensitive grant", async () => {

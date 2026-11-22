@@ -7,7 +7,8 @@
  *
  *   1. the conversation is one the caller may see (row-level security);
  *   2. a bot or AI never writes in a conversation that is not in `bot` (a person has it, or it is queued);
- *   3. the contact is not blocked, and has not opted out of business-initiated messages;
+ *   3. the contact is not blocked, and has not opted out of business-initiated messages; a campaign or a
+ *      marketing template, whoever sends it, needs the contact's opt-in;
  *   4. the channel supports the kind of message, and the media fits its limits;
  *   5. the window is open, or it is an approved template (WhatsApp), or a person writes with the
  *      human-agent tag (Messenger, Instagram, up to 7 days);
@@ -34,7 +35,7 @@ import type { Interactive } from "./channels/types";
 import { authOf, channelById } from "./koe.channels";
 import { dbOf, emit, newId, previewOf, QUEUES, STATUS_RANK, type Db } from "./koe.common";
 import { changeState, type Actor } from "./koe.conversations";
-import { channelOf, conversationChanged, publish } from "./koe.realtime";
+import { channelOf, conversationChanged, publish, visitorChannel } from "./koe.realtime";
 import {
   koeChannels,
   koeConsents,
@@ -55,7 +56,7 @@ import {
 import { botMaySpeak } from "./koe.states";
 import { checkSend, reportAccess } from "./koe.extensions";
 import { channelFileOf } from "./koe.media";
-import { fillTemplate } from "./koe.templates";
+import { fillTemplate, slotsOf } from "./koe.templates";
 import { checkWindow } from "./koe.window";
 
 export interface SendInput {
@@ -125,6 +126,24 @@ export function mediaProblem(channel: Channel["kind"], kind: OutboundKind, media
   return null;
 }
 
+/** The media kind each template header format takes. */
+const HEADER_KIND = { IMAGE: "image", VIDEO: "video", DOCUMENT: "document" } as const;
+
+/**
+ * A template's header media, checked as the sender: it must be one they see (row security on koe_media),
+ * belong to this conversation or to the library (no conversation), be ready, and fit the header's format.
+ * The delivery reads it again as the system and uploads it to Meta, so this is the only check that matters.
+ */
+async function headerMediaOr422(db: Db, template: Template, conversationId: string, mediaId: string): Promise<Media> {
+  const format = slotsOf(template.components).headerMedia;
+  if (!format) throw AppError.validation(`The template "${template.name}" has no media header`);
+  const media = await one<Media>(db, db.select().from(koeMedia).where(eq(koeMedia.id, mediaId)).limit(1));
+  if (!media || (media.conversationId !== null && media.conversationId !== conversationId)) throw AppError.validation("Header media not found in this conversation or the library");
+  if (media.status !== "ready") throw AppError.validation("That media is still being prepared");
+  if (media.kind !== HEADER_KIND[format]) throw AppError.validation(`The template's header takes ${HEADER_KIND[format] === "image" ? "an" : "a"} ${HEADER_KIND[format]}, not a ${media.kind}`);
+  return media;
+}
+
 export interface SendContext {
   ctx: KonContext;
   db: Db;
@@ -161,6 +180,10 @@ export async function send(sc: SendContext, input: SendInput): Promise<Message> 
     if (conversation.state === "human" && conversation.assigneeId !== author.id && !lead) {
       throw refuse("NOT_YOURS", "Someone else is answering this conversation");
     }
+    // A snooze keeps who had it: replying must not take it from them.
+    if (conversation.state === "snoozed" && conversation.assigneeId && conversation.assigneeId !== author.id && !lead) {
+      throw refuse("NOT_YOURS", "Someone else snoozed this conversation");
+    }
     if (conversation.state !== "human" && input.take !== false && author.id) {
       conversation = await changeState(ctx, db, conversation.id, { trigger: "assign", assigneeId: author.id, reason: "replied" }, author);
     }
@@ -193,18 +216,22 @@ export async function send(sc: SendContext, input: SendInput): Promise<Message> 
     template = await one<Template>(db, db.select().from(koeTemplates).where(and(eq(koeTemplates.id, input.template.templateId), eq(koeTemplates.channelId, channel.id))).limit(1));
     if (!template) throw AppError.validation("Template not found on this channel");
     if (template.status !== "approved") throw refuse("TEMPLATE_NOT_APPROVED", `The template "${template.name}" is ${template.status}, not approved`);
+    if (input.template.headerMediaId) await headerMediaOr422(db, template, conversation.id, input.template.headerMediaId);
     // Validates now (422 names what is missing); the delivery fills it again with the channel's media id.
     const filled = fillTemplate(template, { values: input.template.values ?? {}, headerMedia: input.template.headerMediaId ? { link: "pending" } : undefined }, contact ?? null);
     body = filled.preview;
     payload = { template: { name: template.name, language: template.language, category: template.category, values: input.template.values ?? {}, headerMediaId: input.template.headerMediaId ?? null } };
   }
 
-  // 3. Consent: business-initiated messages need it.
+  // 3. Consent: business-initiated messages need it. A campaign, and any marketing template whoever sends
+  // it (a person, the AI, a rule, a sequence), needs the contact's opt-in, inside the window or not.
   const consent = await one<{ status: string }>(
     db,
     db.select({ status: koeConsents.status }).from(koeConsents).where(and(eq(koeConsents.contactId, conversation.contactId), eq(koeConsents.channelId, channel.id))).limit(1)
   );
-  if (author.kind === "campaign" && consent?.status !== "opted_in") throw refuse("OPTED_OUT", "This contact has not agreed to receive these messages");
+  if ((author.kind === "campaign" || template?.category === "marketing") && consent?.status !== "opted_in") {
+    throw refuse("OPTED_OUT", "This contact has not agreed to receive these messages");
+  }
   if (consent?.status === "opted_out" && (author.kind === "campaign" || author.kind === "rule" || template?.category === "marketing")) {
     throw refuse("OPTED_OUT", "This contact opted out");
   }
@@ -381,6 +408,8 @@ export async function deliver(ctx: KonContext, job: QueueJob<{ messageId?: strin
         if (t.headerMediaId) {
           const hm = await one<Media>(db, db.select().from(koeMedia).where(eq(koeMedia.id, t.headerMediaId)).limit(1));
           if (!hm) return fail(ctx, db, message, "gone", "The header media is gone");
+          // send() checked it as the sender; read here as the system, it must still be this conversation's or the library's.
+          if (hm.conversationId !== null && hm.conversationId !== message.conversationId) return fail(ctx, db, message, "invalid", "The header media belongs to another conversation");
           headerMedia = { id: await ensureChannelMedia(ctx, db, channel, hm) };
         }
         const filled = fillTemplate(template, { values: t.values ?? {}, headerMedia }, contact ?? null);
@@ -409,9 +438,9 @@ export async function deliver(ctx: KonContext, job: QueueJob<{ messageId?: strin
         .set({ status, statusRank: STATUS_RANK[status], externalId: result.externalId, sentAt: now, errorCode: null, errorMessage: null })
         .where(and(eq(koeMessages.id, message.id), eq(koeMessages.status, "queued")));
       await db.update(koeConversations).set({ lastOutboundAt: now }).where(eq(koeConversations.id, conversation.id));
-      if (channel.kind === "webchat") {
-        const visitor = identity.externalId;
-        publish(ctx, channelOf.visitor(visitor), {
+      const visitor = channel.kind === "webchat" ? visitorChannel(ctx, identity.externalId) : null;
+      if (visitor) {
+        publish(ctx, visitor, {
           type: "message",
           id: message.id,
           direction: "out",

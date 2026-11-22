@@ -44,7 +44,7 @@ import { authOf, channelById } from "./koe.channels";
 import { dbOf, isString, newId, type Db } from "./koe.common";
 import { applyMessage } from "./koe.inbound";
 import { requireMember, USE } from "./koe.policy";
-import { channelOf, publish } from "./koe.realtime";
+import { channelOf, publish, visitorChannel } from "./koe.realtime";
 import { koeChannels, koeConversations, koeMedia, koeMessages, koeStickers, type Channel, type Media, type MediaKind } from "./koe.schema";
 import { Output, ParamId, type OperationsModule } from "./operations";
 
@@ -929,7 +929,7 @@ export const mediaOperations: OperationsModule = (app, ctx) => {
             id: out.applied.message.id,
             at: out.applied.message.createdAt,
             media: out.media ? { url, mime: out.media.mime, filename: out.media.filename } : null,
-            channel: channelOf.visitor(hash),
+            channel: visitorChannel(ctx, hash),
           },
         },
         201

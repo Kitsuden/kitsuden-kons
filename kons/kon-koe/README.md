@@ -5,7 +5,7 @@ first, and for teams that sell and collect over chat. Notes for coding agents: [
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 0.2.0 | `/api/koe` | core `auth`; a secrets key for Meta channels; kon-chat optional (AI bots); the media sidecar optional (voice notes, stickers) |
+| experimental | business | 0.2.1 | `/api/koe` | core `auth`; a secrets key for Meta channels; kon-chat optional (AI bots); the media sidecar optional (voice notes, stickers) |
 
 koe (声, "voice") keeps one conversation per contact and channel, decides who answers it (a bot, the queue,
 one person), enforces each channel's service window and Meta's template rules on every message that goes
@@ -44,19 +44,27 @@ Meta's rules (window lengths, tags, sizes, prices) change. They are data in `koe
 
 ## How it works
 
-- **In**: the webhook checks the signature over the raw body, stores the body once (a resent webhook is a
+- **In**: the webhook checks the signature over the raw body against the app secrets of the channels it names,
+  keeps only the events of the channels whose secret signed it, stores the body once (a resent webhook is a
   no-op) and queues a job. The job finds or creates the contact and the open conversation, stores the
   message, reopens the window, applies keywords (opt-out, opt-in, "a person please"), downloads media before
   Meta's URL expires, and wakes the bot or tells the people who should know.
 - **Who answers**: `bot`, `queued`, `human`, `snoozed`, `resolved`. Every change goes through one state
-  machine with the row locked; two people taking the same conversation get one 200 and one 409. The bot never
-  writes in a conversation a person has: `send()` refuses it, and the delivery job checks again.
+  machine with the row locked; two people taking the same conversation get one 200 and one 409. A member who is not a
+  supervisor or admin cannot snooze, resolve, transfer, take or reply to a conversation someone else holds
+  (`human` or `snoozed`): 403, or `NOT_YOURS` on a send. The bot never writes in a conversation a person
+  has: `send()` refuses it, and the delivery job checks again.
 - **Out**: one path for everyone (people, bots, AI, rules, campaigns). It refuses what the channel cannot
-  carry, blocked and opted-out contacts, free text outside the window (WhatsApp then takes only approved
+  carry, blocked and opted-out contacts, a campaign or marketing template to a contact without opt-in (whoever
+  sends it), a template header media the sender cannot see or that belongs to another conversation, free text
+  outside the window (WhatsApp then takes only approved
   templates; Messenger and Instagram take a person's reply with the human-agent tag for up to 7 days), and
   repeats with the same idempotency key. Delivery runs on a queue at the channel's pace and classifies Meta's
   errors: temporary ones retry, permanent ones fail the message, a refused token marks the channel broken.
 - **Live**: the inbox listens on realtime channels authorized per conversation and re-reads through REST.
+  A web chat visitor's channel is a capability the host keys with its secret (`ctx.realtime.capability`) over
+  the visitor hash, told only to the visitor: staff, who read the hash as the contact's identity, cannot
+  compute it. A host without capabilities gives no channel and the widget polls.
   Web push carries no content: the service worker asks for the notice with the person's session.
 - **Bots**: a flow without AI (menus, questions, branches, handoff) or a kon-chat bot through a queue, with
   the conversation's history and store context (the contact, open payment promises, recent kon-ecommerce
@@ -222,7 +230,7 @@ The policy is `koe.policy.ts` (resource `koe`); who sees which conversation is r
 | Agent (koe member) | Conversations assigned to them, of their teams, and unassigned ones without a team; their contacts; personal quick replies; notices and push of their own. |
 | Supervisor | Every conversation; assign and reassign; teams, templates, flows, sequences, shared quick replies, campaigns, reports, block and merge contacts. |
 | Admin (Kitsuden admin, or a koe member with role admin) | All of the above, plus channels and their credentials, members, the Meta verify token, pricing and the copilot agent. |
-| Agent key | `koe:*` (or `kon:koe:*`) opens koe as an admin; one operation's fine scope (`kon:koe:send-message`) opens that operation as a member would. A key with no koe scope gets 403. A denial wins. |
+| Agent key | `koe:*` (or `kon:koe:*`) opens koe as an admin; one operation's fine scope (`kon:koe:send-message`) opens that operation only, as a member would; it never opens the rest of the inbox. A key with no koe scope gets 403. A denial wins. |
 
 A message an agent key sends goes out as the AI (`author ai`), which never writes in a conversation a person
 has. Sensitive operations (connecting channels, members, templates, campaign approval, merges) may come back
@@ -264,6 +272,7 @@ steps: `kon-koe:send-message`, `send-template`, `assign`, `set-state`, `add-labe
 | `tests/unit/kon-koe-automation.test.ts` | Flows, rule steps, campaigns, sequences, the sweep, collections, reports. |
 | `tests/unit/kon-koe-extensions.test.ts` | The extension API: refusals at send and delivery, failing hooks, access events. |
 | `tests/unit/kon-koe-web.test.ts` | The inbox page, service worker and widget routes. |
+| `tests/unit/kon-koe-security-2026-11-21.test.ts` | Header media visibility, fine scopes, the visitor capability channel, webhook events bound to their signer, CRM money, holders' conversations, marketing opt-in. |
 | `media-sidecar/media_test.go` | The converter with real ffmpeg (`docker build --target test media-sidecar`). |
 
 ```bash

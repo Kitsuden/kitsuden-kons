@@ -67,7 +67,10 @@ describe("deals of the preset's entity", () => {
   });
 
   it("get the next number, one each, and keep a number given by hand", async () => {
-    const a = (await json(await newDeal({ title: "Labor claim", contactId: "c1", companyId: "co1", customFields: { feeType: "time", practiceArea: "labor", opposingParty: "Rival SA" } }))).data;
+    // `opposingParty` is sensitive: only someone who can read it writes it (audit 2026-11-21).
+    const labor = { title: "Labor claim", contactId: "c1", companyId: "co1", customFields: { feeType: "time", practiceArea: "labor", opposingParty: "Rival SA" } };
+    expect((await newDeal(labor)).status).toBe(403);
+    const a = (await json(await request("admin", "POST", "/deals", { pipelineId, stageId: firstStage, ...labor }))).data;
     const b = (await json(await newDeal({ title: "Divorce", contactId: "c2", customFields: { feeType: "fixed", practiceArea: "family" } }))).data;
     const c = (await json(await newDeal({ title: "Old case", contactId: "c2", customFields: { feeType: "fixed", practiceArea: "civil", matterNumber: "OLD-7" } }))).data;
     expect([a.customFields.matterNumber, b.customFields.matterNumber, c.customFields.matterNumber]).toEqual(["M-0001", "M-0002", "OLD-7"]);
@@ -109,7 +112,8 @@ describe("deals of the preset's entity", () => {
 describe("companies", () => {
   it("carry the preset's fields, validated, with the sensitive ones hidden", async () => {
     expect((await request("staff", "PATCH", "/companies/co1", { customFields: { kycStatus: "whatever" } })).status).toBe(422);
-    expect((await request("staff", "PATCH", "/companies/co1", { customFields: { kycStatus: "approved", taxId: "J-99" } })).status).toBe(200);
+    expect((await request("staff", "PATCH", "/companies/co1", { customFields: { kycStatus: "approved", taxId: "J-99" } })).status).toBe(403);
+    expect((await request("admin", "PATCH", "/companies/co1", { customFields: { kycStatus: "approved", taxId: "J-99" } })).status).toBe(200);
     expect((await json(await request("staff", "GET", "/companies/co1"))).data.customFields).toEqual({ kycStatus: "approved" });
     expect((await json(await request("admin", "GET", "/companies/co1"))).data.customFields).toEqual({ kycStatus: "approved", taxId: "J-99" });
     expect((await json(await request("staff", "GET", "/companies?cf.kycStatus=approved"))).data).toHaveLength(1);

@@ -8,7 +8,7 @@ admin views are configuration only.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | business | 1.2.0 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
+| beta | business | 1.2.1 | `/api/crm` | kon-media; core `auth` (kon-conta optional, for billing) |
 
 ## Install
 
@@ -91,7 +91,10 @@ What the code does with them:
 - **Access dials.** Per person or agent: `records` (all, or assigned/created; applied by row
   security), `sensitive`, `money` and `notes`. By default the team sees all records, amounts and
   notes, not sensitive data; an agent sees the same without notes. `crm:read-all` or a grant made
-  by a person opens everything. Hidden values are removed from every response, REST or MCP.
+  by a person opens everything. Hidden values are removed from every response, REST or MCP,
+  including template renders and score previews. A custom field the caller cannot read cannot be
+  written either (403), and an update keeps its stored value. In reports (`/api/reports`) agents
+  cannot read amount, note and custom field columns without `crm:read-all` (`reportAccess` in kon.json).
 - **Intake.** `capture-lead`, public forms, CSV import with a preview, the exclusion list and
   duplicate detection. Nothing is merged automatically: duplicates need two signals (email 90,
   phone 45, name 40, company 10; threshold 85), the oldest contact survives, and differing values
@@ -345,8 +348,11 @@ policy (delete and configure included); give narrower agents fine scopes. A deny
 `!crm:read-all` or `!kon:crm:delete-deal` wins.
 
 Row security: the CRM tables admit the system, `admin`, `editor` and `agent` roles, and then the
-`records` dial limits a subject to what is assigned to it or it created. Documents marked
-privileged or confidential need the `sensitive` dial.
+`records` dial limits a subject to what is assigned to it or it created. A subject limited that way
+can only point a deal, activity, deal contact or contact's company at a record it already sees
+(404 otherwise; migration 0016 refuses it in the database too), and sees only the portal links
+and merge requests of contacts it sees. Documents marked privileged or confidential need the
+`sensitive` dial.
 
 **404 instead of 403.** A record outside the caller's `records` dial is a 404. A field the caller
 cannot read cannot be filtered or grouped by (403).
@@ -410,6 +416,7 @@ Details for agents: [AGENTS.md](AGENTS.md).
 | `tests/unit/kon-crm-conta-bridge.test.ts` | Billing through kon-conta |
 | `tests/unit/crm-filters.test.ts` | Custom field filters |
 | `tests/unit/kon-crm-pagination.test.ts` | `limit`, `offset` and `hasMore` on the lists that had none |
+| `tests/unit/kon-crm-security-2026-11-21.test.ts` | Dials on every path: references under `assigned`, previews, templates, portal statements, hidden custom field writes, report columns, observation replays |
 | `tests/bun/crm-dedupe-capture.test.ts` | Duplicate scoring and capture plans (Bun) |
 | `kons/kon-crm/tests/crm.routes.test.ts`, `crm.schema.test.ts` | Route registration and schema |
 | `kons/kon-crm/tests/crm.integration.spec.ts` | Playwright against a running test API, as an agent (`KITSUDEN_API_TOKEN` with `crm:*`); skipped without it |

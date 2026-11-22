@@ -228,7 +228,11 @@ export interface ObservationOutcome {
 export async function observe(db: CrmDb, body: ObservationInput, observedBy: string | null): Promise<ObservationOutcome> {
   if (body.externalRef) {
     const [existing] = await db.select().from(crmObservations).where(eq(crmObservations.externalRef, body.externalRef));
-    if (existing) return { data: existing, outcome: existing.status, created: false };
+    if (existing) {
+      // A replay answers with the stored observation: it must be one the caller could read.
+      if ((await readable(db, [existing])).length === 0) throw AppError.forbidden("You cannot read that observation's field");
+      return { data: existing, outcome: existing.status, created: false };
+    }
   }
   const type = body.entityType;
   const row = await rowOf(db, type, body.entityId);

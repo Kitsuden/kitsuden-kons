@@ -12,7 +12,8 @@
  * conversations, an outcome to whoever sees its conversation.
  *
  * When kon-crm is installed (its `crm_deals` table exists) the sales pipeline shows each linked deal's
- * stage, read-only and through the caller's own row security: koe never writes to the CRM.
+ * stage, read-only and through the caller's own row security, and its value only when kon-crm's money dial
+ * (`crm_access()`) allows it: koe never writes to the CRM.
  */
 
 import { AppError, attemptSql } from "@kitsuden/engine";
@@ -86,16 +87,33 @@ const PromiseBody = z.object({
   note: z.string().trim().max(2000).optional(),
 });
 
-/** kon-crm's deals for these ids, read as the caller; null when kon-crm is not installed or refuses. */
+/**
+ * Whether kon-crm lets the caller see money (`crm_access() ->> 'money'`, its own dial). False when kon-crm
+ * has no such function (an older kon-crm) or it fails: koe never shows an amount kon-crm did not allow.
+ */
+async function crmMoneyAllowed(db: Db): Promise<boolean> {
+  return attemptSql(async () => {
+    const [has] = rowsOf<{ ok: boolean }>(await db.execute(sql`SELECT to_regprocedure('public.crm_access()') IS NOT NULL AS ok`));
+    if (has?.ok !== true) return false;
+    const [row] = rowsOf<{ money: boolean | null }>(await db.execute(sql`SELECT (crm_access() ->> 'money')::boolean AS money`));
+    return row?.money === true;
+  }, false);
+}
+
+/**
+ * kon-crm's deals for these ids, read as the caller (kon-crm's row security decides which rows); null when
+ * kon-crm is not installed or refuses. Value and currency only when kon-crm's money dial allows it.
+ */
 async function crmDeals(db: Db, ids: string[]): Promise<Map<string, Record<string, unknown>> | null> {
   const present = await attemptSql(async () => rowsOf<{ ok: boolean }>(await db.execute(sql`SELECT to_regclass('public.crm_deals') IS NOT NULL AS ok`))[0]?.ok === true, false);
   if (!present) return null;
   if (!ids.length) return new Map();
+  const money = await crmMoneyAllowed(db);
   const rows = await attemptSql(
     async () =>
       rowsOf<Record<string, unknown>>(
         await db.execute(
-          sql`SELECT d.id, d.title, d.status::text AS status, d.value, d.currency, s.name AS stage FROM crm_deals d LEFT JOIN crm_pipeline_stages s ON s.id = d.stage_id WHERE d.id IN (${sql.join(
+          sql`SELECT d.id, d.title, d.status::text AS status, ${money ? sql`d.value, d.currency,` : sql``} s.name AS stage FROM crm_deals d LEFT JOIN crm_pipeline_stages s ON s.id = d.stage_id WHERE d.id IN (${sql.join(
             ids.map((i) => sql`${i}`),
             sql`, `
           )})`
@@ -282,7 +300,7 @@ export const salesOperations: OperationsModule = (app, ctx) => {
       id: "sales-pipeline",
       summary: "Sales pipeline",
       description:
-        "Open conversations of sales teams, with labels, assignee, last message and the linked CRM deal. When kon-crm is installed, each deal's title, stage and value come along read-only (`crm: null` when it is not, or you cannot read it).",
+        "Open conversations of sales teams, with labels, assignee, last message and the linked CRM deal. When kon-crm is installed, each deal's title, status and stage come along read-only, and its value and currency only when kon-crm lets you see money (`crm: null` when it is not installed, or you cannot read it).",
       access: "session",
       permission: USE,
       input: { query: z.object({ teamId: z.string().max(100).optional(), label: z.string().max(60).optional(), limit: z.coerce.number().int().min(1).max(200).default(100) }) },
