@@ -38,7 +38,13 @@
         root.classList.add("js");
         if (!calm && window.innerHeight >= 560) {
           root.classList.add("motion");
-          if (!location.hash) root.classList.add("intro");
+          /* the counted intro plays once per visit: not on reloads or when coming back to the page */
+          var seen = false;
+          try {
+            seen = sessionStorage.getItem("kons-intro") === "1";
+            sessionStorage.setItem("kons-intro", "1");
+          } catch (e) {}
+          if (!location.hash && !seen) root.classList.add("intro");
         }
       })();
     </script>
@@ -402,10 +408,10 @@
         background: #09090b;
         color: #fafafa;
         /* never a trap: if the script dies, the curtain still lifts */
-        animation: curtain 0.6s 4s forwards;
+        animation: curtain 0.5s 2.5s forwards;
       }
       .intro #intro.out {
-        animation: curtain 0.7s forwards;
+        animation: curtain 0.45s forwards;
       }
       @keyframes curtain {
         to {
@@ -488,7 +494,14 @@
         position: absolute;
         inset: 0;
         /* --st: where the text of the chapter on screen starts (set by the script) */
-        background: linear-gradient(180deg, rgb(9 9 11 / 0) calc(var(--st, 42%) - 10%), rgb(9 9 11 / 0.84) var(--st, 42%), #09090b calc(var(--st, 42%) + 14%));
+        /* narrow screens: the orbit fills the top and runs on behind the text, which sits on a deepening dark */
+        background: linear-gradient(
+          180deg,
+          rgb(9 9 11 / 0) calc(var(--st, 42%) - 14%),
+          rgb(9 9 11 / 0.6) var(--st, 42%),
+          rgb(9 9 11 / 0.88) calc(var(--st, 42%) + 14%),
+          #09090b calc(var(--st, 42%) + 34%)
+        );
       }
       @media (min-width: 60rem) {
         .scene-wrap::after {
@@ -687,6 +700,11 @@
       .motion.ready .rise {
         opacity: 1;
         transform: none;
+      }
+      /* the headline is the largest paint: it rises without fading in, so it counts as painted at once
+         (under the intro curtain it is hidden anyway) */
+      .motion h1.rise {
+        opacity: 1;
       }
       .motion .rise:nth-child(2) {
         transition-delay: 0.08s;
@@ -1637,6 +1655,293 @@
         color: var(--dim);
         font-size: 0.98rem;
       }
+      /* the closing: the orbit again, small, so the page ends as strong as it starts */
+      .closing {
+        overflow: hidden;
+        background:
+          radial-gradient(40rem 26rem at 22% 50%, rgb(168 85 247 / 0.16), transparent 65%),
+          radial-gradient(30rem 20rem at 85% 60%, rgb(255 45 111 / 0.08), transparent 70%);
+      }
+      .closing-grid {
+        display: grid;
+        gap: 2.5rem;
+        align-items: center;
+      }
+      @media (min-width: 52rem) {
+        .closing-grid {
+          grid-template-columns: minmax(0, 26rem) 1fr;
+          gap: 4rem;
+        }
+      }
+      .closing h2 {
+        font-size: clamp(2.2rem, 5vw, 3.6rem);
+        line-height: 1.02;
+      }
+      .closing h2 + p {
+        margin-top: 1.1rem;
+        color: var(--dim);
+        max-width: 34rem;
+      }
+      .closing .cta {
+        margin-top: 1.6rem;
+      }
+      .mini-orbit {
+        --tilt: 66deg;
+        position: relative;
+        width: min(100%, 24rem);
+        aspect-ratio: 1;
+        margin-inline: auto;
+        perspective: 1000px;
+      }
+      .mo-glow {
+        position: absolute;
+        inset: 18%;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, rgb(168 85 247 / 0.55), rgb(24 184 255 / 0.12) 60%, transparent);
+        filter: blur(18px);
+      }
+      .mo-plane {
+        position: absolute;
+        inset: 0;
+        transform-style: preserve-3d;
+        transform: rotateX(var(--tilt)) rotateZ(0deg);
+        animation: mo-spin 36s linear infinite;
+      }
+      @keyframes mo-spin {
+        to {
+          transform: rotateX(var(--tilt)) rotateZ(360deg);
+        }
+      }
+      .mo-ring {
+        position: absolute;
+        border-radius: 50%;
+        border: 1px solid rgb(192 132 252 / 0.4);
+      }
+      .mo-ring-in {
+        inset: 20%;
+        border-color: rgb(56 189 248 / 0.4);
+      }
+      .mo-ring-out {
+        inset: 4%;
+      }
+      /* the coins and the core stand upright: they turn back as much as the plane turns */
+      .mo-core,
+      .mo-coin {
+        position: absolute;
+        transform-style: preserve-3d;
+        /* still upright when motion is reduced and the animation is off */
+        transform: rotateX(calc(-1 * var(--tilt)));
+        animation: mo-face 36s linear infinite;
+      }
+      @keyframes mo-face {
+        from {
+          transform: rotateZ(0deg) rotateX(calc(-1 * var(--tilt)));
+        }
+        to {
+          transform: rotateZ(-360deg) rotateX(calc(-1 * var(--tilt)));
+        }
+      }
+      .mo-core {
+        left: 50%;
+        top: 50%;
+        width: 34%;
+        aspect-ratio: 1;
+        margin: -17% 0 0 -17%;
+      }
+      .mo-core img {
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 0 22px rgb(168 85 247 / 0.8)) drop-shadow(0 12px 18px rgb(0 0 0 / 0.6));
+      }
+      .mo-coin {
+        width: 12%;
+        aspect-ratio: 1;
+        margin: -6% 0 0 -6%;
+      }
+      .mo-coin img {
+        width: 100%;
+        height: 100%;
+        filter: drop-shadow(0 6px 8px rgb(0 0 0 / 0.55));
+      }
+
+      /* install: a kon flies from the kons repository into your project */
+      .flight {
+        position: relative;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 2.2rem 0 1.6rem;
+        max-width: 46rem;
+      }
+      .fl-end {
+        display: grid;
+        justify-items: center;
+        gap: 0.25rem;
+        text-align: center;
+        min-width: 7.5rem;
+      }
+      .fl-end b {
+        font: 600 0.95rem var(--sans);
+      }
+      .fl-end code {
+        font: 0.75rem var(--mono);
+        color: var(--dim);
+      }
+      .fl-stack img {
+        width: 3.5rem;
+        height: 3.5rem;
+        filter: drop-shadow(0 0 14px rgb(168 85 247 / 0.6));
+      }
+      .fl-folder {
+        --fc: 168 85 247;
+        display: grid;
+        place-items: center;
+        width: 3.5rem;
+        height: 3.5rem;
+      }
+      .fl-folder svg {
+        width: 100%;
+        fill: rgb(var(--fc) / 0.14);
+        stroke: rgb(var(--fc) / 0.8);
+        stroke-width: 1.5;
+      }
+      .fl-folder.hit svg {
+        animation: folder-hit 0.7s ease-out;
+      }
+      @keyframes folder-hit {
+        30% {
+          transform: scale(1.12);
+          filter: drop-shadow(0 0 16px rgb(var(--fc)));
+        }
+      }
+      .fl-ok {
+        font: 600 0.72rem var(--mono);
+        color: var(--ok);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .fl-ok.on {
+        opacity: 1;
+      }
+      .fl-arc {
+        width: 100%;
+        height: 4.5rem;
+        overflow: visible;
+      }
+      .fl-arc path {
+        fill: none;
+        stroke: rgb(192 132 252 / 0.45);
+        stroke-width: 1.5;
+        stroke-dasharray: 4 6;
+        vector-effect: non-scaling-stroke;
+      }
+      .fl-coin {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 2.75rem;
+        height: 2.75rem;
+        pointer-events: none;
+        opacity: 0;
+      }
+      @media (max-width: 30rem) {
+        .fl-end {
+          min-width: 5.5rem;
+        }
+        .fl-end code {
+          font-size: 0.68rem;
+        }
+      }
+
+      /* maturity as a material: stable is solid gold, beta is glass, experimental is still a blueprint */
+      .levels > div {
+        position: relative;
+      }
+      .medal {
+        display: grid;
+        place-items: center;
+        width: 5.5rem;
+        height: 5.5rem;
+        margin: 0.4rem 0 1.1rem;
+        border-radius: 50%;
+        position: relative;
+        animation: medal-float 6s ease-in-out infinite;
+      }
+      .levels > div:nth-child(2) .medal {
+        animation-delay: -2s;
+      }
+      .levels > div:nth-child(3) .medal {
+        animation-delay: -4s;
+      }
+      @keyframes medal-float {
+        50% {
+          transform: translateY(-6px) rotate(-4deg);
+        }
+      }
+      .medal img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+      }
+      .medal-stable img {
+        filter: drop-shadow(0 10px 14px rgb(0 0 0 / 0.55)) drop-shadow(0 0 18px rgb(245 185 36 / 0.55));
+      }
+      .medal-stable::after {
+        /* a slow sheen across the gold */
+        content: "";
+        position: absolute;
+        inset: 6%;
+        border-radius: 50%;
+        background: linear-gradient(115deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%) -150% 0 / 250% 100% no-repeat;
+        mix-blend-mode: overlay;
+        animation: medal-sheen 4.5s ease-in-out infinite;
+      }
+      @keyframes medal-sheen {
+        60%,
+        100% {
+          background-position: 150% 0;
+        }
+      }
+      .medal-beta img {
+        opacity: 0.55;
+        filter: saturate(1.3) drop-shadow(0 0 14px rgb(0 230 240 / 0.45));
+      }
+      .medal-beta::after {
+        /* the glass: a pane with a rim light over a see-through coin */
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background:
+          radial-gradient(60% 45% at 32% 22%, rgb(255 255 255 / 0.35), transparent 70%),
+          linear-gradient(160deg, rgb(255 255 255 / 0.12), rgb(255 255 255 / 0.02));
+        box-shadow:
+          inset 0 0 0 1px rgb(255 255 255 / 0.35),
+          inset 0 -10px 20px rgb(0 230 240 / 0.18);
+        backdrop-filter: blur(1.5px);
+      }
+      .medal-exp {
+        border: 1.5px dashed rgb(255 171 0 / 0.75);
+        box-shadow: 0 0 22px -6px rgb(255 171 0 / 0.6);
+      }
+      .medal-exp i {
+        /* the KON shape as a dashed blueprint outline, on a faint grid */
+        width: 80%;
+        height: 80%;
+        border-radius: 50%;
+        background:
+          url("logos/kon-wire.svg") center / contain no-repeat,
+          linear-gradient(rgb(255 171 0 / 0.1) 1px, transparent 1px) 0 0 / 10px 10px,
+          linear-gradient(90deg, rgb(255 171 0 / 0.1) 1px, transparent 1px) 0 0 / 10px 10px;
+      }
+      .medal-exp::before {
+        content: "";
+        position: absolute;
+        inset: 9%;
+        border-radius: 50%;
+        border: 1px solid rgb(255 171 0 / 0.35);
+      }
       .js .reveal {
         opacity: 0;
         translate: 0 1.6rem;
@@ -1681,8 +1986,8 @@
       <div class="wrap">
         <a class="brand" href="#top" aria-label="Kitsuden kons, home">
           <span class="brand-marks">
-            <img class="brand-kitsuden" src="logos/kitsuden.png" alt="" width="32" height="32" />
-            <img src="logos/kon-principal.png" alt="" width="32" height="32" />
+            <img class="brand-kitsuden" src="logos/kitsuden.webp" alt="" width="32" height="32" />
+            <img src="logos/kon-principal.webp" alt="" width="32" height="32" />
           </span>
           Kitsuden kons
         </a>
@@ -1785,7 +2090,7 @@
                 <h2 id="orbit-h">Install the ones you need. <span class="grad">The rest never touch your project.</span></h2>
                 <div class="probe tilt-3d" id="probe" hidden>
                   <div class="probe-head">
-                    <img class="kon-ico" id="probe-ico" src="logos/kon-principal.png" alt="" width="32" height="32" />
+                    <img class="kon-ico" id="probe-ico" src="logos/kon-principal.webp" alt="" width="32" height="32" />
                     <h3 id="probe-name"></h3>
                     <code id="probe-id"></code>
                     <span class="mat" id="probe-mat"></span>
@@ -1853,14 +2158,17 @@
           <p>Maturity is about real use, not about how many features a kon has.</p>
           <div class="reveal levels">
             <div>
+              <span class="medal medal-stable" aria-hidden="true"><img src="logos/kon-dorado.webp" alt="" width="96" height="96" loading="lazy" /></span>
               <span class="mat" data-m="stable">stable</span>
               <p>Used in production from end to end. Reserved for the kons most sites install: the blog and memberships.</p>
             </div>
             <div>
+              <span class="medal medal-beta" aria-hidden="true"><img src="logos/kon-cian.webp" alt="" width="96" height="96" loading="lazy" /></span>
               <span class="mat" data-m="beta">beta</span>
               <p>Works and has tests, with gaps or little real use so far. Most kons are here.</p>
             </div>
             <div>
+              <span class="medal medal-exp" aria-hidden="true"><i></i></span>
               <span class="mat" data-m="experimental">experimental</span>
               <p>Nobody has used it from end to end yet. Try it before you rely on it.</p>
             </div>
@@ -1876,6 +2184,23 @@
             (<a href="https://kitsuden.github.io/kitsuden/#start">install Kitsuden</a>). Then clone this repository
             next to it and add the kon.
           </p>
+          <div class="flight reveal" id="flight" aria-hidden="true">
+            <div class="fl-end fl-src">
+              <span class="fl-stack"><img src="logos/kon-principal.webp" alt="" width="56" height="56" loading="lazy" /></span>
+              <b>kitsuden-kons</b>
+              <code>34 kons</code>
+            </div>
+            <svg class="fl-arc" viewBox="0 0 400 100" preserveAspectRatio="none"><path d="M6 92 Q200 -52 394 92" /></svg>
+            <div class="fl-end fl-dst">
+              <span class="fl-folder">
+                <svg viewBox="0 0 48 40"><path d="M3 8a4 4 0 0 1 4-4h11l5 5h18a4 4 0 0 1 4 4v20a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z" /></svg>
+              </span>
+              <b>your-project</b>
+              <code>kons/<span id="fl-name">kon-blog</span></code>
+              <span class="fl-ok" id="fl-ok">installed</span>
+            </div>
+            <img class="fl-coin" id="fl-coin" src="logos/kon-verde.webp" alt="" width="44" height="44" />
+          </div>
           <div class="reveal start glass tilt-3d">
             <div class="tabs" role="tablist" aria-label="How do you want to install a kon" id="how">
               <button role="tab" id="h-agent" aria-controls="q-agent" aria-selected="true">With my coding agent</button>
@@ -1986,6 +2311,37 @@ pnpm test</code></pre>
           </div>
         </div>
       </section>
+
+      <section class="block closing" id="closing" aria-labelledby="closing-h">
+        <div class="wrap closing-grid">
+          <div class="mini-orbit" aria-hidden="true">
+            <div class="mo-glow"></div>
+            <div class="mo-plane">
+              <i class="mo-ring mo-ring-in"></i>
+              <i class="mo-ring mo-ring-out"></i>
+              <span class="mo-core"><img src="logos/kon-principal.webp" alt="" width="120" height="120" loading="lazy" /></span>
+              <span class="mo-coin" style="left: 71.2%; top: 71.2%"><img src="logos/kon-verde.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin" style="left: 28.8%; top: 71.2%"><img src="logos/kon-rosa.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin" style="left: 28.8%; top: 28.8%"><img src="logos/kon-cian.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin" style="left: 71.2%; top: 28.8%"><img src="logos/kon-dorado.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin mo-far" style="left: 96%; top: 50%"><img src="logos/kon-morado.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin mo-far" style="left: 73%; top: 89.8%"><img src="logos/kon-naranja.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin mo-far" style="left: 27%; top: 89.8%"><img src="logos/kon-azul.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin mo-far" style="left: 4%; top: 50%"><img src="logos/kon-rojo.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin mo-far" style="left: 27%; top: 10.2%"><img src="logos/kon-amarillo.webp" alt="" loading="lazy" /></span>
+              <span class="mo-coin mo-far" style="left: 73%; top: 10.2%"><img src="logos/kon-verde.webp" alt="" loading="lazy" /></span>
+            </div>
+          </div>
+          <div>
+            <h2 id="closing-h">34 kons. <span class="grad">One command each.</span></h2>
+            <p>Pick the features your backend is missing, install them in a minute and leave the rest out.</p>
+            <div class="cta">
+              <a class="btn primary" href="#catalog">Browse the 34 kons</a>
+              <a class="btn" href="#install">Install one</a>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -2028,16 +2384,16 @@ pnpm test</code></pre>
 
         /* ── 3D KON medallion color mapping (shared across orbit, probe, tooltip & catalogue) ── */
         const KON_COLORS = {
-          principal: { src: "logos/kon-principal.png", rgb: [168, 85, 247], rim: "#7c4dff" },
-          verde:     { src: "logos/kon-verde.png",     rgb: [24, 235, 82],  rim: "#18eb52" },
-          cian:      { src: "logos/kon-cian.png",      rgb: [0, 230, 240],  rim: "#00e6f0" },
-          azul:      { src: "logos/kon-azul.png",      rgb: [36, 152, 255], rim: "#2498ff" },
-          morado:    { src: "logos/kon-morado.png",    rgb: [176, 72, 255], rim: "#b048ff" },
-          rosa:      { src: "logos/kon-rosa.png",      rgb: [255, 42, 210], rim: "#ff2ad2" },
-          rojo:      { src: "logos/kon-rojo.png",      rgb: [255, 40, 78],  rim: "#ff284e" },
-          naranja:   { src: "logos/kon-naranja.png",   rgb: [255, 118, 18], rim: "#ff7612" },
-          amarillo:  { src: "logos/kon-amarillo.png",  rgb: [255, 214, 10], rim: "#ffd60a" },
-          dorado:    { src: "logos/kon-dorado.png",    rgb: [245, 185, 36], rim: "#f5b924" },
+          principal: { src: "logos/kon-principal.webp", rgb: [168, 85, 247], rim: "#7c4dff" },
+          verde:     { src: "logos/kon-verde.webp",     rgb: [24, 235, 82],  rim: "#18eb52" },
+          cian:      { src: "logos/kon-cian.webp",      rgb: [0, 230, 240],  rim: "#00e6f0" },
+          azul:      { src: "logos/kon-azul.webp",      rgb: [36, 152, 255], rim: "#2498ff" },
+          morado:    { src: "logos/kon-morado.webp",    rgb: [176, 72, 255], rim: "#b048ff" },
+          rosa:      { src: "logos/kon-rosa.webp",      rgb: [255, 42, 210], rim: "#ff2ad2" },
+          rojo:      { src: "logos/kon-rojo.webp",      rgb: [255, 40, 78],  rim: "#ff284e" },
+          naranja:   { src: "logos/kon-naranja.webp",   rgb: [255, 118, 18], rim: "#ff7612" },
+          amarillo:  { src: "logos/kon-amarillo.webp",  rgb: [255, 214, 10], rim: "#ffd60a" },
+          dorado:    { src: "logos/kon-dorado.webp",    rgb: [245, 185, 36], rim: "#f5b924" },
         };
         /* one cycle through the nine medallion colours, in catalogue order, so neighbouring cards
            (side by side and one row apart in 2, 3 and 4 columns) never share a colour; the principal stays for the core */
@@ -2313,6 +2669,60 @@ pnpm test</code></pre>
           $("summary", d).focus({ preventScroll: true });
         }
 
+        /* ── install: a kon flies from the repository into your project, one after another ── */
+        {
+          const box = $("#flight"), coin = $("#fl-coin"), name = $("#fl-name"), ok = $("#fl-ok");
+          const folder = $(".fl-folder", box), from = $(".fl-stack", box), arc = $(".fl-arc", box), arcPath = $("path", arc);
+          const ids = ["blog", "crm", "payments", "wiki", "booking", "newsletter"].filter((id) => byId[id]);
+          let i = 0, timer = 0, on = false;
+          const centre = (node) => {
+            const a = node.getBoundingClientRect(), b = box.getBoundingClientRect();
+            return [a.left - b.left + a.width / 2, a.top - b.top + a.height / 2];
+          };
+          const land = (id) => {
+            const t = konTheme(id);
+            name.textContent = "kon-" + id;
+            folder.style.setProperty("--fc", t.rgb.join(" "));
+            ok.classList.add("on");
+          };
+          function fly() {
+            if (!on) return;
+            const id = ids[i++ % ids.length];
+            coin.src = konTheme(id).src;
+            ok.classList.remove("on");
+            /* the path: out of the stack, along the dashed arc as drawn, into the folder */
+            const s = coin.offsetWidth / 2, pts = [centre(from)];
+            const a = arc.getBoundingClientRect(), b = box.getBoundingClientRect(), L = arcPath.getTotalLength();
+            for (let k = 0; k <= 14; k++) {
+              const p = arcPath.getPointAtLength((k / 14) * L);
+              pts.push([a.left - b.left + (p.x / 400) * a.width, a.top - b.top + (p.y / 100) * a.height]);
+            }
+            pts.push(centre(folder));
+            const frames = pts.map(([x, y], k) => {
+              const t = k / (pts.length - 1);
+              return {
+                transform: `translate(${(x - s).toFixed(1)}px, ${(y - s).toFixed(1)}px) rotate(${(t * 540).toFixed(0)}deg) scale(${(1 - 0.35 * t).toFixed(3)})`,
+                opacity: t < 0.08 ? t / 0.08 : t > 0.92 ? (1 - t) / 0.08 : 1,
+              };
+            });
+            const anim = coin.animate(frames, { duration: 1150, easing: "cubic-bezier(0.45, 0, 0.25, 1)", fill: "forwards" });
+            anim.onfinish = () => {
+              land(id);
+              folder.classList.remove("hit");
+              void folder.offsetWidth;
+              folder.classList.add("hit");
+              timer = setTimeout(fly, 2300);
+            };
+          }
+          if (still.matches) land(ids[0]);
+          else
+            new IntersectionObserver(([e]) => {
+              on = e.isIntersecting;
+              clearTimeout(timer);
+              if (on) timer = setTimeout(fly, 400);
+            }, { threshold: 0.4 }).observe(box);
+        }
+
         /* ── the marquee of names ── */
         {
           const m = $("#marquee"), ul = $("ul", m);
@@ -2459,13 +2869,14 @@ pnpm test</code></pre>
             }
           });
           /* on a narrow screen the scene lives above the text: tell it, and the scrim, where the text starts */
-          let sum = 0, weight = 0, rsum = 0;
+          let sum = 0, weight = 0, rmax = 0;
           for (const ch of motion ? chapters : chapters.slice(0, 1)) {
             sum += ch.op * ch.colTop;
-            rsum += ch.op * (ch.colRight || 0.5);
+            /* while one chapter hands over to the next, both texts are on screen: keep clear of the wider one */
+            if (ch.op > 0.02) rmax = Math.max(rmax, ch.colRight || 0.5);
             weight += ch.op;
           }
-          if (weight > 0.01) textRight = clamp(rsum / weight, 0.3, 0.7);
+          if (rmax) textRight = clamp(rmax, 0.3, 0.7);
           const st = weight > 0.01 ? clamp(sum / weight, 0.12, 0.7) : textTop;
           if (Math.abs(st - textTop) > 0.002 || force) {
             textTop = st;
@@ -2529,6 +2940,8 @@ pnpm test</code></pre>
             return s;
           };
 
+          const NAMED = new Set(["blog", "members", "crm", "payments", "chat", "wiki", "booking", "ecommerce"]);
+
           /* 5 tilted 3D orbital rings (one per category, stronger 3D inclination!) */
           const RINGS = [
             ["core",      1.08, 0.16,  0.22, 0.3],
@@ -2586,7 +2999,8 @@ pnpm test</code></pre>
           const shocks = [];
           let slow = 0, frames = 0, tipTimer = 0;
 
-          let cap = 2;
+          /* phones and small machines draw at 1.5x at most: the glow is soft, nobody sees the difference */
+          let cap = matchMedia("(pointer: coarse)").matches || (navigator.hardwareConcurrency || 8) <= 4 ? 1.5 : 2;
           function resize() {
             const w = wrap.clientWidth, h = wrap.clientHeight;
             if (!w || !h) return;
@@ -2621,13 +3035,14 @@ pnpm test</code></pre>
             const b = motion && chapters[i] ? smooth(0, 1, chapters[i].leave) : 0;
             const k = keys[i].map((v, n) => mix(v, keys[j][n], b));
             const free = Math.max(60, textTop * H - 64);
-            const base = wide ? Math.min(W * 0.62, H) * 0.15 : Math.max(W * 0.1, Math.min(W * 0.158, free * 0.27));
+            /* narrow: a bigger orbit that may bleed past the sides and run on under the text */
+            const base = wide ? Math.min(W * 0.62, H) * 0.15 : Math.max(W * 0.12, Math.min(W * 0.19, free * 0.36));
             /* wide: keep the core and the inner rings clear of the copy; the outer rings may run under it, veiled */
             const tr = textRight * W;
             const roomy = wide ? Math.max(70, Math.min(base, (W - tr - 32) / 5.1)) : base;
             unit = roomy * k[2];
             cx = wide ? Math.max(W * k[0], Math.min(W - unit * 2.9, tr + unit * 2.05)) : W * k[0];
-            cy = wide ? H * k[1] : 64 + free * 0.5;
+            cy = wide ? H * k[1] : 64 + free * 0.56;
             const yaw = pxS * 0.68, pitch = k[3] + pyS * 0.22;
             sy = Math.sin(yaw);
             cyw = Math.cos(yaw);
@@ -2859,7 +3274,7 @@ pnpm test</code></pre>
                 n.y = p[1];
                 n.r = Math.max(9.5, orbR);
               }
-              const veil = wide ? 0.04 + 0.96 * smooth(textRight * W - W * 0.02, textRight * W + W * 0.07, n.x) :1 - 0.9 * smooth(textTop * H - 30, textTop * H + 24, n.y);
+              const veil = wide ? 0.04 + 0.96 * smooth(textRight * W - W * 0.02, textRight * W + W * 0.07, n.x) : 1 - 0.65 * smooth(textTop * H - 50, textTop * H + 70, n.y);
               n.a = born * mix(veil, 1, e);
             }
             if (primary) {
@@ -3033,6 +3448,8 @@ pnpm test</code></pre>
               const docked = n.e >= 0.5, isHover = n === hover, isSel = n.k.id === sel;
               let a = docked || isHover ? 1 : labels * (n.z > 0 ? 0.38 : 0.92) * n.a * (wide || n.z <= 0.4 ? 1 : 0);
               if (wide && !docked && !isHover) a *= smooth(textRight * W + W * 0.02, textRight * W + W * 0.09, n.x);
+              /* narrow: only the kons most people look for get a name, and never over the text */
+              if (!wide && !docked && !isHover) a *= (NAMED.has(n.k.id) ? 1 : 0) * (1 - smooth(textTop * H - 36, textTop * H - 6, n.y));
               if (isSel && !docked) a = Math.max(a, 0.92 * n.a);
               if (isSel && !docked && !isHover) {
                 ctx.globalAlpha = n.a;
@@ -3330,16 +3747,30 @@ pnpm test</code></pre>
         const curtain = $("#intro");
         if (root.classList.contains("intro") && motion && scrollY < 40 && KONS.length) {
           const num = $("#intro-n"), fill = $("#intro-bar"), t0 = performance.now();
+          let done = false;
+          /* a click, a key, the wheel or a touch skips straight to the page */
+          const SKIP = ["pointerdown", "keydown", "wheel", "touchstart"];
+          const skip = () => finish();
+          function finish() {
+            if (done) return;
+            done = true;
+            for (const t of SKIP) removeEventListener(t, skip);
+            num.textContent = String(KONS.length);
+            fill.style.transform = "scaleX(1)";
+            curtain.classList.add("out");
+            root.classList.add("ready");
+            scene.start(true);
+            setTimeout(() => root.classList.remove("intro"), 500);
+          }
+          for (const t of SKIP) addEventListener(t, skip, { passive: true });
           const tick = (now) => {
-            const t = clamp((now - t0) / 1300);
+            if (done) return;
+            const t = clamp((now - t0) / 700);
             const e = 1 - Math.pow(1 - t, 3);
             num.textContent = String(Math.round(e * KONS.length)).padStart(2, "0");
             fill.style.transform = "scaleX(" + e + ")";
             if (t < 1) return requestAnimationFrame(tick);
-            curtain.classList.add("out");
-            root.classList.add("ready");
-            scene.start(true);
-            setTimeout(() => root.classList.remove("intro"), 800);
+            finish();
           };
           requestAnimationFrame(tick);
         } else {
