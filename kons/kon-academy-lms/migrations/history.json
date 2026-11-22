@@ -2,7 +2,8 @@
   "previousChecksums": {
     "0000_initial.sql": [
       "20c9d990ccd78305",
-      "9012f5961930da1e"
+      "9012f5961930da1e",
+      "c2605902b7f0fb83"
     ],
     "0001_media_references.sql": [
       "0b06c1c15d2c4857",
