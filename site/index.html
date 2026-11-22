@@ -2256,6 +2256,14 @@ pnpm test</code></pre>
             ch.h = Math.max(1, r.height);
             ch.tp = clamp((ch.h - vh) / ch.h);
             ch.colTop = ($(".ch-col", ch.el).getBoundingClientRect().top - ch.pin.getBoundingClientRect().top) / vh;
+            /* where the copy really ends on the right (line boxes, not the column box), so the orbit never sits behind it */
+            let right = 0;
+            for (const t of $$(".ch-col > :is(h1, h2, p, .tag, .cta)", ch.el)) {
+              const rg = document.createRange();
+              rg.selectNodeContents(t);
+              for (const b of rg.getClientRects()) if (b.width > 1) right = Math.max(right, b.right);
+            }
+            ch.colRight = right / Math.max(1, document.documentElement.clientWidth);
           }
           readScroll();
         }
@@ -2271,7 +2279,7 @@ pnpm test</code></pre>
         /* the scroll position where a chapter has said everything it has to say */
         const restOf = (ch) => (ch === chapters[0] ? 0 : ch.top + Math.max(0, ch.h - vh) * 0.82);
 
-        let lastType = -1, lastRail = -1, textTop = 0.42;
+        let lastType = -1, lastRail = -1, textTop = 0.42, textRight = 0.5;
         function applyDom(force) {
           const c = motion ? cS : chapters.length;
           const last = chapters.length - 1;
@@ -2290,11 +2298,13 @@ pnpm test</code></pre>
             }
           });
           /* on a narrow screen the scene lives above the text: tell it, and the scrim, where the text starts */
-          let sum = 0, weight = 0;
+          let sum = 0, weight = 0, rsum = 0;
           for (const ch of motion ? chapters : chapters.slice(0, 1)) {
             sum += ch.op * ch.colTop;
+            rsum += ch.op * (ch.colRight || 0.5);
             weight += ch.op;
           }
+          if (weight > 0.01) textRight = clamp(rsum / weight, 0.3, 0.7);
           const st = weight > 0.01 ? clamp(sum / weight, 0.12, 0.7) : textTop;
           if (Math.abs(st - textTop) > 0.002 || force) {
             textTop = st;
@@ -2451,9 +2461,12 @@ pnpm test</code></pre>
             const k = keys[i].map((v, n) => mix(v, keys[j][n], b));
             const free = Math.max(60, textTop * H - 64);
             const base = wide ? Math.min(W * 0.62, H) * 0.15 : Math.max(W * 0.1, Math.min(W * 0.158, free * 0.27));
-            cx = W * k[0];
+            /* wide: keep the core and the inner rings clear of the copy; the outer rings may run under it, veiled */
+            const tr = textRight * W;
+            const roomy = wide ? Math.max(70, Math.min(base, (W - tr - 32) / 5.1)) : base;
+            unit = roomy * k[2];
+            cx = wide ? Math.max(W * k[0], Math.min(W - unit * 2.9, tr + unit * 2.05)) : W * k[0];
             cy = wide ? H * k[1] : 64 + free * 0.5;
-            unit = base * k[2];
             const yaw = pxS * 0.68, pitch = k[3] + pyS * 0.22;
             sy = Math.sin(yaw);
             cyw = Math.cos(yaw);
@@ -2685,7 +2698,7 @@ pnpm test</code></pre>
                 n.y = p[1];
                 n.r = Math.max(9.5, orbR);
               }
-              const veil = wide ? 0.16 + 0.84 * smooth(W * 0.39, W * 0.52, n.x) : 1 - 0.9 * smooth(textTop * H - 30, textTop * H + 24, n.y);
+              const veil = wide ? 0.04 + 0.96 * smooth(textRight * W - W * 0.02, textRight * W + W * 0.07, n.x) :1 - 0.9 * smooth(textTop * H - 30, textTop * H + 24, n.y);
               n.a = born * mix(veil, 1, e);
             }
             if (primary) {
@@ -2758,7 +2771,7 @@ pnpm test</code></pre>
             drawGyroHalf(0.86, -0.62, -0.35, -time * 0.34, "#e000ff", true, 0.58 * intro);
 
             /* ── THE CENTRAL 3D BLENDER KON PRINCIPAL NEON CORE ── */
-            const coreR = unit * 0.56;
+            const coreR = unit * 0.62;
             const beat = 0.5 + 0.5 * Math.sin(time * 1.6);
             const bobY = motion ? Math.sin(time * 1.45) * Math.min(5, unit * 0.045) : 0;
             const coreY = cy + bobY;
@@ -2851,10 +2864,14 @@ pnpm test</code></pre>
             /* Floating labels */
             const fs = wide ? 11 : 10;
             ctx.textBaseline = "middle";
-            for (const n of nodes) {
+            /* nearest and most important labels claim their space first; a label that would collide is skipped */
+            const taken = [];
+            const coins = nodes.filter((m) => m.a > 0.35).map((m) => [m.x - m.r, m.y - m.r, m.r * 2, m.r * 2, m]);
+            const order = nodes.slice().sort((p, q) => (q.e >= 0.5 || q === hover || q.k.id === sel) - (p.e >= 0.5 || p === hover || p.k.id === sel) || p.z - q.z);
+            for (const n of order) {
               const docked = n.e >= 0.5, isHover = n === hover, isSel = n.k.id === sel;
               let a = docked || isHover ? 1 : labels * (n.z > 0 ? 0.38 : 0.92) * n.a * (wide || n.z <= 0.4 ? 1 : 0);
-              if (wide && !docked && !isHover) a *= smooth(W * 0.47, W * 0.6, n.x);
+              if (wide && !docked && !isHover) a *= smooth(textRight * W + W * 0.02, textRight * W + W * 0.09, n.x);
               if (isSel && !docked) a = Math.max(a, 0.92 * n.a);
               if (isSel && !docked && !isHover) {
                 ctx.globalAlpha = n.a;
@@ -2867,13 +2884,21 @@ pnpm test</code></pre>
               if (a < 0.03) continue;
               const strong = docked || isHover;
               ctx.font = (strong ? "700 " : "500 ") + (strong ? fs + 2 : fs) + 'px "JetBrains Mono", ui-monospace, monospace';
-              ctx.textAlign = n.x >= cx ? "left" : "right";
-              const tx = n.x + (n.x >= cx ? 1 : -1) * (n.r + 8);
+              const tw = ctx.measureText(n.k.id).width;
+              /* outward from the core, unless that runs off the canvas */
+              let right = n.x >= cx;
+              if (right && n.x + n.r + 8 + tw > W - 8) right = false;
+              else if (!right && n.x - n.r - 8 - tw < 8) right = true;
+              ctx.textAlign = right ? "left" : "right";
+              const tx = n.x + (right ? 1 : -1) * (n.r + 8);
+              const box = [right ? tx - 4 : tx - tw - 4, n.y - fs * 0.8, tw + 8, fs * 1.6];
+              const hits = (b) => b[4] !== n && box[0] < b[0] + b[2] && b[0] < box[0] + box[2] && box[1] < b[1] + b[3] && b[1] < box[1] + box[3];
+              if (!strong && (taken.some(hits) || coins.some(hits))) continue;
+              taken.push(box);
               if (strong) {
                 ctx.globalAlpha = 0.86;
                 ctx.fillStyle = "#09090b";
-                const tw = ctx.measureText(n.k.id).width;
-                ctx.fillRect(n.x >= cx ? tx - 4 : tx - tw - 4, n.y - fs, tw + 8, fs * 2);
+                ctx.fillRect(box[0], n.y - fs, box[2], fs * 2);
               }
               ctx.globalAlpha = a;
               ctx.fillStyle = strong ? "#fafafa" : "#e4e4e7";
@@ -3140,7 +3165,7 @@ pnpm test</code></pre>
           );
         }
 
-        /* the intro: thirty kons counted into orbit, then the curtain lifts */
+        /* the intro: every kon counted into orbit, then the curtain lifts */
         const curtain = $("#intro");
         if (root.classList.contains("intro") && motion && scrollY < 40 && KONS.length) {
           const num = $("#intro-n"), fill = $("#intro-bar"), t0 = performance.now();
