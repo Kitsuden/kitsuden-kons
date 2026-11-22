@@ -343,8 +343,17 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
   const actorOf = (me: { userId: string }) => ({ kind: "agent" as const, id: me.userId });
   const Empty = z.object({ reason: z.string().max(300).optional() });
 
-  stateOp("/conversations/:id/take", "take-conversation", "Take a conversation", "You answer it from now on; the bot goes quiet. 409 if someone else already has it.", Empty, (id, b, me) =>
-    changeState(ctx, db(), id, { trigger: "assign", assigneeId: me.userId, reason: (b.reason as string) ?? "taken" }, actorOf(me))
+  stateOp(
+    "/conversations/:id/take",
+    "take-conversation",
+    "Take a conversation",
+    "You answer it from now on; the bot goes quiet. 409 if someone else already has it; 403 if it is snoozed with someone else and you are not a supervisor.",
+    Empty,
+    async (id, b, me) => {
+      const conv = await conversationOr404(db(), id);
+      // A person answering it is a 409 (state machine); a snooze someone else holds is theirs.
+      return changeState(ctx, db(), id, { trigger: "assign", assigneeId: me.userId, reason: (b.reason as string) ?? "taken", by: conv.state === "snoozed" ? me : undefined }, actorOf(me));
+    }
   );
   stateOp(
     "/conversations/:id/assign",
@@ -364,24 +373,24 @@ export const inboxOperations: OperationsModule = (app, ctx) => {
     if (!me.lead && conv.assigneeId !== me.userId) throw AppError.forbidden("It is not yours");
     return changeState(ctx, db(), id, { trigger: "release", reason: (b.reason as string) ?? "released" }, actorOf(me));
   });
-  stateOp("/conversations/:id/return-to-bot", "return-conversation-to-bot", "Hand a conversation back to the bot", "The bot answers again. Only for a channel with a bot.", Empty, async (id, b, me) => {
+  stateOp("/conversations/:id/return-to-bot", "return-conversation-to-bot", "Hand a conversation back to the bot", "The bot answers again. Only for a channel with a bot. 403 if someone else has it and you are not a supervisor.", Empty, async (id, b, me) => {
     const conv = await conversationOr404(db(), id);
     const [channel] = (await db().select().from(koeChannels).where(eq(koeChannels.id, conv.channelId)).limit(1)) as Channel[];
     if (!channel?.botSlug && !channel?.settings?.flowId) throw AppError.validation("This channel has no bot");
-    return changeState(ctx, db(), id, { trigger: conv.state === "queued" ? "back_to_bot" : "return_to_bot", reason: (b.reason as string) ?? "returned" }, actorOf(me));
+    return changeState(ctx, db(), id, { trigger: conv.state === "queued" ? "back_to_bot" : "return_to_bot", reason: (b.reason as string) ?? "returned", by: me }, actorOf(me));
   });
   stateOp("/conversations/:id/handoff", "handoff-conversation", "Ask for a person", "From the bot to the queue. Agents (AI) call it when they should not answer; a summary helps whoever takes it.", z.object({ reason: z.string().max(300).optional(), summary: z.string().max(2000).optional() }), async (id, b, me) => {
     if (b.summary) await db().update(koeConversations).set({ metadata: sql`${koeConversations.metadata} || ${JSON.stringify({ handoffSummary: b.summary })}::jsonb` }).where(eq(koeConversations.id, id));
     return changeState(ctx, db(), id, { trigger: "handoff", reason: (b.reason as string) ?? "handoff" }, actorOf(me));
   });
-  stateOp("/conversations/:id/snooze", "snooze-conversation", "Snooze a conversation", "Out of sight until `until`, or until the contact writes.", z.object({ until: z.string().datetime() }), (id, b, me) =>
-    changeState(ctx, db(), id, { trigger: "snooze", snoozedUntil: new Date(String(b.until)) }, actorOf(me))
+  stateOp("/conversations/:id/snooze", "snooze-conversation", "Snooze a conversation", "Out of sight until `until`, or until the contact writes. 403 if someone else has it and you are not a supervisor.", z.object({ until: z.string().datetime() }), (id, b, me) =>
+    changeState(ctx, db(), id, { trigger: "snooze", snoozedUntil: new Date(String(b.until)), by: me }, actorOf(me))
   );
-  stateOp("/conversations/:id/resolve", "resolve-conversation", "Resolve a conversation", "Closes it. A new message from the contact opens it again.", Empty, (id, b, me) =>
-    changeState(ctx, db(), id, { trigger: "resolve", reason: (b.reason as string) ?? "resolved" }, actorOf(me))
+  stateOp("/conversations/:id/resolve", "resolve-conversation", "Resolve a conversation", "Closes it. A new message from the contact opens it again. 403 if someone else has it and you are not a supervisor.", Empty, (id, b, me) =>
+    changeState(ctx, db(), id, { trigger: "resolve", reason: (b.reason as string) ?? "resolved", by: me }, actorOf(me))
   );
-  stateOp("/conversations/:id/transfer", "transfer-conversation", "Move a conversation to another team", "It goes to that team's queue (and is assigned automatically if the team does).", z.object({ teamId: z.string().min(1).max(100).nullable() }), (id, b, me) =>
-    transfer(ctx, db(), id, (b.teamId as string | null) ?? null, actorOf(me))
+  stateOp("/conversations/:id/transfer", "transfer-conversation", "Move a conversation to another team", "It goes to that team's queue (and is assigned automatically if the team does). 403 if someone else has it and you are not a supervisor.", z.object({ teamId: z.string().min(1).max(100).nullable() }), (id, b, me) =>
+    transfer(ctx, db(), id, (b.teamId as string | null) ?? null, actorOf(me), me)
   );
 
   app.patch(

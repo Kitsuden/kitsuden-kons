@@ -3,7 +3,7 @@
   "id": "kon-koe",
   "name": "koe",
   "description": "One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and templates, live inbox with web push, voice notes and stickers, AI relay, campaigns, and sales and collections teams",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

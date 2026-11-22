@@ -28,12 +28,13 @@ media, an AI relay to kon-chat, and automation (flows, rule steps, campaigns, se
 - Pass `idempotencyKey` (body) or `idempotency_key` (MCP) on sends you may repeat; the same key never sends
   twice.
 - Scopes: `koe:*` (or `kon:koe:*`) opens everything as a koe admin; a fine scope (`kon:koe:send-message`)
-  opens one operation as a member would. A key without a koe scope gets 403. A denial wins.
+  opens that one operation as a member would, and no other. A key without a koe scope gets 403. A denial wins.
 - `202 KITSUDEN_E_APPROVAL_REQUIRED` on sensitive operations (channels, members, templates, campaign
   approval, merges): report the proposal; do not retry.
 - 404 means missing or not visible to you; the API never says which.
-- Never send a campaign or a template to a contact without recorded consent; the API refuses it, and trying
-  costs the owner's number quality.
+- Never send a campaign or a template to a contact without recorded consent; the API refuses a campaign or
+  any marketing template without opt-in (`OPTED_OUT`), whoever sends it, and trying costs the owner's number
+  quality.
 
 ## Map of the code
 

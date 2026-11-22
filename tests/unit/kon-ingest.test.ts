@@ -25,6 +25,7 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { bindKonQueue } from "../../.kitsuden/apps/api/src/lib/queue-kon-access";
 import { createTestKonContext } from "../../.kitsuden/apps/api/src/lib/test-kon-context";
 import { configureQueue, type QueueJob } from "../../.kitsuden/packages/engine/src/queue";
 import { configureEmbeddings } from "../../.kitsuden/packages/engine/src/semantics";
@@ -201,7 +202,9 @@ beforeAll(async () => {
   const db = await dropToAppRole(client);
   const auth = testAuth();
   const host = rlsHost(db, auth);
-  ctx = createTestKonContext({ db: host.db as never, auth: auth as never } as never);
+  // `ctx.queue` as the host binds it (lib/kon-setup.ts): the kon's id goes with each job, so the
+  // core's allowlist (kon-ingest → `kitsuden-embeddings`) applies, not the refusal of unnamed callers.
+  ctx = { ...createTestKonContext({ db: host.db as never, auth: auth as never } as never), queue: bindKonQueue("kon-ingest") as never };
   request = requestAs(host.mount(kon.createRouter(ctx)));
   configureQueue({
     dispatch: async (queue, name, payload, options) => {

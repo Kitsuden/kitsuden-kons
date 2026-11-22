@@ -6,7 +6,7 @@ fields (BLUF, FAQ) for answer engines. For any site that publishes articles; mos
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| stable (tier `essential`) | core | 2.0.4 | `/api/blog` | kon-media (part of the core), core `auth` |
+| stable (tier `essential`) | core | 2.0.5 | `/api/blog` | kon-media (part of the core), core `auth` |
 
 ## Install
 
@@ -83,7 +83,7 @@ Writes and editor tools (staff: see [Who can do what](#who-can-do-what)):
 | Route | Who | What it does |
 | --- | --- | --- |
 | `POST /api/blog` | staff | Creates a post (`201`), draft by default, with `tagIds`, `gameIds`, `categoryIds`. `400` for an invalid body, slug or BLUF (more than 50 words), or an author that does not exist; `409` if the slug exists; `422` for blocks with old keys. |
-| `PATCH /api/blog/:id` | staff | Changes the fields sent; `tagIds`, `gameIds`, `categoryIds` replace the links when sent. `publishedAt` (ISO 8601, or `null`) schedules or unschedules. With `expectedUpdatedAt` (the `updatedAt` you loaded) a concurrent save answers `409` instead of being overwritten. |
+| `PATCH /api/blog/:id` | staff | Changes the fields sent; `tagIds`, `gameIds`, `categoryIds` replace the links when sent. `publishedAt` (ISO 8601, or `null`) schedules or unschedules. With `expectedUpdatedAt` (the `updatedAt` you loaded) a concurrent save answers `409` instead of being overwritten. An agent cannot set `status: published` nor move `publishedAt` on a published post (`403`): it uses `publish-post`. |
 | `POST /api/blog/:id/publish` | staff | Sets `status: published` and `publishedAt` to now. |
 | `DELETE /api/blog/:id` | staff | Deletes the post and its links. Cannot be undone. `{ deleted: true, id }`. |
 | `POST /api/blog/categories` | staff | Creates a category (`201`). `409` if the slug exists, `400` if the parent does not. |

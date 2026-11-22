@@ -23,7 +23,8 @@ It is a `stable`, tier `essential` kon: most sites run it, so behaviour changes 
   Otherwise a draft is a `404`, like for the public.
 - **Author.** An agent is not an account, so `create-post` needs `authorId`: the id of an existing
   account the post is written for. An agent with a human signer can only write as that signer
-  (unless it has `admin`); otherwise `403`.
+  (unless it has `admin`); otherwise `403`. The same rule holds for `authorId` in `update-post` and
+  `promote-from-source`.
 - **MCP tools** (`blog__<operation>`): `list-posts` returns `{ docs, totalDocs, … }`;
   `get-by-slug` / `get-post` a post with relations; `post-seo` `{ success, post, seo, social,
   html }`; `post-geo` `{ success, data, _meta }`; `list-categories` `{ docs, total }`;
@@ -33,6 +34,9 @@ It is a `stable`, tier `essential` kon: most sites run it, so behaviour changes 
   source record. `refresh-og-cache` is REST only.
 - **Approval.** `publish-post`, `delete-post` and `delete-category` are sensitive: with human
   approval on they come back `202 KITSUDEN_E_APPROVAL_REQUIRED`. Report it, do not retry.
+  An agent publishes ONLY through `publish-post`: `create-post` / `update-post` with
+  `status: "published"`, `update-post` with `publishedAt` on a published post, and
+  `promote-from-source` with `autoPublish` answer `403` to an agent. Save a draft, then publish.
 - **404 vs missing.** There is no row security. A `404` on a read means missing, not a uuid, or not
   visible to you (unpublished or future-dated). The handlers never answer `403` for a hidden post.
 - **Idempotency.** `create-post`, `create-category` and `promote-from-source` are not idempotent:

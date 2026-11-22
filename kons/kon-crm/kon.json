@@ -2,7 +2,7 @@
   "id": "kon-crm",
   "name": "Kitsuden CRM",
   "description": "Complete CRM & Pipeline Management system. Includes contacts, companies, deal pipelines with Kanban view, activities, and sales automation.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "sdk": 1,
   "type": "kon",
   "tier": "common",
@@ -55,6 +55,20 @@
   },
   "compatibility": {
     "kitsuden": ">=0.8.0"
+  },
+  "reportAccess": {
+    "agentScope": "crm:view",
+    "restricted": {
+      "crm_deals": ["value", "lost_notes", "custom_fields"],
+      "crm_companies": ["annual_revenue", "custom_fields"],
+      "crm_contacts": ["notes", "custom_fields"],
+      "crm_activities": ["description", "outcome", "notes"],
+      "crm_deal_lines": ["unit_price", "line_total"],
+      "crm_quotes": ["subtotal", "tax", "total", "notes"],
+      "crm_sales_targets": ["amount"],
+      "crm_observations": ["value", "previous_value", "note"]
+    },
+    "restrictedScope": "crm:read-all"
   },
   "admin": {
     "category": "business",

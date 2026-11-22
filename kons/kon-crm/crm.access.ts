@@ -32,7 +32,7 @@ import { z } from "@kitsuden/engine/zod";
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
 import { activityKinds, allFields, entityByName, entityOfDeal } from "./crm.entities";
-import { crmAccessGrants, crmDeals, type EntityFieldSchema } from "./crm.schema";
+import { crmAccessGrants, crmCompanies, crmContacts, crmDeals, type EntityFieldSchema } from "./crm.schema";
 import { CONFIGURE, VIEW, requiresEdit, type registry } from "./operations";
 
 export interface CrmAccess {
@@ -43,6 +43,11 @@ export interface CrmAccess {
 }
 
 const ERASED_KEYS = /^(annualRevenue|[a-z]+Value)$/;
+
+/** Whether a key of a row is an amount `withoutMoney` removes (a deal's bare `value` aside). */
+export function isMoneyKey(key: string): boolean {
+  return ERASED_KEYS.test(key);
+}
 
 /** Removes amounts from a response. A bare `value` is an amount only on a deal: stage rules have their own. */
 export function withoutMoney(data: unknown): unknown {
@@ -199,15 +204,58 @@ async function dealShape(
   };
 }
 
+const REFERENCES = {
+  contactId: { table: crmContacts, missing: "Contact not found" },
+  companyId: { table: crmCompanies, missing: "Company not found" },
+  dealId: { table: crmDeals, missing: "Deal not found" },
+} as const;
+
+/**
+ * Under `records: assigned` a write may point only at what the subject already sees: a contact or company is
+ * visible through a deal that references it (0008), so a reference would otherwise adopt any record. RLS
+ * answers the read; migration 0016 refuses the same in the database.
+ */
+async function checkReferences(db: CrmDb, body: Record<string, unknown>): Promise<void> {
+  for (const [key, { table, missing }] of Object.entries(REFERENCES)) {
+    const id = body[key];
+    if (typeof id !== "string" || !id) continue;
+    const [row] = await db.select({ id: table.id }).from(table).where(eq(table.id, id));
+    if (!row) throw AppError.notFound(missing);
+  }
+}
+
+/** The customFields an update stores: values of fields the caller cannot read stay, since it never saw them. */
+export async function keepHiddenFields(
+  db: CrmDb,
+  table: typeof crmContacts | typeof crmCompanies | typeof crmDeals,
+  id: string,
+  next: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  const hidden = await hiddenFieldKeys(db, await accessOf(db));
+  if (hidden.size === 0) return next;
+  const t = table as typeof crmContacts;
+  const [row] = await db.select({ customFields: t.customFields }).from(t).where(eq(t.id, id));
+  const stored = (row?.customFields as Record<string, unknown> | null) ?? {};
+  return { ...next, ...Object.fromEntries(Object.entries(stored).filter(([k]) => hidden.has(k))) };
+}
+
 /** Refuses what a subject may not write, before the handler runs. */
 export async function checkWrite(db: CrmDb, operationId: string, input: { body?: unknown; params?: unknown }): Promise<void> {
   const rule = Object.prototype.hasOwnProperty.call(WRITES, operationId) ? WRITES[operationId] : undefined;
   const body = input.body as Record<string, unknown> | undefined;
   if (!rule || !body) return;
+  const access = await accessOf(db);
   const touchesMoney = rule.money.some((k) => body[k] !== undefined);
   const customFields = body.customFields as Record<string, unknown> | undefined;
-  if (touchesMoney && !(await accessOf(db)).money) {
+  if (touchesMoney && !access.money) {
     throw AppError.forbidden("You do not have access to amounts in the CRM");
+  }
+  if (access.records === "assigned") await checkReferences(db, body);
+  // A field the caller cannot read cannot be written either: a blind write can probe or erase its value.
+  if (customFields && typeof customFields === "object") {
+    const hidden = await hiddenFieldKeys(db, access);
+    const blocked = Object.keys(customFields).filter((k) => hidden.has(k));
+    if (blocked.length > 0) throw AppError.forbidden(`You do not have access to these custom fields: ${blocked.join(", ")}`);
   }
   if (rule.entity === "activity") {
     if (typeof body.kind !== "string" || !body.kind) return;

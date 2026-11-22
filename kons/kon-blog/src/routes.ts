@@ -286,6 +286,24 @@ function userOf(c: unknown): AuthzUser | null {
 }
 
 /**
+ * Publishing is `publish-post`, which is `sensitive`: an agent's call becomes a
+ * proposal a human approves. `create-post` and `update-post` with
+ * `status: "published"` (or a new date on a published post) and
+ * `promote-from-source` with `autoPublish` published the same post without that
+ * approval (audit 2026-11-19). For an agent they answer this 403; people are not
+ * affected. A draft, a scheduled post and edits to the text stay open to agents.
+ */
+function agentCannotPublish(field: string) {
+  return {
+    error: "Forbidden",
+    field,
+    code: "KITSUDEN_E_FORBIDDEN",
+    message:
+      "An agent cannot publish through this operation: save the post as a draft and call publish-post, which a human approves.",
+  };
+}
+
+/**
  * The authorization of each write, INSIDE the kon.
  *
  * It returns the rejection response, or `null` if it can continue. 401 without a session,
@@ -1494,7 +1512,7 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
       route: "/promote-from-source",
       summary: "Create a post from a dataset entry",
       description:
-        "Creates a draft (or published) post from a dataset entry, or from a kon table row (admin only, never account/secret tables).",
+        "Creates a draft (or published) post from a dataset entry, or from a kon table row (admin only, never account/secret tables). An agent cannot autoPublish (403): it calls publish-post afterwards.",
       access: "session",
       permission: { policy: { resource: "blog_post", action: "promote" } },
       input: { body: promoteFromSourceSchema, validatesHandler: true },
@@ -1517,6 +1535,16 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
 
           const body = parseResult.data;
           const currentUser = ctxGet<{ id?: string; role?: string }>(c, "user");
+
+          if (body.autoPublish && isAgent(userOf(c))) {
+            return c.json(agentCannotPublish("autoPublish"), 403);
+          }
+          // The signer rule of create-post (Phase F): an agent with a human signer
+          // promotes AS that human; another authorId only with `admin`.
+          const signature = agentSignature(currentUser, body.authorId, "requested");
+          if (!signature.ok) {
+            return c.json({ error: "Forbidden", field: "authorId", message: signature.message, code: signature.code }, 403);
+          }
 
           // Get source data
           let sourceData: Record<string, unknown> | null = null;
@@ -1580,9 +1608,9 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
                     undefined
                   : undefined,
                 autoPublish: body.autoPublish || false,
-                // The author is whoever promotes. Sending another `authorId` is accepted
-                // only if that account exists (see `validAuthor`).
-                authorId: (await validAuthor(body.authorId, accountId(currentUser))) ?? "",
+                // The author is whoever promotes (an agent: its signer). Sending another
+                // `authorId` is accepted only if that account exists (see `validAuthor`).
+                authorId: (await validAuthor(signature.author ?? undefined, accountId(currentUser))) ?? "",
                 targetConfig: {
                   tagIds: body.tagIds,
                   gameIds: body.gameIds,
@@ -1688,7 +1716,7 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
       route: "/",
       summary: "Create a post",
       description:
-        "Creates a post (draft by default) with its tags, games and categories. Content and blocks are sanitized; the slug is derived from the title when missing. publishedAt is an ISO 8601 date.",
+        "Creates a post (draft by default) with its tags, games and categories. Content and blocks are sanitized; the slug is derived from the title when missing. publishedAt is an ISO 8601 date. An agent cannot create it published (403): it saves a draft and calls publish-post.",
       access: "session",
       permission: { policy: { resource: "blog_post", action: "create" } },
       input: { body: createPostSchema, validatesHandler: true },
@@ -1789,6 +1817,10 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
           const errorDeSlug = invalidSlug(slug);
           if (errorDeSlug)
             return c.json({ error: "Validation failed", field: "slug", message: errorDeSlug }, 400);
+
+          if (body.status === "published" && isAgent(userOf(c))) {
+            return c.json(agentCannotPublish("status"), 403);
+          }
 
           // Phase F (owner's decision): an agent with a human signer
           // writes AS that human; another authorId only with `admin`. Without a
@@ -2311,7 +2343,7 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
       route: "/:id",
       summary: "Update a post",
       description:
-        "Changes the given fields and, if sent, replaces its tags/games/categories. publishedAt (ISO 8601, or null) schedules or unschedules it. Send expectedUpdatedAt (the updatedAt you loaded) to get a 409 instead of overwriting someone else's save.",
+        "Changes the given fields and, if sent, replaces its tags/games/categories. publishedAt (ISO 8601, or null) schedules or unschedules it. Send expectedUpdatedAt (the updatedAt you loaded) to get a 409 instead of overwriting someone else's save. An agent cannot set status published nor change publishedAt on a published post (403): it publishes with publish-post.",
       access: "session",
       permission: { policy: { resource: "blog_post", action: "update" } },
       input: { params: ParamId, body: updatePostSchema, validatesHandler: true },
@@ -2346,9 +2378,32 @@ export function blogOperations(ctx: KonContext): AnyOperation[] {
                 400
               );
           }
+          if (isAgent(userOf(c))) {
+            if (body.status === "published") {
+              return c.json(agentCannotPublish("status"), 403);
+            }
+            // A new date on a post that is already `published` publishes it at that
+            // date (earlier, too): that is publishing as well.
+            if (body.publishedAt !== undefined && body.status === undefined) {
+              const [current] = await db.instance
+                .select({ status: blogPosts.status })
+                .from(blogPosts)
+                .where(eq(blogPosts.id, postId))
+                .limit(1);
+              if (current?.status === "published") {
+                return c.json(agentCannotPublish("publishedAt"), 403);
+              }
+            }
+          }
           if (body.authorId !== undefined) {
             const who = userOf(c);
-            if (!(await validAuthor(body.authorId, who?.id))) {
+            // The signer rule of create-post (Phase F): an agent with a human
+            // signer can only sign as that human; another account only with `admin`.
+            const signature = agentSignature(who, body.authorId, "requested");
+            if (!signature.ok) {
+              return c.json({ error: "Forbidden", field: "authorId", message: signature.message, code: signature.code }, 403);
+            }
+            if (!(await validAuthor(body.authorId, accountId(who)))) {
               return c.json(
                 { error: "Validation failed", field: "authorId", message: "That author does not exist" },
                 400

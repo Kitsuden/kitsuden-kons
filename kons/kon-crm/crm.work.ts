@@ -11,7 +11,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { and, asc, desc, eq, gte, ilike, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { z } from "@kitsuden/engine/zod";
 
-import { accessOf, hiddenFieldKeys } from "./crm.access";
+import { accessOf, hiddenFieldKeys, isMoneyKey } from "./crm.access";
 import { likePattern } from "./crm.records";
 import { dbDe, userOf } from "./crm.context";
 import type { CrmDb } from "./crm.db";
@@ -136,6 +136,8 @@ export function withoutForbiddenScope(access: { money: boolean; notes?: boolean 
     if (out.customFields && typeof out.customFields === "object") {
       out.customFields = Object.fromEntries(Object.entries(out.customFields).filter(([k]) => !hidden.has(k)));
     }
+    // The same amounts `withoutMoney` removes from a response: a company's revenue too, not only a deal's value.
+    if (!access.money) for (const key of Object.keys(out)) if (isMoneyKey(key)) delete out[key];
     return out;
   };
   const deal = strip(scope.deal);
@@ -500,7 +502,7 @@ export function workOperations(routes: ReturnType<typeof registry>): void {
       id: "render-document-template",
       summary: "Fill a document template",
       description:
-        "Fills it from a deal and a contact (the deal's main contact by default) and from `values`. Returns `content` and `missing`: placeholders with no value, left visible in the text. It respects what the caller can see: without amount access, `{{deal.value}}` stays missing. Requires CRM view access.",
+        "Fills it from a deal and a contact (the deal's main contact by default) and from `values`. Returns `content` and `missing`: placeholders with no value, left visible in the text. It respects what the caller can see: without amount access, `{{deal.value}}` and `{{company.annualRevenue}}` stay missing. Requires CRM view access.",
       access: "session",
       permission: VIEW,
       readOnly: true,

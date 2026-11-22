@@ -8,6 +8,7 @@
  * No network, no Docker.
  */
 
+import { createHmac } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -71,6 +72,8 @@ export async function koeBench(extra: Record<string, unknown> = {}) {
       channels: (fn: typeof authorizer) => {
         authorizer = fn;
       },
+      // The host's konCapability: keyed by a secret the kon's tables never hold.
+      capability: (material: string) => createHmac("sha256", "test-capability-key").update(`koe:${material}`).digest("hex"),
     },
     secrets: {
       seal: (konId: string, plaintext: string) => ({ v: 1, kon: konId, valueEncrypted: Buffer.from(plaintext).toString("base64"), iv: "x", authTag: "x" }),

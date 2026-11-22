@@ -11,7 +11,8 @@
  *     (`koe_role()`, `koe_sees()`), and `requireMember()` below turns "not a member" into a clear 403.
  *
  * A Kitsuden admin is a koe admin. An agent key opens koe with `koe:*` (or `kon:koe:*`), or one operation
- * with its fine scope `kon:koe:<operation>`.
+ * with its fine scope `kon:koe:<operation>`: that scope opens its own operation only (the host's scope check),
+ * never the rest of the inbox through this policy.
  */
 import { actsAsUserIn, AppError, definePolicy, isEffectiveAdmin, type AuthzUser } from "@kitsuden/engine";
 import { eq } from "drizzle-orm";
@@ -24,8 +25,9 @@ const signedIn = (u: AuthzUser | null) => !!u?.id && u.role !== "anonymous";
 export function registerKoePolicy(): void {
   definePolicy("koe", {
     // A person who is signed in (membership is checked by requireMember and row security); an agent key
-    // only with a koe scope or `user:act`: a key with no koe scope never reaches the inbox.
-    use: (u) => signedIn(u) && actsAsUserIn("koe")(u as never),
+    // only with `user:act` or a scope that opens the whole kon. `use` guards every inbox operation, so a
+    // fine scope (`kon:koe:list-conversations`) must not pass it: it opens its own operation by scope.
+    use: (u) => signedIn(u) && actsAsUserIn("koe", { wholeKon: true })(u as never),
     configure: (u) => isEffectiveAdmin(u, "koe"),
   });
 }

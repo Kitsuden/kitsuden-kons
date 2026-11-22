@@ -61,8 +61,12 @@ export async function processDocument(job: QueueJob, ctx: KonContext): Promise<v
         .insert(ingestChunks)
         .values({ documentId: id, position: i, text: chunks[i], ownerId: doc.ownerId })
         .returning({ id: ingestChunks.id });
-      // The embedding of each chunk, as defineModel enqueues it (D5).
-      await queue.dispatch(
+      // The embedding of each chunk, as defineModel enqueues it (D5). Queued
+      // through `ctx.queue`, which carries the kon's id: the core refuses its
+      // own queues to a caller it cannot name, and lets kon-ingest queue on
+      // `kitsuden-embeddings` by name. Without `ctx.queue` (a host that does not
+      // bind one) the engine's queue checks the kon scope the worker runs in.
+      await (ctx.queue ? ctx.queue.add.bind(ctx.queue) : queue.dispatch.bind(queue))(
         EMBEDDINGS_QUEUE,
         "embed:ingest_chunks",
         { table: "ingest_chunks", id: c.id, columns: ["text"], dimensions: 1536 },

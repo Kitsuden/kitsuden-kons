@@ -4,7 +4,7 @@
  *
  * No third party and no window. A visitor writes through the public operations (`/public/webchat/...`),
  * which build the same NormalizedEvent a Meta webhook would, and reads answers through the realtime
- * channel `kon:koe:visitor:<hash>` or by polling. "Sending" is storing the message and broadcasting it,
+ * channel `kon:koe:visitor:<capability>` (koe.realtime.ts, visitorChannel) or by polling. "Sending" is storing the message and broadcasting it,
  * which koe.send.ts does; the adapter only names the message.
  */
 

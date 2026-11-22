@@ -3,7 +3,7 @@
   "id": "kon-ingest",
   "name": "Document ingestion",
   "description": "Extracts text from documents (text, markdown, HTML; PDF with the optional 'unpdf'; images through an OCR sidecar), splits it into chunks and embeds them for semantic search. Heavy work runs on the Postgres queue, never in a request.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "sdk": 1,
   "type": "kon",
   "tier": "specialized",

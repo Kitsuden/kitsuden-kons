@@ -350,7 +350,7 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
       id: "create-portal-link",
       summary: "Give a client a portal link",
       description:
-        "Returns a token, shown only now, that lets that contact read what was marked for them through `/api/crm/public/portal`. Valid `days` days, 14 by default. With `showStatement` the portal also shows the client's issued invoices and balance from kon-conta. Only a person can create one: agents get 403. Requires CRM edit access.",
+        "Returns a token, shown only now, that lets that contact read what was marked for them through `/api/crm/public/portal`. Valid `days` days, 14 by default. With `showStatement` the portal also shows the client's issued invoices and balance from kon-conta; that needs access to amounts (403 without it). Only a person can create one: agents get 403. Requires CRM edit access.",
       access: "session",
       permission: EDIT,
       sensitive: true,
@@ -369,6 +369,10 @@ export function publicOperations(routes: ReturnType<typeof registry>, root: () =
       const expiresAt = new Date(Date.now() + (input.body.days ?? 14) * 86_400_000);
       const id = createId();
       const showStatement = input.body.showStatement ?? false;
+      // The statement is amounts: whoever cannot read them cannot hand them to a client either.
+      if (showStatement && !(await accessOf(db)).money) {
+        throw AppError.forbidden("You do not have access to amounts in the CRM");
+      }
       await db.insert(crmPortalLinks).values({ id, contactId: contact.id, tokenHash: hashToken(token), expiresAt, showStatement, createdBy: user?.id ?? null });
       return c.json({ id, token, expiresAt, showStatement }, 201);
     }
