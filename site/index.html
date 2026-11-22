@@ -1512,14 +1512,19 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 0.4rem 0.8rem;
+        gap: 0.4rem 0.6rem;
         padding-top: 0.85rem;
         border-top: 1px solid var(--line);
-        font: 0.78rem var(--mono);
+        font: 0.74rem var(--mono);
         color: var(--dim);
       }
       .catalog .kmeta .mat {
         margin-right: auto;
+        font-size: 0.72rem;
+        padding: 0.3rem 0.5rem;
+      }
+      .catalog .kmeta > span:last-child {
+        white-space: nowrap;
       }
       @media (min-width: 52rem) {
         .catalog details[open] summary {
@@ -2013,22 +2018,12 @@ pnpm test</code></pre>
           amarillo:  { src: "logos/kon-amarillo.png",  rgb: [255, 214, 10], rim: "#ffd60a" },
           dorado:    { src: "logos/kon-dorado.png",    rgb: [245, 185, 36], rim: "#f5b924" },
         };
-        const CAT_PALETTES = {
-          core:      ["verde", "cian"],
-          documents: ["cian", "dorado", "azul"],
-          content:   ["morado", "rosa", "azul", "cian", "verde", "naranja"],
-          business:  ["dorado", "naranja", "amarillo", "azul", "cian", "morado", "verde", "rosa", "rojo"],
-          gaming:    ["rojo", "rosa", "morado", "azul", "amarillo", "verde", "naranja", "cian", "dorado"],
-        };
+        /* one cycle through the nine medallion colours, in catalogue order, so neighbouring cards
+           (side by side and one row apart in 2, 3 and 4 columns) never share a colour; the principal stays for the core */
+        /* look-alikes (amarillo/dorado/naranja, cian/azul, rosa/morado) sit two apart: never adjacent in 2, 3 or 4 columns */
+        const CYCLE = ["amarillo", "cian", "dorado", "azul", "naranja", "rosa", "verde", "morado", "rojo"];
         const konColorKey = {};
-        {
-          const seen = {};
-          for (const k of KONS) {
-            const pal = CAT_PALETTES[k.category] || CAT_PALETTES.gaming;
-            const idx = (seen[k.category] = (seen[k.category] || 0) + 1) - 1;
-            konColorKey[k.id] = pal[idx % pal.length];
-          }
-        }
+        KONS.forEach((k, i) => (konColorKey[k.id] = CYCLE[i % CYCLE.length]));
         const konTheme = (id) => KON_COLORS[konColorKey[id] || "morado"] || KON_COLORS.principal;
 
         /* ── subtle 3D perspective card tilt on pointer-fine devices ── */
@@ -2218,7 +2213,7 @@ pnpm test</code></pre>
                 "span",
                 { className: "kmeta" },
                 mat(k.maturity),
-                el("span", { textContent: plural(k.tables, "table", "tables") + (k.views ? " · " + plural(k.views, "view", "views") : "") })
+                el("span", { textContent: plural(k.tables, "table", "tables") })
               )
             ),
             el(
