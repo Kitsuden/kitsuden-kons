@@ -842,8 +842,26 @@
         border-color: var(--seal);
         box-shadow: 0 0 22px -8px var(--seal);
       }
+      /* category chips carry the medallion colour of their category */
+      #cats button[style] {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      #cats button[style]::before {
+        content: "";
+        width: 0.55rem;
+        height: 0.55rem;
+        border-radius: 50%;
+        background: rgb(var(--cc));
+        box-shadow: 0 0 10px rgb(var(--cc) / 0.8);
+      }
+      #cats button[style][aria-pressed="true"] {
+        border-color: rgb(var(--cc));
+        box-shadow: 0 0 22px -8px rgb(var(--cc));
+      }
 
-      /* chapter 3: any of the thirty */
+      /* chapter 3: any of the kons */
       .probe {
         margin-top: 1.4rem;
         border: 1px solid rgb(168 85 247 / 0.4);
@@ -1358,53 +1376,164 @@
         font-size: 0.95rem;
         min-height: 1.6em;
       }
+      /* the catalogue: a grid of 3D cards, each lit by its own KON medallion colour (--kc, set per card) */
       .catalog {
-        margin-top: 0.6rem;
-        border-top: 1px solid var(--line);
+        margin-top: 0.8rem;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+        grid-auto-flow: row dense;
+        gap: 1rem;
+      }
+      .catalog > .none {
+        grid-column: 1 / -1;
       }
       .catalog details {
-        border-bottom: 1px solid var(--line);
-        transition: background 0.25s;
+        --kc: 168 85 247;
+        position: relative;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background:
+          radial-gradient(18rem 11rem at 22% -10%, rgb(var(--kc) / 0.16), transparent 70%),
+          linear-gradient(180deg, rgb(255 255 255 / 0.035), transparent 55%),
+          var(--panel);
+        transform: perspective(900px);
+        transform-style: preserve-3d;
+        transition:
+          transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+          border-color 0.25s ease,
+          box-shadow 0.3s ease;
       }
       .catalog details:hover,
+      .catalog details:focus-within {
+        border-color: rgb(var(--kc) / 0.6);
+        box-shadow:
+          0 0 0 1px rgb(var(--kc) / 0.18) inset,
+          0 22px 50px -26px rgb(var(--kc) / 0.75),
+          0 30px 60px -34px #000;
+      }
       .catalog details[open] {
-        background: linear-gradient(90deg, color-mix(in srgb, var(--violet) 8%, transparent), transparent 75%);
+        grid-column: 1 / -1;
+        border-color: rgb(var(--kc) / 0.55);
+        transform: none !important;
       }
       .catalog summary {
         cursor: pointer;
         list-style: none;
         display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 0.2rem 1rem;
-        padding: 1rem 2.4rem 1rem 0.4rem;
-        position: relative;
+        grid-template-columns: auto 1fr;
+        grid-template-areas: "ico name" "desc desc" "meta meta";
+        align-items: center;
+        gap: 0.9rem 0.9rem;
+        padding: 1.2rem 2.6rem 1.15rem 1.2rem;
+        border-radius: inherit;
+        transform-style: preserve-3d;
       }
-      @media (min-width: 52rem) {
-        .catalog summary {
-          grid-template-columns: 16rem 1fr 7.5rem;
-          align-items: baseline;
-        }
+      .catalog details:not([open]) summary {
+        height: 100%;
+      }
+      .catalog summary:focus-visible {
+        outline: 2px solid rgb(var(--kc));
+        outline-offset: 2px;
+      }
+      .catalog summary::after {
+        top: 1.05rem;
+        right: 1rem;
+      }
+      .catalog .kmedal {
+        grid-area: ico;
+        position: relative;
+        width: 3.75rem;
+        height: 3.75rem;
+        transform: translateZ(34px);
+        transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .catalog .kmedal::before {
+        content: "";
+        position: absolute;
+        inset: -30%;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, rgb(var(--kc) / 0.5), transparent);
+        opacity: 0.55;
+        transition: opacity 0.3s ease;
+      }
+      .catalog .kmedal img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.55)) drop-shadow(0 0 10px rgb(var(--kc) / 0.45));
+      }
+      .catalog details:hover .kmedal {
+        transform: translateZ(48px) rotateY(-14deg) scale(1.06);
+      }
+      .catalog details:hover .kmedal::before {
+        opacity: 1;
       }
       .catalog .kname {
-        font: 600 1.2rem/1.3 var(--sans);
+        grid-area: name;
+        font: 600 1.15rem/1.25 var(--sans);
         letter-spacing: -0.02em;
+        transform: translateZ(20px);
+        min-width: 0;
       }
       .catalog .kname code {
         display: block;
-        font: 0.8rem var(--mono);
+        font: 0.78rem var(--mono);
         letter-spacing: 0;
-        color: var(--dim);
-        margin-top: 0.15rem;
+        color: rgb(var(--kc));
+        margin-top: 0.2rem;
+        opacity: 0.9;
+      }
+      :root[data-theme="light"] .catalog .kname code {
+        color: color-mix(in srgb, rgb(var(--kc)) 50%, #18181b);
+        opacity: 1;
       }
       .catalog .kdesc {
+        grid-area: desc;
+        align-self: start;
         color: var(--dim);
-        font-size: 0.98rem;
-        grid-column: 1 / -1;
+        font-size: 0.93rem;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        line-clamp: 3;
+        overflow: hidden;
+        transform: translateZ(10px);
+      }
+      .catalog details[open] .kdesc {
+        -webkit-line-clamp: unset;
+        line-clamp: none;
+        overflow: visible;
+      }
+      .catalog .kmeta {
+        grid-area: meta;
+        align-self: end;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.4rem 0.8rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid var(--line);
+        font: 0.78rem var(--mono);
+        color: var(--dim);
+      }
+      .catalog .kmeta .mat {
+        margin-right: auto;
       }
       @media (min-width: 52rem) {
-        .catalog .kdesc {
-          grid-column: auto;
+        .catalog details[open] summary {
+          grid-template-columns: auto 16rem 1fr;
+          grid-template-areas: "ico name desc" "meta meta meta";
+          align-items: start;
         }
+        .catalog details[open] .kmedal {
+          width: 4.5rem;
+          height: 4.5rem;
+        }
+      }
+      .catalog .kbody {
+        padding: 0.3rem 1.2rem 1.4rem;
       }
       .mat {
         justify-self: start;
@@ -1413,11 +1542,6 @@
         border-radius: 99px;
         border: 1px solid currentColor;
         white-space: nowrap;
-      }
-      @media (min-width: 52rem) {
-        .catalog .mat {
-          justify-self: end;
-        }
       }
       .mat[data-m="stable"] {
         color: var(--ok);
@@ -2056,6 +2180,9 @@ pnpm test</code></pre>
           }
         }
         group($("#cats"), CATS, "cat");
+        const CAT_TINT = { core: "verde", business: "dorado", content: "morado", gaming: "rojo", documents: "cian" };
+        for (const b of $$("#cats button"))
+          if (CAT_TINT[b.dataset.v]) b.style.setProperty("--cc", KON_COLORS[CAT_TINT[b.dataset.v]].rgb.join(" "));
         group($("#mats"), MATS, "mat");
         q.addEventListener("input", (e) => {
           state.q = e.target.value.trim().toLowerCase();
@@ -2078,20 +2205,21 @@ pnpm test</code></pre>
           const cmdId = "cmd-" + k.id;
           const copyBtn = el("button", { className: "btn", type: "button" }, el("span", { textContent: "Copy" }));
           copyBtn.dataset.copyFrom = cmdId;
-          return el(
+          const card = el(
             "details",
             { id: "k-" + k.id },
             el(
               "summary",
               {},
+              el("span", { className: "kmedal" }, el("img", { src: konTheme(k.id).src, alt: "", width: 60, height: 60, loading: "lazy", decoding: "async" })),
+              el("span", { className: "kname" }, k.name, el("code", { textContent: "kon-" + k.id })),
+              el("span", { className: "kdesc", textContent: k.description }),
               el(
                 "span",
-                { className: "kname kname-wrap" },
-                el("img", { className: "kon-ico", src: konTheme(k.id).src, alt: "", width: 32, height: 32, loading: "lazy" }),
-                el("span", {}, k.name, el("code", { textContent: "kon-" + k.id }))
-              ),
-              el("span", { className: "kdesc", textContent: k.description }),
-              mat(k.maturity)
+                { className: "kmeta" },
+                mat(k.maturity),
+                el("span", { textContent: plural(k.tables, "table", "tables") + (k.views ? " · " + plural(k.views, "view", "views") : "") })
+              )
             ),
             el(
               "div",
@@ -2122,6 +2250,23 @@ pnpm test</code></pre>
               )
             )
           );
+          card.style.setProperty("--kc", konTheme(k.id).rgb.join(" "));
+          return card;
+        }
+        /* the cards lean toward the pointer, with the medallion floating above them */
+        if (!still.matches && matchMedia("(pointer: fine)").matches) {
+          list.addEventListener("pointermove", (ev) => {
+            const card = ev.target.closest("details");
+            if (!card || card.open) return;
+            const r = card.getBoundingClientRect();
+            const dx = clamp((ev.clientX - r.left) / r.width, 0, 1) - 0.5;
+            const dy = clamp((ev.clientY - r.top) / r.height, 0, 1) - 0.5;
+            card.style.transform = `perspective(900px) rotateX(${(-dy * 9).toFixed(2)}deg) rotateY(${(dx * 11).toFixed(2)}deg) translateZ(6px)`;
+          });
+          list.addEventListener("pointerout", (ev) => {
+            const card = ev.target.closest("details");
+            if (card && !card.contains(ev.relatedTarget)) card.style.transform = "";
+          });
         }
         function render() {
           const shown = KONS.filter(
