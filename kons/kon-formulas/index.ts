@@ -41,6 +41,16 @@ const StatSchema = z.object({
   formula: z.string().min(1).max(2000),
 });
 
+/**
+ * The catalog game something belongs to: its slug in kon-games (`/api/games`). Every gaming kon
+ * takes it as `game`, stores it in a `game` column and filters its list with `?game=`.
+ */
+const GameSlug = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "game: a game slug (lowercase letters, numbers and hyphens)");
+
 const UpsertSystem = z.object({
   slug: z
     .string()
@@ -49,6 +59,9 @@ const UpsertSystem = z.object({
     .regex(/^[a-z0-9-]+$/),
   name: z.string().min(1).max(120),
   stats: z.array(StatSchema).min(1).max(300),
+  game: GameSlug.nullable()
+    .optional()
+    .describe("Slug of the catalog game it belongs to; null clears it, leaving it out keeps it"),
 });
 
 /** Maximum inputs per evaluation: a system declares at most 300 stats. */
@@ -71,7 +84,13 @@ const EvaluateRequest = z.object({
 
 const StatOut = z.object({ name: z.string(), formula: z.string() }).passthrough();
 const SystemOut = z
-  .object({ id: z.string(), slug: z.string(), name: z.string(), stats: z.array(StatOut) })
+  .object({
+    id: z.string(),
+    slug: z.string(),
+    name: z.string(),
+    game: z.string().nullable().optional(),
+    stats: z.array(StatOut),
+  })
   .passthrough();
 
 const ParamSlug = z.object({ slug: z.string().describe("Formula system slug") });
@@ -113,12 +132,14 @@ export function formulasOperations(ctx: KonContext): AnyOperation[] {
       route: "/systems",
       summary: "List formula systems",
       description:
-        "Every formula system (a game's derived-stat formulas: how damage, defense… are computed) by name, with its stats. Public.",
+        "Every formula system (a game's derived-stat formulas: how damage, defense… are computed) by name, with its stats. `game` keeps only the systems of that catalog game (its slug). Public.",
       access: "public",
       unpaginated: "One formula system per game a site covers: a short list read whole.",
+      input: { query: z.object({ game: GameSlug.optional().describe("Only this game's systems") }) },
       output: { schema: z.object({ data: z.array(SystemOut) }) },
-      handle: async (_input, { c }) => {
-        const rows = await repo(formulaSystems, { db }).orderBy("name").all();
+      handle: async ({ query }, { c }) => {
+        const all = repo(formulaSystems, { db });
+        const rows = await (query.game ? all.filter({ game: query.game }) : all).orderBy("name").all();
         return c.json({ data: rows });
       },
     }),
@@ -205,7 +226,13 @@ export function formulasOperations(ctx: KonContext): AnyOperation[] {
           ? (
               await repo(formulaSystems, { db })
                 .filter({ id: existing.id })
-                .update({ name: data.name, stats: data.stats, updatedAt: new Date() })
+                .update({
+                  name: data.name,
+                  stats: data.stats,
+                  // Left out, the game stays as it was; null clears it.
+                  ...(data.game !== undefined ? { game: data.game } : {}),
+                  updatedAt: new Date(),
+                })
             )[0]
           : await repo(formulaSystems, { db }).create(data);
 

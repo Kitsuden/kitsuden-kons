@@ -130,6 +130,16 @@ const EditBuild = z.object({
  * ("`slug` and `definition` are required") AFTER checking permission. If
  * the SDK validated them, an account without a role would get a 422 instead of its 403.
  */
+/**
+ * The catalog game something belongs to: its slug in kon-games (`/api/games`). Every gaming kon
+ * takes it as `game`, stores it in a `game` column and filters its list with `?game=`.
+ */
+const GameSlug = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "game: a game slug (lowercase letters, numbers and hyphens)");
+
 const BuilderDefinitionValue = z
   .record(z.string(), z.unknown())
   .describe(
@@ -143,6 +153,9 @@ const PublishDefinition = z
   .object({
     slug: z.string().optional().describe("Required. The builder's slug (upsert key)"),
     definition: BuilderDefinitionValue.optional().describe("Required. Compiled before saving"),
+    game: GameSlug.nullable()
+      .optional()
+      .describe("Slug of the catalog game it belongs to; null clears it, leaving it out keeps it"),
     published: z
       .string()
       .optional()
@@ -282,24 +295,34 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
       id: "list-definitions",
       summary: "List character builder definitions",
       description:
-        "The builders that can be embedded in a page, by name: id, slug, name and published state. The public sees only published ones; the editorial team (or an agent with the kon's scope) also sees drafts. Use the slug with get-definition.",
+        "The builders that can be embedded in a page, by name: id, slug, name, published state and the catalog game it belongs to (`game`, a slug, or null). `game` keeps only that game's builders. The public sees only published ones; the editorial team (or an agent with the kon's scope) also sees drafts. Use the slug with get-definition.",
       access: "optional",
       unpaginated:
         "The builders the editorial team defines, a few per site, listed whole for a selector.",
+      input: { query: z.object({ game: GameSlug.optional().describe("Only this game's builders") }) },
       output: {
         schema: z.object({
           data: z.array(
-            z.object({ id: z.string(), slug: z.string(), name: z.string(), published: z.string() })
+            z.object({
+              id: z.string(),
+              slug: z.string(),
+              name: z.string(),
+              published: z.string(),
+              game: z.string().nullable(),
+            })
           ),
         }),
       },
     },
-    async (c) => {
+    async (c, input) => {
       const user = (c.get("user") ?? null) as AuthzUser | null;
       const staff = isBuilderTeam(user);
 
       const rows = await repo(builderDefinitions, { db })
-        .filter(staff ? {} : { published: "published" })
+        .filter({
+          ...(staff ? {} : { published: "published" }),
+          ...(input.query.game ? { game: input.query.game } : {}),
+        })
         .orderBy("name")
         .all();
 
@@ -311,6 +334,7 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
           slug: f.slug,
           name: f.name,
           published: f.published,
+          game: f.game ?? null,
         })),
       });
     }
@@ -447,9 +471,15 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
         definition?: BuilderDefinition;
         /** `draft` | `published`. See the note below. */
         published?: string;
+        game?: unknown;
       } | null;
       if (!body?.slug || !body.definition) {
         return c.json({ error: "`slug` and `definition` are required" }, 400);
+      }
+      // Left out, the game stays as it was; null clears it; anything else must be a game slug.
+      const game = GameSlug.nullable().optional().safeParse(body.game);
+      if (!game.success) {
+        return c.json({ error: "`game` must be a game slug", issues: game.error.issues }, 400);
       }
 
       try {
@@ -486,6 +516,7 @@ export function builderOperations(ctx: KonContext): AnyOperation[] {
         name: body.definition.name,
         definition: body.definition,
         published: status,
+        ...(game.data !== undefined ? { game: game.data } : {}),
       };
       const row = existing
         ? (

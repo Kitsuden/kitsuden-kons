@@ -32,12 +32,18 @@ export const wikis = pgTable(
     slug: text("slug").notNull(),
     title: text("title").notNull(),
     description: text("description").default("").notNull(),
-    /** Game it belongs to, if any. No FK: `games` belongs to kon-games. */
+    /** Game it belongs to, if any: the catalog's uuid. No FK: `games` belongs to kon-games. */
     gameId: uuid("game_id"),
+    /** The same game by its slug in kon-games. The same column in every gaming kon. */
+    game: text("game"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("wikis_slug_idx").on(t.slug), index("wikis_game_idx").on(t.gameId)]
+  (t) => [
+    uniqueIndex("wikis_slug_idx").on(t.slug),
+    index("wikis_game_idx").on(t.gameId),
+    index("wikis_game_slug_idx").on(t.game),
+  ]
 );
 
 export const wikiPages = pgTable(

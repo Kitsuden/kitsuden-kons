@@ -7,10 +7,12 @@ Repository-wide rules: [../../AGENTS.md](../../AGENTS.md).
 
 Game maps for a viewer: a map (image, aspect ratio, layers), its marker categories and its markers, with
 coordinates normalized to `[0..1]`. Reading is public; writing is for site staff or an agent with the
-scope. Three SDK operations, mounted at `/api/maps`.
+scope. Four SDK operations, mounted at `/api/maps`.
 
 ## Calling it
 
+- List: no scope needed. `GET /api/maps/maps`, MCP tool `maps__list-maps` (optional `game`, a catalog
+  game slug). It returns `{ data: [{ id, slug, name, game }] }`.
 - Read: no scope needed. `GET /api/maps/maps/:slug`, MCP tool `maps__get-map` (argument `slug`, optional
   `cluster`). It returns `{ data, categories, markers, clusters }`; with `cluster` set, `markers` is empty
   and `clusters` holds `{ x, y, markers }` groups.
@@ -52,7 +54,7 @@ scope. Three SDK operations, mounted at `/api/maps`.
 - Clustering is O(n) and deterministic, and the grid is at least 1/4096
   (`tests/unit/sec-data-wiki-maps-formulas.test.ts`, `tests/unit/wiki-maps-engine.test.ts`).
 - A malformed definition is a 400 or 422, never a 500 (`tests/unit/sec-data-wiki-maps-formulas.test.ts`).
-- Operation ids (`get-map`, `save-map`, `import-markers`) are contract: they name the MCP tools and fine
+- Operation ids (`list-maps`, `get-map`, `save-map`, `import-markers`) are contract: they name the MCP tools and fine
   scopes. Do not rename them.
 
 ## Changing it

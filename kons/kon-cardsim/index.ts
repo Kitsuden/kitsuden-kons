@@ -320,9 +320,24 @@ const JoinQueue = z.object({
  * 400s when `slug` or `definition` is missing; this fixes the TYPES (a
  * `definition: []` or a `slug: {}` used to reach the engine and come out as a 500).
  */
+/**
+ * The catalog game something belongs to: its slug in kon-games (`/api/games`). Every gaming kon
+ * takes it as `game`, stores it in a `game` column and filters its list with `?game=`.
+ */
+const GameSlug = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "game: a game slug (lowercase letters, numbers and hyphens)");
+
 const PublishGame = z
   .object({
     slug: z.string().optional(),
+    game: GameSlug.nullable()
+      .optional()
+      .describe(
+        "Slug of the CATALOG game it belongs to (kon-games); null clears it, leaving it out keeps it"
+      ),
     definition: z
       .record(z.string(), z.unknown())
       .optional()
@@ -546,14 +561,22 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       id: "list-games",
       summary: "List published games",
       description:
-        "Every published card game (slug, name, full definition), by name. Use the slug with get-game, search-cards or get-ranking. Public.",
+        "Every published card game (slug, name, full definition, and `game`: the slug of the catalog game it belongs to, or null), by name. `game` keeps only the simulator games of that catalog game. Use the slug with get-game, search-cards or get-ranking. Public.",
       access: "optional",
       unpaginated:
         "The card games an admin published (`cardsim:manageCatalog`): a short curated catalogue.",
+      input: {
+        query: z.object({
+          game: GameSlug.optional().describe("Only the simulator games of this catalog game"),
+        }),
+      },
       output: { schema: withData(z.array(Row)) },
     },
-    async (c) => {
-      const rows = await games().filter({ published: "published" }).orderBy("name").all();
+    async (c, input) => {
+      const rows = await games()
+        .filter({ published: "published", ...(input.query.game ? { game: input.query.game } : {}) })
+        .orderBy("name")
+        .all();
       return c.json({ data: rows });
     }
   );
@@ -849,7 +872,13 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
         definition?: GameDefinition;
         /** Alternative to `definition`: the id of a kon preset. */
         preset?: string;
+        game?: unknown;
       } | null;
+      // Left out, the catalog game stays as it was; null clears it; anything else must be a slug.
+      const game = GameSlug.nullable().optional().safeParse(body?.game);
+      if (!game.success) {
+        return c.json({ error: "`game` must be a game slug", issues: game.error.issues }, 400);
+      }
 
       // Only OWN presets: `PRESETS["__proto__"]` is `Object.prototype`,
       // which is not a game (and used to reach the validator as if it were).
@@ -882,7 +911,13 @@ export function cardsimOperations(ctx: KonContext): AnyOperation[] {
       if (errors.length) return c.json({ error: "Invalid definition", issues: errors }, 422);
 
       const existing = await games().filter({ slug }).first();
-      const values = { slug, name: definition.name, definition, published: "published" };
+      const values = {
+        slug,
+        name: definition.name,
+        definition,
+        published: "published",
+        ...(game.data !== undefined ? { game: game.data } : {}),
+      };
       const row = existing
         ? (
             await games()

@@ -6,7 +6,7 @@ them with their own inputs.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.3 | `/api/formulas` | — (core: `auth`) |
+| beta | gaming | 1.1.0 | `/api/formulas` | — (core: `auth`) |
 
 ## Install
 
@@ -39,6 +39,17 @@ Rules the engine applies:
 - A variable without a value is an error, not a silent zero. A result that is not a finite number
   is an error.
 - `sqrt` of a negative number gives 0; `exp` clamps its argument to ±50; division by zero gives 0.
+
+## The game it belongs to
+
+A formula system can say which game of the catalog it belongs to, in `game`: the game's slug in kon-games
+(`/api/games`), lowercase letters, numbers and single hyphens (`elden-ring`). Every gaming kon uses
+this same field and the same value (kon-maps, kon-tierlist, kon-character-builder, kon-formulas,
+kon-cardsim, kon-wiki, kon-autobattler), so a site asks each one for a game's things the same way.
+
+- **List by game:** `GET /api/formulas/systems?game=elden-ring`.
+- **Set it:** `game` in the body of `PUT /api/formulas/systems`. Left out, the game stays as it was; `null` clears it.
+- It is optional, and nothing checks that the game exists: kon-games does not have to be installed.
 
 ## HTTP API
 

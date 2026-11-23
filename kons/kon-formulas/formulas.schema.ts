@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import { pgTable, text, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 import type { StatDefinition } from "./formula.engine.js";
 
@@ -18,11 +18,16 @@ export const formulaSystems = pgTable(
     id: text("id").primaryKey().$defaultFn(createId),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
+    /** The catalog game it belongs to: its slug in kon-games. The same column in every gaming kon. */
+    game: text("game"),
     stats: jsonb("stats").$type<StatDefinition[]>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("formula_systems_slug_idx").on(t.slug)]
+  (t) => [
+    uniqueIndex("formula_systems_slug_idx").on(t.slug),
+    index("formula_systems_game_idx").on(t.game),
+  ]
 );
 
 export type FormulaSystem = typeof formulaSystems.$inferSelect;

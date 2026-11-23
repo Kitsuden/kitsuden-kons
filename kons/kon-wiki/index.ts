@@ -65,14 +65,35 @@ const EditPage = z.object({
   summary: z.string().max(200).optional(),
 });
 
-const NewWiki = z.object({
-  title: z.string().trim().min(1).max(200),
-  /** If missing, it is derived from the title with the same rule as pages */
-  slug: z.string().trim().max(63).optional(),
-  description: z.string().max(2000).optional(),
-  /** Required: the wiki is published at `/<game>/wiki/` */
-  gameId: z.guid({ message: "Choose the game: the wiki is published inside it." }),
-});
+/**
+ * The catalog game something belongs to: its slug in kon-games (`/api/games`). Every gaming kon
+ * takes it as `game`, stores it in a `game` column and filters its list with `?game=`.
+ */
+const GameSlug = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "game: a game slug (lowercase letters, numbers and hyphens)");
+
+/** A uuid, the way the catalog numbers its games (`gameId`). */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const NewWiki = z
+  .object({
+    title: z.string().trim().min(1).max(200),
+    /** If missing, it is derived from the title with the same rule as pages */
+    slug: z.string().trim().max(63).optional(),
+    description: z.string().max(2000).optional(),
+    /** The game by its catalog uuid (what the panel's game picker sends). */
+    gameId: z.guid({ message: "Choose the game: the wiki is published inside it." }).optional(),
+    /** The game by its slug: the field every gaming kon shares. */
+    game: GameSlug.optional().describe("Slug of the catalog game the wiki belongs to"),
+  })
+  // The wiki is published at `/<game>/wiki/`: it needs its game, named either way.
+  .refine((w) => w.gameId !== undefined || w.game !== undefined, {
+    message: "Choose the game: the wiki is published inside it.",
+    path: ["gameId"],
+  });
 
 /** `[[…]]` links indexed per page (backlinks and requested pages). */
 export const MAX_LINKS_PER_PAGE = 1000;
@@ -134,7 +155,8 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
    */
   async function reasonNotToCreate(
     slug: string,
-    gameId: string | null
+    gameId: string | null,
+    game: string | null = null
   ): Promise<{ reason: string; field: string; status: 400 | 409 } | null> {
     const invalid = invalidWikiSlugReason(slug);
     if (invalid) return { reason: invalid, field: "slug", status: 400 };
@@ -148,25 +170,58 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
         status: 409,
       };
     }
+    if (game && (await repo(wikis, { db }).filter({ game }).exists())) {
+      return {
+        reason: "That game already has its wiki: each game has one, at /<game>/wiki/.",
+        field: "game",
+        status: 409,
+      };
+    }
     return null;
+  }
+
+  /**
+   * The slug of a catalog game, from its uuid. kon-games may not be installed (a kon does not
+   * import another): then there is no `games` table and the answer is null.
+   */
+  async function slugOfGame(gameId: string): Promise<string | null> {
+    type Rows = { rows?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>;
+    const rowsOf = (r: Rows) => (Array.isArray(r) ? r : (r.rows ?? []));
+    try {
+      // Asked first, and never by querying a table that may not exist: a failed statement would
+      // abort the request's transaction, and the wiki could not be created after it.
+      const there = rowsOf(
+        (await db.execute(sql`SELECT to_regclass('games') IS NOT NULL AS ok`)) as unknown as Rows
+      );
+      if (there[0]?.ok !== true) return null;
+      const rows = rowsOf(
+        (await db.execute(
+          sql`SELECT slug FROM games WHERE id = ${gameId}::uuid LIMIT 1`
+        )) as unknown as Rows
+      );
+      const slug = rows[0]?.slug;
+      return typeof slug === "string" && GameSlug.safeParse(slug).success ? slug : null;
+    } catch {
+      return null;
+    }
   }
 
   // ════════════════════════════════════════════════════════════════════════
   // WIKIS
   // ════════════════════════════════════════════════════════════════════════
 
-  /** All wikis, or those of one game (`?game=<uuid>`). */
+  /** All wikis, or those of one game (`?game=<slug>`, or its catalog uuid as before). */
   app.get(
     "/wikis",
     {
       id: "list-wikis",
       summary: "List wikis",
       description:
-        "Every wiki (one per game, read on the public site at /<game>/wiki/), most recently updated first, or only the wiki of `game` (a game uuid). Without `limit`, all of them (as always); with `limit` and `offset`, one page, and `hasMore` says whether there are more. `total` counts every matching wiki. Public.",
+        "Every wiki (one per game, read on the public site at /<game>/wiki/), most recently updated first, or only the wiki of `game`: the game's slug (the field every gaming kon shares) or its catalog uuid. Each wiki carries both, `game` and `gameId`. Without `limit`, all of them (as always); with `limit` and `offset`, one page, and `hasMore` says whether there are more. `total` counts every matching wiki. Public.",
       access: "public",
       input: {
         query: query({
-          game: text("Only the wiki of this game (uuid)"),
+          game: text("Only the wiki of this game (its slug, or its uuid)"),
           limit: z.coerce
             .number()
             .int()
@@ -193,7 +248,8 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
     async (c, input) => {
       const game = c.req.query("game");
       const { limit, offset } = input.query as { limit?: number; offset: number };
-      const where = game ? eq(wikis.gameId, game) : undefined;
+      // A uuid is the catalog's id (what the panel sends); anything else is the game's slug.
+      const where = game ? (UUID.test(game) ? eq(wikis.gameId, game) : eq(wikis.game, game)) : undefined;
 
       // The id breaks ties between wikis updated in the same instant.
       const base = db.select().from(wikis).where(where).orderBy(desc(wikis.updatedAt), desc(wikis.id));
@@ -232,7 +288,7 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
         query: query({
           slug: text("Wanted slug"),
           title: text("Wiki title (the slug is derived from it when `slug` is absent)"),
-          game: text("Game uuid"),
+          game: text("The game: its slug, or its catalog uuid"),
         }),
       },
       output: {
@@ -249,7 +305,8 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
       const slug = request ? request.toLowerCase() : slugify(title);
       const game = c.req.query("game")?.trim() || null;
 
-      const problem = await reasonNotToCreate(slug, game);
+      const byId = game && UUID.test(game) ? game : null;
+      const problem = await reasonNotToCreate(slug, byId, byId ? null : game);
       return c.json({ slug, valid: problem === null, reason: problem?.reason ?? null });
     }
   );
@@ -261,7 +318,7 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
       id: "create-wiki",
       summary: "Create a game's wiki",
       description:
-        "Creates the wiki of a game (`gameId`, required: it is published at /<game>/wiki/). The slug is `slug` or derived from `title`. 409 if the slug is taken or the game already has a wiki, 400 if the slug is invalid. Admin only (or an agent with wiki-space:create). Check first with suggest-wiki.",
+        "Creates the wiki of a game, named by `game` (its slug in the catalog, the field every gaming kon shares) or by `gameId` (its catalog uuid); one of the two is required: it is published at /<game>/wiki/. With only `gameId`, `game` is filled from the catalog when kon-games is installed. The slug is `slug` or derived from `title`. 409 if the slug is taken or the game already has a wiki, 400 if the slug is invalid. Admin only (or an agent with wiki-space:create). Check first with suggest-wiki.",
       access: "session",
       permission: onTheWikis,
       input: { body: NewWiki },
@@ -276,14 +333,17 @@ export function wikiOperations(ctx: KonContext): AnyOperation[] {
       const data = input.body as z.infer<typeof NewWiki>;
       const slug = data.slug ? data.slug.toLowerCase() : slugify(data.title);
 
-      const problem = await reasonNotToCreate(slug, data.gameId);
+      // Both names of the same game are stored: the slug is looked up when only the uuid came.
+      const game = data.game ?? (data.gameId ? await slugOfGame(data.gameId) : null);
+      const problem = await reasonNotToCreate(slug, data.gameId ?? null, game);
       if (problem) return c.json({ error: problem.reason, field: problem.field }, problem.status);
 
       const createdOne = await repo(wikis, { db }).create({
         slug,
         title: data.title,
         description: data.description ?? "",
-        gameId: data.gameId,
+        gameId: data.gameId ?? null,
+        game,
       });
 
       return c.json({ data: createdOne }, 201);

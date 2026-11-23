@@ -116,8 +116,8 @@
     --ta-radius-sm: 0.375rem;
     --ta-radius: 0.5rem;
     --ta-radius-lg: 0.75rem;
-    --ta-font-sans: var(--kitsuden-font-sans, "Inter", system-ui, -apple-system, sans-serif);
-    --ta-font-mono: var(--kitsuden-font-mono, "JetBrains Mono", "Fira Code", ui-monospace, monospace);
+    --ta-font-sans: var(--kitsuden-font-sans, "Geist Variable", "Geist", system-ui, -apple-system, sans-serif);
+    --ta-font-mono: var(--kitsuden-font-mono, "Geist Mono Variable", "Geist Mono", ui-monospace, monospace);
     /* The admin defines no chart series: tallao's dark-background ones are used. */
     --ta-series-1: 57 135 229;
     --ta-series-2: 217 89 38;
