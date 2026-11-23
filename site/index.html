@@ -24,7 +24,8 @@
     <link rel="icon" href="favicon-48.png?v=kon2" type="image/png" sizes="48x48" />
     <link rel="icon" href="icon-192.png?v=kon2" type="image/png" sizes="192x192" />
     <link rel="apple-touch-icon" href="apple-touch-icon.png?v=kon2" />
-    <link rel="preload" href="fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/geist.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin />
     <script>
       // Runs before paint: the saved theme, and whether this visit gets the moving page
       // (class "motion": pinned chapters and a live scene) or the calm one.
@@ -49,16 +50,24 @@
       })();
     </script>
     <style>
+      /* fonts.md: the catalog is cards and data. Geist in the headlines, Inter in the
+         card text, Geist Mono for code. OFL-1.1, licenses in fonts/. */
       @font-face {
-        font-family: "Space Grotesk";
-        src: url("fonts/space-grotesk.woff2") format("woff2");
-        font-weight: 300 700;
+        font-family: "Geist";
+        src: url("fonts/geist.woff2") format("woff2");
+        font-weight: 100 900;
         font-display: swap;
       }
       @font-face {
-        font-family: "JetBrains Mono";
-        src: url("fonts/jetbrains-mono.woff2") format("woff2");
-        font-weight: 100 800;
+        font-family: "Inter";
+        src: url("fonts/inter.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "Geist Mono";
+        src: url("fonts/geist-mono.woff2") format("woff2");
+        font-weight: 100 900;
         font-display: swap;
       }
       :root {
@@ -78,8 +87,9 @@
         --glow-a: rgb(168 85 247 / 0.2);
         --glow-b: rgb(255 45 111 / 0.12);
         --grid: rgb(255 255 255 / 0.035);
-        --sans: "Space Grotesk", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
-        --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+        --display: "Geist", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+        --sans: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+        --mono: "Geist Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
         --wrap: 78rem;
         --gutter: clamp(1rem, 4vw, 3rem);
       }
@@ -143,7 +153,7 @@
       h1,
       h2,
       h3 {
-        font-family: var(--sans);
+        font-family: var(--display);
         font-weight: 700;
         letter-spacing: -0.04em;
         line-height: 1;
@@ -249,7 +259,7 @@
         display: inline-flex;
         align-items: center;
         gap: 0.6rem;
-        font: 700 1.2rem/1 var(--sans);
+        font: 700 1.2rem/1 var(--display);
         letter-spacing: -0.02em;
         text-decoration: none;
         margin-right: auto;
@@ -420,7 +430,7 @@
         }
       }
       #intro .n {
-        font: 700 clamp(6rem, 26vw, 20rem) / 0.8 var(--sans);
+        font: 700 clamp(6rem, 26vw, 20rem) / 0.8 var(--display);
         letter-spacing: -0.06em;
         font-variant-numeric: tabular-nums;
       }
@@ -1507,7 +1517,7 @@
       }
       .catalog .kname {
         grid-area: name;
-        font: 600 1.15rem/1.25 var(--sans);
+        font: 600 1.15rem/1.25 var(--display);
         letter-spacing: -0.02em;
         transform: translateZ(20px);
         min-width: 0;
@@ -3461,7 +3471,7 @@ pnpm test</code></pre>
               }
               if (a < 0.03) continue;
               const strong = docked || isHover;
-              ctx.font = (strong ? "700 " : "500 ") + (strong ? fs + 2 : fs) + 'px "JetBrains Mono", ui-monospace, monospace';
+              ctx.font = (strong ? "700 " : "500 ") + (strong ? fs + 2 : fs) + 'px "Geist Mono", ui-monospace, monospace';
               const tw = ctx.measureText(n.k.id).width;
               /* outward from the core, unless that runs off the canvas */
               let right = n.x >= cx;
@@ -3510,10 +3520,10 @@ pnpm test</code></pre>
                 ctx.textAlign = ex > 0.3 ? "left" : ex < -0.3 ? "right" : "center";
                 const lx = x2 + ex * 6, ly = y2 + ey * 14 - (ey < -0.5 ? 6 : 0);
                 ctx.globalAlpha = f;
-                ctx.font = '700 ' + (wide ? 11 : 9) + 'px "JetBrains Mono", ui-monospace, monospace';
+                ctx.font = '700 ' + (wide ? 11 : 9) + 'px "Geist Mono", ui-monospace, monospace';
                 ctx.fillStyle = "#c084fc";
                 ctx.fillText(texts[j][0], lx, ly - (wide ? 8 : 6));
-                ctx.font = '500 ' + (wide ? 13 : 10) + 'px "JetBrains Mono", ui-monospace, monospace';
+                ctx.font = '500 ' + (wide ? 13 : 10) + 'px "Geist Mono", ui-monospace, monospace';
                 ctx.fillStyle = "#fafafa";
                 ctx.fillText(texts[j][1], lx, ly + (wide ? 8 : 6));
               }
