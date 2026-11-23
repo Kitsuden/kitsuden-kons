@@ -26,6 +26,16 @@ checkout linked at `./.kitsuden` (`node scripts/link-core.mjs`, `KITSUDEN_DIR=<p
   or let the error go up to the kon's `onError`.
 - Run `node scripts/link-core.mjs` bare to "validate" the core link: it re-points `.kitsuden` at
   `../kitsuden`. Use `node scripts/link-core.mjs --check`, which changes nothing.
+- Remove a worktree, or delete its folder, while `.kitsuden` is still in it. On Windows
+  `.kitsuden` is a junction, and `git worktree remove`, `rd /s` and other recursive deletes go
+  through it and empty the core checkout it points to, which other worktrees share. Unlink first
+  with `cmd /c rmdir .kitsuden` (removes only the link), check that `.kitsuden` is gone, then remove
+  the worktree.
+- Run `git checkout`, `git switch`, `git reset` or `git clean` inside a core checkout that kon
+  worktrees share (such as `../kitsuden-core-main`). Every worktree linked to it changes or
+  breaks at once. For a different core revision, make your own checkout
+  (`git worktree add --detach ../kitsuden-core-<name> <rev>`) and link to it with
+  `KITSUDEN_DIR=../kitsuden-core-<name> node scripts/link-core.mjs`.
 - Edit `kons/kon-<id>/admin-src/tallao/` by hand. It is a copy of the tallao UI kit:
   `pnpm sync:tallao` writes it.
 - Import another kon by relative path. Depend on it by package name and list it in `kon.json` →
