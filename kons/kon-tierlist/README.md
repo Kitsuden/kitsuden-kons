@@ -6,7 +6,7 @@ a template and share with a code. For game sites that rank characters, decks or 
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.1.0 | `/api/tierlist` | — (core: `auth`) |
+| beta | gaming | 1.2.0 | `/api/tierlist` | — (core: `auth`) |
 
 ## Install
 
@@ -38,6 +38,18 @@ travels, never the items. Opening an old code drops items or tiers the template 
 The admin panel gets two views: **Tier list editor** (a custom element built from `admin-src/`,
 shipped as `admin/tierlist-editor.js`) and **All tier lists**, a grid over `tier_lists`.
 
+## The game it belongs to
+
+A template can say which game of the catalog it belongs to, in `game`: the game's slug in kon-games
+(`/api/games`), lowercase letters, numbers and single hyphens (`elden-ring`). Every gaming kon uses
+this same field and the same value (kon-maps, kon-tierlist, kon-character-builder, kon-formulas,
+kon-cardsim, kon-wiki, kon-autobattler), so a site asks each one for a game's things the same way.
+
+- **List by game:** `GET /api/tierlist/templates?game=elden-ring`.
+- **Set it:** `game` in the body of `PUT /api/tierlist/templates`. Left out, the game stays as it was; `null` clears it.
+- It is optional, and nothing checks that the game exists: kon-games does not have to be installed.
+- A personal list forked from a template copies the template's game.
+
 ## HTTP API
 
 All paths are under `/api/tierlist`.
@@ -46,7 +58,7 @@ All paths are under `/api/tierlist`.
 
 | Route | Operation | Who | What it does |
 | --- | --- | --- | --- |
-| `GET /api/tierlist/templates` | `list-templates` | anyone | Every template, most recently updated first: id, slug, title, version. Optional `limit` (1-500) and `offset` give one page; `hasMore` says whether there are more (always `false` without `limit`, which still returns every template). |
+| `GET /api/tierlist/templates` | `list-templates` | anyone | Every template, most recently updated first: id, slug, title, version, game. `?game=<slug>` keeps one game's. Optional `limit` (1-500) and `offset` give one page; `hasMore` says whether there are more (always `false` without `limit`, which still returns every template). |
 | `GET /api/tierlist/templates/:slug` | `get-template` | anyone | The template plus `view`: items grouped by tier, and the unranked pool. |
 | `PUT /api/tierlist/templates` | `publish-template` | admin, editor, or agent with `tierlist:publish` | Upsert by slug: 201 created, 200 rewritten. Omitted `tiers`/`items`/`placement` keep the current ones. The whole list is validated first (422 with `issues`). 409 if the slug belongs to a personal row. |
 | `POST /api/tierlist/templates/:slug/place` | `place-in-template` | admin, editor, or agent with `tierlist:update` | Moves one item to a tier (`tierId: null` = unranked). 409 if the item or tier does not exist. |

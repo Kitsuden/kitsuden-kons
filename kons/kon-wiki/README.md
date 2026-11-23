@@ -6,7 +6,7 @@ keep a reference wiki for each game they cover.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.2.0 | `/api/wiki` | core `auth` |
+| beta | content | 1.3.0 | `/api/wiki` | core `auth` |
 
 ## Install
 
@@ -44,6 +44,22 @@ and has no foreign key to `games`; it only stores the id. The public site serves
 - **Diff** is by lines. Above 4,000,000 cells of the comparison table (`MAX_DIFF_CELLS`) the
   changed stretch is returned as all deleted plus all added, so a huge public diff cannot exhaust
   memory.
+
+## The game it belongs to
+
+A wiki can say which game of the catalog it belongs to, in `game`: the game's slug in kon-games
+(`/api/games`), lowercase letters, numbers and single hyphens (`elden-ring`). Every gaming kon uses
+this same field and the same value (kon-maps, kon-tierlist, kon-character-builder, kon-formulas,
+kon-cardsim, kon-wiki, kon-autobattler), so a site asks each one for a game's things the same way.
+
+- **List by game:** `GET /api/wiki/wikis?game=elden-ring`.
+- **Set it:** `game` in the body of `POST /api/wiki/wikis`.
+- Nothing checks that the game exists: kon-games does not have to be installed.
+- The wiki also keeps `gameId`, the catalog's uuid, which the panel's game picker sends. A wiki is
+  created with either one (one is required); `?game=` takes either one too. Created with only
+  `gameId`, `game` is filled from the catalog when kon-games is installed, and migration 0004 did the
+  same for the wikis that already existed.
+- A wiki's game is set when it is created; no route changes it afterwards.
 
 ## HTTP API
 

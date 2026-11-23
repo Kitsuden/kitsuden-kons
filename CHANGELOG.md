@@ -5,6 +5,18 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## Unreleased
 
+- The gaming kons name a game the same way: `game`, the game's slug in the catalog (kon-games), in a
+  `game` column, and `?game=<slug>` on their lists. A site asks each one for a game's things with
+  the same value. kon-formulas 1.1.0, kon-maps 1.1.0, kon-tierlist 1.2.0, kon-character-builder
+  1.3.0, kon-cardsim 2.6.0 and kon-wiki 1.3.0; kon-autobattler already called it `game`.
+  - Each takes `game` on save (left out keeps it, `null` clears it) and returns it. It is optional,
+    and nothing checks that the game exists: kon-games does not have to be installed.
+  - kon-maps gains `list-maps` (`GET /api/maps/maps`): it had no way to list its maps.
+  - kon-wiki keeps `gameId` (the catalog's uuid), takes either one on create and on `?game=`, and
+    fills `game` from the catalog for the wikis that already exist (migration 0004).
+  - kon-cardsim's `game` is the catalog game; its `gameId` on decks, rooms and matches is still the
+    simulator game. A forked personal tier list copies its template's game.
+
 - **Every kon passes Kitsuden's contract rules** (Spectral, the core's `scripts/api-contract/` ruleset; needs a Kitsuden with `unpaginated` and `deprecated` in `defineOperation`). CI runs them on every kon's SDK operations and now fails on an error: `pnpm api:lint`, or `KITSUDEN_DIR=<core> node scripts/api-contract.mjs` locally. The first run found 140 errors in 27 kons; all are closed:
   - **Lists that could hide rows**: every `list-*`/`search-*` either pages or says why it is bounded. A list that stopped at a hidden cap takes `limit` (default: the old cap, so a client that sends nothing gets the same rows) and `offset`, and answers `hasMore`; a list that returned everything takes an optional `limit` and still returns everything without it. The bounded ones (catalogues, configuration, the few children of one record) declare `unpaginated` with the reason. kon-esports' players, teams and sets answer a bare array, so they say `X-Has-More` in a header instead.
   - **Lists that took a size but could not reach the next page** (31 more, found when the rule began asking for a way forward, not only a `limit`): agile's issues, notifications and work queues, crm's work, observations, inbound emails and inbox, conta's accounts, counterparties, projects, disbursements and client-fund transactions, directory's employees (no one could read employee 101), koe's contacts, notices, quick replies, stickers and campaigns, and the lists of esports, wiki, shop, vekstudio, character-builder, newsletter and listings take `offset` and answer `hasMore` (or `X-Has-More`). Three relevance searches stay `unpaginated` with the reason: agile's issue search and ingest's semantic chunk search re-rank or take a top-k, and dms search falls back to a title match when the full-text query finds nothing.

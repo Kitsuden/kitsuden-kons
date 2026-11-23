@@ -81,6 +81,7 @@
   "GET /api/cardsim/hands/datasets": "public",
   "GET /api/cardsim/hands/datasets/:slug": "public",
   "GET /api/cardsim/hands/datasets/:slug/cards": "public",
+  "GET /api/maps/maps": "public",
   "GET /api/maps/maps/:slug": "public",
   "GET /api/members/me": "public",
   "GET /api/members/tiers": "public",

@@ -114,6 +114,7 @@ arbiter (`./render`, `./arbiter`).
 | `migrations/0001`–`0007` | Simulator tables, rooms, dataset link, ownerless-deck policy, secret seed, English renames. |
 | `migrations/0008`–`0011` | The former kon-deckshow and kon-handlab migrations, unchanged. |
 | `migrations/0014_rematch_once.sql` | `cardsim_sessions.rematch_id`: one rematch per game. |
+| `migrations/0015_game.sql` | `cardsim_games.game`: the catalog game (kon-games slug) a simulator game belongs to. |
 | `migrations/0013_byod_images.sql` | `cardsim_games.image_mode` and the owner-isolated `cardsim_image_prefs` (RLS in the file). |
 | `migrations/0012_showcase_and_hands_scopes.sql` | Rewrites stored deckshow/handlab scopes and tools to cardsim ones without widening grants. |
 | `migrations/history.json` | Old checksums and old migration keys (including `kon-deckshow/…` and `kon-handlab/…`). |
@@ -156,7 +157,7 @@ arbiter (`./render`, `./arbiter`).
 
 ## Changing it
 
-- New migration: next number in `migrations/` (`0013_…`); never edit an applied one. Renames of
+- New migration: next number in `migrations/` (`0016_…`); never edit an applied one. Renames of
   a migration file go in `migrations/history.json` (`renamed`; old checksums in
   `previousChecksums`). The `0008`–`0011` entries there keep old databases from running the
   merged migrations again: do not remove them.

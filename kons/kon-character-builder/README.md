@@ -6,7 +6,7 @@ and keeps a public gallery of builds with votes. For game sites that offer build
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.2.0 | `/api/builder` | `kon-formulas` (^1.0.0); core: `auth` |
+| beta | gaming | 1.3.0 | `/api/builder` | `kon-formulas` (^1.0.0); core: `auth` |
 
 ## Install
 
@@ -45,6 +45,17 @@ A **share code** is base64url of `{ v: 1, b: builderId, s: selections, a: attrib
 The admin panel gets three views: **Definition** (a definition editor, a custom element built
 from `admin-src/` and shipped as `admin/definition-editor.js`), **All definitions** and **Saved
 builds** (grids).
+
+## The game it belongs to
+
+A builder definition can say which game of the catalog it belongs to, in `game`: the game's slug in kon-games
+(`/api/games`), lowercase letters, numbers and single hyphens (`elden-ring`). Every gaming kon uses
+this same field and the same value (kon-maps, kon-tierlist, kon-character-builder, kon-formulas,
+kon-cardsim, kon-wiki, kon-autobattler), so a site asks each one for a game's things the same way.
+
+- **List by game:** `GET /api/builder/definitions?game=elden-ring`.
+- **Set it:** `game` in the body of `PUT /api/builder/definitions`. Left out, the game stays as it was; `null` clears it.
+- It is optional, and nothing checks that the game exists: kon-games does not have to be installed.
 
 ## HTTP API
 

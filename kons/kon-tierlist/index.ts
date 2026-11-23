@@ -207,6 +207,16 @@ async function catalogFromDataset(
   return { items, imageField: catalog.imageField, dataset: catalog.dataset };
 }
 
+/**
+ * The catalog game something belongs to: its slug in kon-games (`/api/games`). Every gaming kon
+ * takes it as `game`, stores it in a `game` column and filters its list with `?game=`.
+ */
+const GameSlug = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "game: a game slug (lowercase letters, numbers and hyphens)");
+
 const UpsertTemplate = z.object({
   slug: z
     .string()
@@ -214,6 +224,9 @@ const UpsertTemplate = z.object({
     .max(80)
     .regex(/^[a-z0-9-]+$/),
   title: z.string().min(1).max(160),
+  game: GameSlug.nullable()
+    .optional()
+    .describe("Slug of the catalog game it belongs to; null clears it, leaving it out keeps it"),
   version: z.string().max(20).nullable().optional(),
   tiers: z.array(TierSchema).min(1).max(12).optional(),
   items: z.array(ItemSchema).max(1000).optional(),
@@ -261,6 +274,7 @@ const TierListOut = z
     kind: z.string().describe("template (editorial) | personal (a reader's fork)"),
     slug: z.string().nullable(),
     title: z.string(),
+    game: z.string().nullable().optional(),
     tiers: z.array(TierOut),
     items: z.array(ItemOut),
     placement: z.record(z.string(), z.string()).describe("itemId → tierId; absent = unranked"),
@@ -332,11 +346,12 @@ export function tierlistOperations(ctx: KonContext): AnyOperation[] {
       route: "/templates",
       summary: "List tier list templates",
       description:
-        "Every editorial template (the site's published tier lists), most recently updated first: id, slug, title and version. Without `limit`, all of them (as always); with `limit` and `offset`, one page, and `hasMore` says whether there are more. Use the slug to read, place, sync or fork one.",
+        "Every editorial template (the site's published tier lists), most recently updated first: id, slug, title, version and the catalog game it belongs to (`game`, a slug, or null). `game` keeps only that game's templates. Without `limit`, all of them (as always); with `limit` and `offset`, one page, and `hasMore` says whether there are more. Use the slug to read, place, sync or fork one.",
       access: "public",
       input: {
         query: z
           .object({
+            game: GameSlug.optional().describe("Only this game's templates"),
             limit: z.coerce
               .number()
               .int()
@@ -361,22 +376,29 @@ export function tierlistOperations(ctx: KonContext): AnyOperation[] {
               slug: z.string().nullable(),
               title: z.string(),
               version: z.string().nullable(),
+              game: z.string().nullable(),
             })
           ),
           hasMore: z.boolean(),
         }),
       },
       handle: async (input) => {
-        const { limit, offset } = input.query as { limit?: number; offset: number };
+        const { game, limit, offset } = input.query as { game?: string; limit?: number; offset: number };
         // The id breaks ties between templates updated in the same instant.
         const query = repo(tierLists, { db })
-          .filter({ kind: "template" })
+          .filter({ kind: "template", ...(game ? { game } : {}) })
           .orderBy("-updatedAt", "id");
         // Without `limit`, every template: what the list always answered.
         const rows = limit === undefined ? await query.all() : await query.limit(limit + 1).offset(offset).all();
         const page = limit === undefined ? rows : rows.slice(0, limit);
         return {
-          data: page.map((r) => ({ id: r.id, slug: r.slug, title: r.title, version: r.version })),
+          data: page.map((r) => ({
+            id: r.id,
+            slug: r.slug,
+            title: r.title,
+            version: r.version,
+            game: r.game ?? null,
+          })),
           hasMore: limit !== undefined && rows.length > limit,
         };
       },
@@ -455,6 +477,8 @@ export function tierlistOperations(ctx: KonContext): AnyOperation[] {
           kind: "template",
           slug: data.slug,
           title: data.title,
+          // Left out, the game stays as it was; null clears it.
+          game: data.game !== undefined ? data.game : (existing?.game ?? null),
           version: data.version ?? null,
           catalogDatasetId: data.catalogDatasetId ?? existing?.catalogDatasetId ?? null,
           manual: data.manual ?? existing?.manual ?? false,
@@ -840,6 +864,7 @@ export function tierlistOperations(ctx: KonContext): AnyOperation[] {
           placement: list.placement,
           templateId: template.id,
           version: template.version,
+          game: template.game,
           ownerId: userValue?.id ?? null,
         });
 
