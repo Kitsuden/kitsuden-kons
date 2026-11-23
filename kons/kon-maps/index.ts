@@ -52,6 +52,16 @@ const MarkerInput = z.object({
 const ImportMarkers = z.object({ markers: z.array(MarkerInput).min(1).max(5000) });
 
 /**
+ * The catalog game something belongs to: its slug in kon-games (`/api/games`). Every gaming kon
+ * takes it as `game`, stores it in a `game` column and filters its list with `?game=`.
+ */
+const GameSlug = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "game: a game slug (lowercase letters, numbers and hyphens)");
+
+/**
  * Shape of `PUT /maps`. Before, the JSON was read raw: the slug could be
  * anything of any length and `definition` any object (with layers that were not
  * a list, the engine blew up with a 500).
@@ -62,6 +72,9 @@ const UpsertMap = z.object({
     .min(1)
     .max(80)
     .regex(/^[a-z0-9-]+$/, "slug: lowercase letters, numbers and hyphens"),
+  game: GameSlug.nullable()
+    .optional()
+    .describe("Slug of the catalog game it belongs to; null clears it, leaving it out keeps it"),
   definition: z
     .object({
       id: z.string().max(80).optional(),
@@ -142,6 +155,32 @@ export function mapsOperations(ctx: KonContext): AnyOperation[] {
      * seeing anything.
      */
     defineOperation({
+      id: "list-maps",
+      method: "GET",
+      route: "/maps",
+      summary: "List maps",
+      description:
+        "Every map by name: slug, name and the catalog game it belongs to (`game`, a slug, or null). `game` keeps only that game's maps. No definitions or markers: read one with get-map. Public.",
+      access: "public",
+      unpaginated: "The maps the editorial team draws, a few per game a site covers: listed whole for a selector.",
+      input: { query: z.object({ game: GameSlug.optional().describe("Only this game's maps") }) },
+      output: {
+        schema: z.object({
+          data: z.array(
+            z.object({ id: z.string(), slug: z.string(), name: z.string(), game: z.string().nullable() })
+          ),
+        }),
+      },
+      handle: async ({ query }, { c }) => {
+        const all = repo(gameMaps, { db });
+        const rows = await (query.game ? all.filter({ game: query.game }) : all).orderBy("name").all();
+        return c.json({
+          data: rows.map((m) => ({ id: m.id, slug: m.slug, name: m.name, game: m.game ?? null })),
+        });
+      },
+    }),
+
+    defineOperation({
       id: "get-map",
       method: "GET",
       route: "/maps/:slug",
@@ -220,6 +259,7 @@ export function mapsOperations(ctx: KonContext): AnyOperation[] {
         }
         const body = read.data as {
           slug: string;
+          game?: string | null;
           definition: MapDefinition;
           categories?: Array<{ id: string; name: string; icon?: string | null; color?: string }>;
         };
@@ -233,7 +273,13 @@ export function mapsOperations(ctx: KonContext): AnyOperation[] {
         if (existing && !(await can(existing, "update"))) {
           return c.json({ error: "Forbidden" }, 403);
         }
-        const values = { slug: body.slug, name: body.definition.name, definition: body.definition };
+        const values = {
+          slug: body.slug,
+          name: body.definition.name,
+          definition: body.definition,
+          // Left out, the game stays as it was; null clears it.
+          ...(body.game !== undefined ? { game: body.game } : {}),
+        };
         const row = existing
           ? (
               await repo(gameMaps, { db })

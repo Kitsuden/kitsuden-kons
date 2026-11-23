@@ -32,6 +32,8 @@ export const builderDefinitions = pgTable(
     /** Public slug: `/builder/throne-liberty`. */
     slug: text("slug").notNull(),
     name: text("name").notNull(),
+    /** The catalog game it belongs to: its slug in kon-games. The same column in every gaming kon. */
+    game: text("game"),
     /**
      * The whole definition as a document. It is a DOCUMENT and not columns
      * because its shape is validated by `compileBuilder` on publish — the same pattern
@@ -43,7 +45,10 @@ export const builderDefinitions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("builder_definitions_slug_idx").on(t.slug)]
+  (t) => [
+    uniqueIndex("builder_definitions_slug_idx").on(t.slug),
+    index("builder_definitions_game_idx").on(t.game),
+  ]
 );
 
 export const builderBuilds = pgTable(

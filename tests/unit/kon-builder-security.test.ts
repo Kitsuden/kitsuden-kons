@@ -65,7 +65,12 @@ const save = (
 
 beforeAll(async () => {
   client = new PGlite();
-  for (const f of ["0001_builder.sql", "0002_public_builds.sql", "0004_english_names.sql"]) {
+  for (const f of [
+    "0001_builder.sql",
+    "0002_public_builds.sql",
+    "0004_english_names.sql",
+    "0006_game.sql",
+  ]) {
     await client.exec(
       readFileSync(
         resolve(__dirname, "../../kons/kon-character-builder/migrations", f),

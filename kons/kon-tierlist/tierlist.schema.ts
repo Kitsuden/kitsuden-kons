@@ -29,6 +29,8 @@ export const tierLists = pgTable(
     /** Only templates have a public slug. */
     slug: text("slug"),
     title: text("title").notNull(),
+    /** The catalog game it belongs to: its slug in kon-games. The same column in every gaming kon. */
+    game: text("game"),
 
     tiers: jsonb("tiers").$type<Tier[]>().notNull(),
     items: jsonb("items").$type<TierItem[]>().notNull(),
@@ -64,6 +66,7 @@ export const tierLists = pgTable(
   (t) => [
     uniqueIndex("tier_lists_slug_idx").on(t.slug),
     index("tier_lists_owner_idx").on(t.ownerId, t.kind),
+    index("tier_lists_game_idx").on(t.game, t.kind),
   ]
 );
 

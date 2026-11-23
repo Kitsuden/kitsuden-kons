@@ -19,11 +19,13 @@ export const gameMaps = pgTable(
     id: text("id").primaryKey().$defaultFn(createId),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
+    /** The catalog game it belongs to: its slug in kon-games. The same column in every gaming kon. */
+    game: text("game"),
     definition: jsonb("definition").$type<MapDefinition>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("game_maps_slug_idx").on(t.slug)]
+  (t) => [uniqueIndex("game_maps_slug_idx").on(t.slug), index("game_maps_game_idx").on(t.game)]
 );
 
 export const mapCategories = pgTable(

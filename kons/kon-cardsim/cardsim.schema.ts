@@ -40,6 +40,11 @@ export const cardsimGames = pgTable(
     id: text("id").primaryKey().$defaultFn(createId),
     slug: text("slug").notNull(),
     name: text("name").notNull(),
+    /**
+     * The CATALOG game it belongs to: its slug in kon-games. The same column in every gaming kon.
+     * Not this table's own id (`game_id` elsewhere): two simulator games can share a catalog game.
+     */
+    game: text("game"),
     /** The whole definition, validated by `validateGameDefinition` on publishing. */
     definition: jsonb("definition").$type<GameDefinition>().notNull(),
     published: text("published").default("draft").notNull(),
@@ -65,7 +70,10 @@ export const cardsimGames = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
-  (t) => [uniqueIndex("cardsim_games_slug_idx").on(t.slug)]
+  (t) => [
+    uniqueIndex("cardsim_games_slug_idx").on(t.slug),
+    index("cardsim_games_game_idx").on(t.game),
+  ]
 );
 
 export const cardsimCards = pgTable(

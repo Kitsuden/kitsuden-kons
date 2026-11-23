@@ -6,7 +6,7 @@ else) lives in your frontend.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 1.0.2 | `/api/maps` | — (core `auth`) |
+| beta | gaming | 1.1.0 | `/api/maps` | — (core `auth`) |
 
 ## Install
 
@@ -38,15 +38,27 @@ Tables (from `kon.json`):
 
 The tables have no owner column and no row-level security: map content is editorial and public.
 
+## The game it belongs to
+
+A map can say which game of the catalog it belongs to, in `game`: the game's slug in kon-games
+(`/api/games`), lowercase letters, numbers and single hyphens (`elden-ring`). Every gaming kon uses
+this same field and the same value (kon-maps, kon-tierlist, kon-character-builder, kon-formulas,
+kon-cardsim, kon-wiki, kon-autobattler), so a site asks each one for a game's things the same way.
+
+- **List by game:** `GET /api/maps/maps?game=elden-ring`.
+- **Set it:** `game` in the body of `PUT /api/maps/maps`. Left out, the game stays as it was; `null` clears it.
+- It is optional, and nothing checks that the game exists: kon-games does not have to be installed.
+
 ## HTTP API
 
 | Method and path | Who | What it does |
 | --- | --- | --- |
+| `GET /api/maps/maps` | Anyone, no session | Every map by name: id, slug, name and `game`. `?game=<slug>` keeps only that game's maps. No definitions or markers. |
 | `GET /api/maps/maps/:slug` | Anyone, no session | The map, its categories and its markers in one response. `?cluster=<grid>` (cell size in normalized units, at least 1/4096) returns markers grouped in `clusters` and an empty `markers` list. 404 for an unknown slug. |
 | `PUT /api/maps/maps` | Staff (admin, editor) or an agent with the scope | Creates (201) or rewrites (200) a map by `slug`. `categories` are upserted by id; categories you leave out are kept, never deleted. A malformed body is a 400 with `issues`; a definition that passes the schema but fails the engine's checks (duplicate layer ids) is a 422. |
 | `POST /api/maps/maps/:slug/markers` | Staff (admin, editor) or an agent with the scope | Imports 1 to 5,000 markers. All or nothing: if any marker is invalid (unknown layer or category, coordinates out of range, empty title) none is saved and the 422 lists `issues` by index. Returns 201 with `{ data: { imported } }`. |
 
-There is no route to list maps, or to edit or delete a single marker or category.
+There is no route to edit or delete a single marker or category.
 
 Body of `PUT /api/maps/maps`:
 
@@ -90,10 +102,11 @@ None. The kon reads no environment variables and no settings.
 
 ## Agents and MCP
 
-The three routes are kon SDK operations, so each is also an MCP tool:
+The four routes are kon SDK operations, so each is also an MCP tool:
 
 | MCP tool | Fine scope | Writes | Sensitive |
 | --- | --- | --- | --- |
+| `maps__list-maps` | `kon:maps:list-maps` | no | no |
 | `maps__get-map` | `kon:maps:get-map` | no | no |
 | `maps__save-map` | `kon:maps:save-map` | yes | yes |
 | `maps__import-markers` | `kon:maps:import-markers` | yes | yes |

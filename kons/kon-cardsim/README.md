@@ -19,7 +19,7 @@ at `/api/cardsim`:
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | gaming | 2.5.0 | `/api/cardsim` | — (core: `auth`) |
+| beta | gaming | 2.6.0 | `/api/cardsim` | — (core: `auth`) |
 
 ## Install
 
@@ -206,6 +206,19 @@ server answers 409 `stale` instead of applying it twice. Writes also carry `Idem
   `arbitrate` runs it against the engine; follow-ups are logged as ordinary actions, so an arbitrated
   game replays without the arbiter, and free rooms and rules rooms share engine, relay and log.
   Not wired into `send-action` yet; no game ships an arbiter.
+
+## The game it belongs to
+
+A simulator game can say which game of the catalog it belongs to, in `game`: the game's slug in kon-games
+(`/api/games`), lowercase letters, numbers and single hyphens (`elden-ring`). Every gaming kon uses
+this same field and the same value (kon-maps, kon-tierlist, kon-character-builder, kon-formulas,
+kon-cardsim, kon-wiki, kon-autobattler), so a site asks each one for a game's things the same way.
+
+- **List by game:** `GET /api/cardsim/games?game=one-piece-card-game`.
+- **Set it:** `game` in the body of `PUT /api/cardsim/games`. Left out, the game stays as it was; `null` clears it.
+- It is optional, and nothing checks that the game exists: kon-games does not have to be installed.
+- It is not the simulator's own game id (`gameId` on decks, rooms and matches, a `cardsim_games`
+  row): two simulator games, a standard format and a draft one, can belong to the same catalog game.
 
 ## HTTP API
 
