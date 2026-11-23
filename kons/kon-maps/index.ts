@@ -162,6 +162,7 @@ export function mapsOperations(ctx: KonContext): AnyOperation[] {
       description:
         "Every map by name: slug, name and the catalog game it belongs to (`game`, a slug, or null). `game` keeps only that game's maps. No definitions or markers: read one with get-map. Public.",
       access: "public",
+      unpaginated: "The maps the editorial team draws, a few per game a site covers: listed whole for a selector.",
       input: { query: z.object({ game: GameSlug.optional().describe("Only this game's maps") }) },
       output: {
         schema: z.object({
