@@ -5,6 +5,14 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## Unreleased
 
+- **Kons store files only through `ctx.storage`** (guard `tests/guards/kons-store-files-through-ctx-storage.test.ts`).
+  The core picks the bucket for every key, and with `S3_PRIVATE_BUCKET` a `private/…` key lives in a bucket
+  with no public access (Kitsuden/kitsuden#54). A kon with its own S3 client, or the core's raw client and
+  bucket name, could put a private file in the public bucket. The guard fails if a kon imports `@aws-sdk/*`,
+  lists it in its `package.json`, imports the core's storage modules directly (`@api/lib/storage`,
+  `@api/lib/store`, `services/storage`), or imports `s3`, `BUCKET`, `PUBLIC_URL` or `getS3Client` from
+  `@kitsuden/engine`. No kon does today.
+
 - The gaming kons name a game the same way: `game`, the game's slug in the catalog (kon-games), in a
   `game` column, and `?game=<slug>` on their lists. A site asks each one for a game's things with
   the same value. kon-formulas 1.1.0, kon-maps 1.1.0, kon-tierlist 1.2.0, kon-character-builder
