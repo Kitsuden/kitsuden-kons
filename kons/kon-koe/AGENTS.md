@@ -63,7 +63,7 @@ media, an AI relay to kon-chat, and automation (flows, rule steps, campaigns, se
 | `koe.flows.ts` | The flow language, its check, engine and dry run. |
 | `koe.automation.ts` | Rule steps, the automation queue, and the modules below. |
 | `koe.campaigns.ts`, `koe.sequences.ts`, `koe.sales.ts` | Campaigns, sequences, promises, outcomes, portfolio and pipeline. |
-| `koe.sweep.ts`, `koe.hours.ts` | What happens because time passed; quiet and business hours. |
+| `koe.sweep.ts`, `koe.hours.ts` | What happens because time passed (the core schedule `koe:sweep`, once a minute; a per-process interval only on a core without kon schedules); quiet and business hours. |
 | `koe.reports.ts` | Kon reports and the inbox summary. |
 | `koe.events.ts` | The event catalog. |
 | `koe.extensions.ts` | The public extension API (`beforeSend`, `onAccess`); koe Enterprise plugs in here. |

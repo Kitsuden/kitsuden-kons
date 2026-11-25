@@ -45,7 +45,7 @@ import { windowOf } from "./koe.window";
 import type { OperationsModule } from "./operations";
 
 export { koeReports } from "./koe.reports";
-export { startSweep, stopSweep, sweepOnce, registerAutomationListeners } from "./koe.sweep";
+export { hostSchedulesKons, startSweep, stopSweep, sweepOnce, sweepTick, registerAutomationListeners } from "./koe.sweep";
 
 /** Flows, campaigns, sequences, sales and collections, reports: one module for index.ts. */
 export const automationOperations: OperationsModule = (app, ctx) => {

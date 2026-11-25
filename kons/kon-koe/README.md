@@ -5,7 +5,7 @@ first, and for teams that sell and collect over chat. Notes for coding agents: [
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | business | 0.2.1 | `/api/koe` | core `auth`; a secrets key for Meta channels; kon-chat optional (AI bots); the media sidecar optional (voice notes, stickers) |
+| experimental | business | 0.3.0 | `/api/koe` | core `auth`; a secrets key for Meta channels; kon-chat optional (AI bots); the media sidecar optional (voice notes, stickers) |
 
 koe (声, "voice") keeps one conversation per contact and channel, decides who answers it (a bot, the queue,
 one person), enforces each channel's service window and Meta's template rules on every message that goes

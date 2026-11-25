@@ -2,7 +2,8 @@
  * The sweep: what happens because time passed
  * ============================================================================
  *
- * Once a minute, in every API process:
+ * Once a minute, as the kon schedule `koe:sweep` (one run per tick across replicas; on a core that
+ * does not run kon schedules, an interval in every API process):
  *
  *   snoozes      a snoozed conversation whose date came wakes: to whoever had it, else to the queue
  *   windows      a free window closing within 2 h → a notice to the assignee and `koe:window.expiring`,
@@ -14,7 +15,8 @@
  *   sequences    due steps get a job (koe.sequences.ts)
  *   housekeeping notices older than 30 days, processed webhook bodies older than 7 days
  *
- * Several API replicas run it at once, so every effect is CLAIMED before it happens: a conditional UPDATE
+ * Two copies may still overlap (an old-core interval per replica, or a schedule's retry meeting the next tick), so
+ * every effect is CLAIMED before it happens: a conditional UPDATE
  * … RETURNING (window warned, SLA breached, promise broken, campaign started) or a row lock in a short
  * transaction around the state change (wake, auto-resolve: the second replica waits, then finds the
  * conversation already moved and the state machine refuses). Sending is left to queue jobs, which are
@@ -240,9 +242,27 @@ export function registerAutomationListeners(ctx: KonContext): void {
   });
 }
 
+/**
+ * Does the host run the kon's `schedules` itself? A core that has kon workers marks every kon
+ * context with `workers` and also runs schedules: there the sweep is the schedule `koe:sweep` (one
+ * run per minute across every replica, skipped while the kon is off, retries and failures in the
+ * panel). Without the marker the interval below is the fallback. A core that has schedules but
+ * predates the marker runs both: harmless, because every effect of a sweep is claimed (see above).
+ */
+export function hostSchedulesKons(ctx: KonContext): boolean {
+  return Boolean((ctx as { workers?: unknown }).workers);
+}
+
+/** The schedule's tick: `scheduledAt` is the same instant on every replica. */
+export async function sweepTick(ctx: KonContext, tick: { scheduledAt: Date }): Promise<void> {
+  const report = await sweepOnce(ctx, tick.scheduledAt);
+  if (report.errors.length) ctx.logger.warn("koe: sweep finished with errors", { errors: report.errors.slice(0, 5) });
+}
+
 let timer: ReturnType<typeof setInterval> | null = null;
 let busy = false;
 
+/** The fallback for a host that does not run kon schedules: an interval in this process (every replica runs one). */
 export function startSweep(ctx: KonContext): void {
   registerAutomationListeners(ctx);
   if (timer) return;

@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-koe",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Omnichannel inbox for WhatsApp Cloud API, Messenger, Instagram and web chat, built for automation and AI agents",
   "type": "module",
   "main": "./index.ts",
