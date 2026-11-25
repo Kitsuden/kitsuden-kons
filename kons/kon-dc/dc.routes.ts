@@ -65,7 +65,7 @@ import {
   blueprintJsonSchema,
   gatewayContractJsonSchemas,
 } from "./dc.contract";
-import { createDcEngine, type DcDb, type DcEngineOptions } from "./dc.engine";
+import { createDcEngine, dcEngineOf, type DcDb, type DcEngineOptions } from "./dc.engine";
 import { blueprintModuleId } from "./dc.modules";
 // The built-in modules register themselves when imported.
 import "./dc.community";
@@ -299,7 +299,9 @@ function moduleInfo(
 /** The kon's operations, with their injected context. */
 export function dcOperations(ctx: KonContext, options: DcEngineOptions = {}): AnyOperation[] {
   const db = ctx.db.instance as DcDb;
-  const engine = createDcEngine(ctx, options);
+  // With the default options, the context's one engine (shared with the gateway worker); tests that
+  // inject a clock, a REST client or settings get their own.
+  const engine = Object.keys(options).length === 0 ? dcEngineOf(ctx) : createDcEngine(ctx, options);
   const asSystem = <T>(fn: () => Promise<T>): Promise<T> => (ctx.db.asSystem ? ctx.db.asSystem(fn) : fn());
   const team = (action: "view" | "create" | "update" | "delete") => ({ policy: { resource: RESOURCE, action } });
 

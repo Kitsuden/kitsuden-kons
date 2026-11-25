@@ -7,8 +7,10 @@ Keep it true when the kon changes.
 
 Discord bots as configuration: modules switched on per server, and blueprints (slash commands,
 buttons, selects, modals, live panels and triggers made of fixed steps, as JSON). Interactions
-arrive over HTTP, signed by Discord; gateway events arrive from a separate Go worker (`gateway/`);
-other kons' events arrive on the core's bus. The API process holds no WebSocket.
+arrive over HTTP, signed by Discord; gateway events arrive from the core kon worker `dc:gateway`
+(`dc.gateway.ts`, with `DISCORD_GATEWAY=worker`) or from the separate Go worker (`gateway/`), never
+both; other kons' events arrive on the core's bus. Without `DISCORD_GATEWAY=worker` the API process
+holds no WebSocket.
 
 ## Calling it
 
@@ -80,6 +82,10 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
   `sections/` (Setup, Servers, Blueprints, `BlueprintEditor`), `blueprint.ts` (outline, paths,
   starters, preview model). A part tallao lacks goes into tallao first. `admin-src/tallao/` is a
   synced copy: never edit it; change tallao and run `TALLAO_DIR=<tallao> pnpm sync:tallao kon-dc`.
+- `dc.gateway.ts` — the gateway as a core kon worker: `runGateway` (shards, heartbeats, resume,
+  re-identify, the identify gate) and `Forwarder` (bounded buffer → `engine.ingest`). It reads no
+  environment and no database; `index.ts` declares the worker only with `DISCORD_GATEWAY=worker` and
+  hands it the context's engine (`dcEngineOf`).
 - `gateway/` — the Go worker (`main.go`, `shard.go`, `forwarder.go`), its Dockerfile and the
   committed JSON Schema of the wire format (`contract/`).
 - `deploy/` — the Compose overlay with profiles and an example environment file.
@@ -100,6 +106,12 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
 - The interaction route verifies the signature over the raw body before parsing it, and refuses
   timestamps older than five minutes.
 - The worker's key reaches `/gateway/*` only; those operations are not MCP tools.
+- One engine per kon context (`dcEngineOf`): the routes and the `dc:gateway` worker share it, or a
+  process running both would subscribe to kon events twice and announce everything twice. Only tests
+  that inject options build their own with `createDcEngine`.
+- `dc.gateway.ts` and `gateway/` follow the same rules (fatal and blocked close codes, the identify
+  gate, resumable closes, the drop-oldest buffer, the GUILD_CREATE trim that keeps
+  `preferred_locale`): a change to one goes to the other.
 - A module's state (`rt.kv`, `rt.lists`, its schedules) is namespaced by module id: a module never
   reads another's keys. The ECONOMY (wallets, inventories, the catalog), PROFILES and activity are
   shared on purpose: coins a blueprint gives are spent in the Economy shop.
@@ -144,7 +156,8 @@ other kons' events arrive on the core's bus. The API process holds no WebSocket.
 
 ## Tests
 
-`pnpm test -- kon-dc` (both files); `cd kons/kon-dc/gateway && go test ./...` for the
+`pnpm test -- kon-dc` (both files), `pnpm vitest run tests/unit/dc-gateway-worker.test.ts` for the
+kon worker against a fake gateway, and `cd kons/kon-dc/gateway && go test ./...` for the Go
 worker. The tests inject a fake Discord, a fake renderer (`renderPng`), a fake web (`fetchText`), a
 fake Twitch and a movable clock (`now`), and drive schedules with `engine.tick()`. On PGlite the
 admin route that posts a panel cannot finish (one connection): panels are posted by commands there.

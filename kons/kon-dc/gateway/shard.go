@@ -398,10 +398,12 @@ func (s *Shard) dispatch(p inbound) {
 	d := p.D
 	if p.T == "GUILD_CREATE" || p.T == "GUILD_UPDATE" {
 		// Only what the kon stores: the full payload (members, channels…) can be megabytes.
+		// preferred_locale is the server's language, which the kon stores with it.
 		var g struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
-			Unavailable bool   `json:"unavailable"`
+			ID              string `json:"id"`
+			Name            string `json:"name"`
+			Unavailable     bool   `json:"unavailable"`
+			PreferredLocale string `json:"preferred_locale,omitempty"`
 		}
 		if json.Unmarshal(p.D, &g) != nil {
 			return

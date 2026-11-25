@@ -33,6 +33,8 @@ import { defineKonSdk } from "@kitsuden/engine";
 import type { KonContext, KonDefinition } from "@kitsuden/shared";
 
 import manifest from "./kon.json" with { type: "json" };
+import { dcEngineOf } from "./dc.engine";
+import { gatewayWorkerEnabled, runGateway, shardSettings } from "./dc.gateway";
 import { discordSettings } from "./dc.rest";
 import { registerDcExtension as addExtension, type DcExtension } from "./dc.extensions";
 import { registerDcModule } from "./dc.modules";
@@ -93,7 +95,52 @@ export { createDiscordRest, discordSettings, verifyInteraction, type DiscordRest
 export { registerDcPolicy, isStaff } from "./dc.policy";
 export { createDcRouter, dcOperations, KON_ID } from "./dc.routes";
 
+/**
+ * A core kon worker (docs/kons/workers.md in Kitsuden): a process of its own the core starts,
+ * keeps to one copy across replicas and stops. Written here with its own shape so the kon still
+ * type-checks against a core that predates `workers`; such a core ignores the field.
+ */
+interface KonWorker {
+  id: string;
+  description: string;
+  run(ctx: KonContext, w: { signal: AbortSignal; workerId: string; attempt: number }): Promise<void>;
+}
+
+/**
+ * The gateway worker, declared only with DISCORD_GATEWAY=worker: without it no copy of the API
+ * holds a lock or a connection for a gateway it will not open (the Go worker in `gateway/` may be
+ * the one connected, and two connections would deliver every event twice).
+ */
+const gatewayWorker: KonWorker = {
+  id: "gateway",
+  description: "Discord gateway connection (DISCORD_GATEWAY=worker)",
+  run: async (ctx, w) => {
+    const s = discordSettings();
+    if (!s.botToken) {
+      ctx.logger.warn("Discord: DISCORD_GATEWAY=worker without DISCORD_BOT_TOKEN; the gateway stays closed");
+      // Idle until stopped: returning would make the core restart it into the same gap.
+      await new Promise<void>((resolve) => w.signal.addEventListener("abort", () => resolve(), { once: true }));
+      return;
+    }
+    const engine = dcEngineOf(ctx);
+    await runGateway(
+      {
+        token: s.botToken,
+        apiBase: s.apiBase,
+        config: () => engine.gatewayConfig(),
+        ingest: (batch) => engine.ingest(batch),
+        logger: ctx.logger,
+        ...shardSettings(),
+      },
+      w.signal
+    );
+  },
+};
+
+const workers: { workers?: KonWorker[] } = gatewayWorkerEnabled() ? { workers: [gatewayWorker] } : {};
+
 export const kon: KonDefinition = defineKonSdk({
+  ...workers,
   id: manifest.id,
   name: manifest.name,
   version: manifest.version,

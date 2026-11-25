@@ -2052,3 +2052,20 @@ export function createDcEngine(ctx: KonContext, options: DcEngineOptions = {}) {
 }
 
 export type DcEngine = ReturnType<typeof createDcEngine>;
+
+const engines = new WeakMap<KonContext, DcEngine>();
+
+/**
+ * The one engine of a kon context. The routes and the gateway worker both take it from here, so a
+ * process that serves both (KITSUDEN_WORKERS=inline) has ONE engine: one subscription to other
+ * kons' events, one in-memory queue, one module cache. Two engines would answer every kon event
+ * twice (two announcements, two panel redraws).
+ */
+export function dcEngineOf(ctx: KonContext): DcEngine {
+  let engine = engines.get(ctx);
+  if (!engine) {
+    engine = createDcEngine(ctx);
+    engines.set(ctx, engine);
+  }
+  return engine;
+}
