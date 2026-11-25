@@ -1,6 +1,6 @@
 {
   "name": "@kitsuden/kon-newsletter",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Newsletter kon for Kitsuden — members, double opt-in, segments and campaigns with delegated delivery",
   "type": "module",
   "main": "./index.ts",

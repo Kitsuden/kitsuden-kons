@@ -59,6 +59,21 @@ import { defaultLocale, type BulkTransport, type FeedbackAdapter, type SegmentFi
 import { KON_ID, registry, ADMIN_ONLY } from "./operations";
 
 /**
+ * The address sealed with a consent: the one the core resolved with `clientIp()` (it counts the
+ * TRUSTED_PROXY_HOPS in front of the API) and set as `clientIp` on every /api request.
+ *
+ * Never `cf-connecting-ip` or `x-forwarded-for` as they arrive: the client writes those, so a consent
+ * record built from them says whatever the sender wanted. A host that does not set `clientIp` (a
+ * core older than the seam) records no IP, which is true, instead of one that may be invented.
+ */
+export function consentIp(c: Context): string | undefined {
+  const ip = (c.get as (key: string) => unknown)("clientIp");
+  if (typeof ip !== "string" || ip === "" || ip === "unknown") return undefined;
+  // `consent_ip` is varchar(45), the longest textual IPv6.
+  return ip.slice(0, 45);
+}
+
+/**
  * A page of a list that used to stop at `max` rows with no sign: the default is still those rows,
  * and `hasMore` now says whether more exist.
  */
@@ -253,9 +268,7 @@ export function newsletterOperations(
           db,
           {
             ...parsed.data,
-            ip:
-              c.req.header("cf-connecting-ip") ??
-              c.req.header("x-forwarded-for")?.split(",")[0]?.trim(),
+            ip: consentIp(c),
             source: "web",
           },
           { appUrl: ctx.config.siteUrl }
@@ -287,8 +300,7 @@ export function newsletterOperations(
     },
     async (c) => {
       const token = c.req.query("token") ?? "";
-      const ip =
-        c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+      const ip = consentIp(c);
 
       const result = await asSystem(() =>
         confirm(db, token, { ip, source: "web", appUrl: ctx.config.siteUrl })
