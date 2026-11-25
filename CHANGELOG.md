@@ -5,6 +5,40 @@ its maturity in the table of the [README](README.md). This file records releases
 
 ## Unreleased
 
+- **kon-site 0.1.0 (new): several public sites from one Kitsuden.** Each site keeps the frame its
+  frontend draws (name, description, locale, logo, favicon, named colours, a two-level menu and
+  `extra` JSON) and the domains that lead to it. `GET /api/site/resolve?host=` answers which site a
+  request's Host is (case, port and trailing dot ignored; `www.` falls back to the bare domain, never
+  the other way); `GET /api/site/sites/:slug` reads one by slug. Admins write, the site team lists,
+  anyone reads. At most one primary domain per site; images and links refuse `javascript:`, `data:`
+  and `//host`. Nothing in the kon caches, so a change in the panel shows on the next request on
+  every replica.
+
+- **kon-newsletter 1.2.1: consent is sealed with the IP the core resolved.** Sign-up and confirmation
+  stored `cf-connecting-ip` or the first `x-forwarded-for` entry as the client sent them, so a consent
+  record could carry any address the sender typed. They now read `clientIp`, which the core sets on
+  every `/api` request with `clientIp()` and `TRUSTED_PROXY_HOPS`; a core that does not set it stores
+  no IP rather than a guessed one.
+
+- **kon-dc 0.5.0: the Discord gateway can run as a core kon worker.** With `DISCORD_GATEWAY=worker`
+  the kon declares the worker `dc:gateway` (`dc.gateway.ts`): the Go worker's rules (heartbeats and
+  zombie detection, resume, fatal and blocked close codes, the identify gate, re-identify on new
+  intents, the drop-oldest buffer) inside the API image, handing batches straight to the engine
+  with no agent key and no HTTP hop. The core keeps one copy across replicas and stops it when the
+  kon is switched off; `KITSUDEN_WORKERS=only` runs it in a process of its own. Unset, nothing
+  changes: the Go worker in `gateway/` stays the default. Never run both.
+  - The routes and the worker share one engine per kon context (`dcEngineOf`): two engines in one
+    process would subscribe to kon events twice and announce everything twice.
+  - The Go worker kept only `id`, `name` and `unavailable` of a server, so the engine never got
+    `preferred_locale` and stored every server's language as empty. Both workers now keep it.
+
+- **kon-koe 0.3.0: the sweep is a core kon schedule.** Snoozes, windows, SLAs, inactivity, campaigns
+  and sequences ran from a `setInterval` in every API process, which kept running after the kon was
+  switched off. On a core that runs kon schedules (it marks the kon context with `workers`) the sweep
+  is the schedule `koe:sweep`, once a minute across every replica, skipped while the kon is off; the
+  interval stays only as the fallback for an older core. WhatsApp webhooks needed no worker: the
+  route stores and queues them, and the queue handlers run wherever the core runs its queue.
+
 - **Kons store files only through `ctx.storage`** (guard `tests/guards/kons-store-files-through-ctx-storage.test.ts`).
   The core picks the bucket for every key, and with `S3_PRIVATE_BUCKET` a `private/…` key lives in a bucket
   with no public access (Kitsuden/kitsuden#54). A kon with its own S3 client, or the core's raw client and
