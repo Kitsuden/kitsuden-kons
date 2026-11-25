@@ -1,12 +1,12 @@
 # kon-dc
 
 Discord bots built from declarative blueprints: modules you switch on per server, slash commands,
-buttons, selects, modals and live panels over HTTP, other kons as data sources and targets, and a
-separate Go gateway worker.
+buttons, selects, modals and live panels over HTTP, other kons as data sources and targets, and the
+gateway connection either as a core kon worker inside the API image or as a separate Go process.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| experimental | content | 0.4.0 | `/api/dc` | — |
+| experimental | content | 0.5.0 | `/api/dc` | — |
 
 A bot here is **configuration, not code**. Each server switches on the modules it wants (welcome,
 auto role, levels, AI answers, kon announcements) and any number of **blueprints**: commands,
@@ -16,16 +16,24 @@ run as code, so there is no sandbox to escape.
 
 ```
 Discord ──signed HTTP (interactions)──▶ Kitsuden API + kon-dc ──REST──▶ Discord
-Discord ──gateway WebSocket──▶ gateway/ (Go) ──HTTP + agent key──▶ kon-dc
+Discord ──gateway WebSocket──▶ kon worker dc:gateway (DISCORD_GATEWAY=worker) ──in process──▶ kon-dc
+Discord ──gateway WebSocket──▶ gateway/ (Go) ──HTTP + agent key──▶ kon-dc   (the alternative)
 other kons ──events on the core's bus──▶ kon-dc ──REST + the bot's agent key──▶ other kons
 ```
 
 - **Interactions need no gateway.** Slash commands, autocomplete, buttons, selects and modals are
   POSTed by Discord, signed with Ed25519, to `POST /api/dc/interactions`. A bot made of commands and
   panels runs with the API alone.
-- **The gateway lives in a separate Go process** (`gateway/`): heartbeats, resume, sharding and
-  re-identifying when the needed intents change. The API can restart or redeploy without dropping
-  the bot's session, and the worker uses about 10 MB of memory.
+- **The gateway is a process of its own**, one of two, never both (two connections deliver every
+  event twice): heartbeats, resume, sharding and re-identifying when the needed intents change.
+  - `DISCORD_GATEWAY=worker`: the core kon worker `dc:gateway` (`dc.gateway.ts`), started by the
+    API image itself. The core keeps one copy across every replica and stops it when the kon is
+    switched off; no second image and no agent key. Run the API image a second time with
+    `KITSUDEN_WORKERS=only` (and `KITSUDEN_WORKERS=off` on the API) when the bot must survive API
+    redeploys; with the default `inline` the API process holds the socket. Needs a Kitsuden core
+    with kon workers; an older core ignores it.
+  - Unset (the default): the Go worker in `gateway/`, a ~10 MB static binary talking to the API over
+    HTTP with an agent key, or no gateway at all for a bot made of commands and panels.
 - **Switching a module off removes its traffic.** The worker identifies with the union of the
   intents the switched-on modules need and forwards only the event types they listen to.
 - **Other kons are first-class.** A blueprint listens to their events (`broadcast:match:updated`),
@@ -391,6 +399,8 @@ The `DISCORD_*` variables above, read on every use, and:
 
 | Variable | For |
 | --- | --- |
+| `DISCORD_GATEWAY` | `worker` runs the gateway as the core kon worker `dc:gateway`; anything else leaves it to `gateway/` (Go) or to nobody. Read at startup |
+| `DISCORD_SHARD_COUNT`, `DISCORD_SHARD_IDS` | for the worker, as for the Go one: shard count (0 = Discord's recommendation) and which shards this process runs (empty = all) |
 | `DISCORD_CARD_IMAGE_HOSTS` | extra https hosts card images (item backgrounds) may come from; Discord's CDN always may |
 | `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` | the `feeds` module's Twitch live checks |
 | `DISCORD_CLIENT_SECRET`, `DISCORD_OAUTH_REDIRECT_URL`, `DISCORD_MEMBER_SECRET` | the member page's Discord login: the app's secret, this API's `/api/dc/member/callback` (also in the Developer Portal), and 32+ random characters that sign sessions |
@@ -440,8 +450,10 @@ gateway operations are not MCP tools. See [AGENTS.md](AGENTS.md).
 
 `tests/unit/kon-dc.test.ts` (routes on PGlite with row security, a fake Discord, a fake agent
 engine, a fake kon-broadcast behind the bot's key and an event bus) and
-`tests/unit/kon-dc-contract.test.ts` (zod ⇄ JSON Schema ⇄ Go). The worker has its own:
-`cd kons/kon-dc/gateway && go test ./...` (a fake gateway and a fake kon).
+`tests/unit/kon-dc-contract.test.ts` (zod ⇄ JSON Schema ⇄ Go), and
+`tests/unit/dc-gateway-worker.test.ts` (the kon worker against a fake gateway: identify, resume,
+fatal and blocked closes, re-identify on new intents, zombie heartbeats, the bounded buffer). The Go
+worker has its own: `cd kons/kon-dc/gateway && go test ./...` (a fake gateway and a fake kon).
 
 ## Roadmap
 

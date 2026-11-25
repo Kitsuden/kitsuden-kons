@@ -25,7 +25,16 @@ import type { KonContext, KonDefinition } from "@kitsuden/shared";
 
 import "./koe.policy.js";
 import { aiOperations, processBotReply, processBotTurn } from "./koe.bot.js";
-import { automationOperations, koeActionHandlers, koeReports, processAutomation, startSweep } from "./koe.automation.js";
+import {
+  automationOperations,
+  hostSchedulesKons,
+  koeActionHandlers,
+  koeReports,
+  processAutomation,
+  registerAutomationListeners,
+  startSweep,
+  sweepTick,
+} from "./koe.automation.js";
 import { dbOf, KON_ID, QUEUES, setKoeContext } from "./koe.common.js";
 import { koeEvents } from "./koe.events.js";
 import { processWebhook } from "./koe.inbound.js";
@@ -82,7 +91,29 @@ export function registerKoeQueues(ctx: KonContext): void {
   queue.handle(QUEUES.automation, (job) => processAutomation(ctx, job as never), { concurrency: 2 });
 }
 
+/**
+ * What runs because time passed (snoozes, windows, SLAs, inactivity, campaigns, sequences): a core
+ * kon schedule, one run per minute across every replica, skipped while the kon is switched off.
+ * A schedule and not a worker: nothing is held between passes and nothing stays connected.
+ *
+ * Neither do webhooks need a worker: Meta POSTs them to `/webhooks/*`, the route stores and queues
+ * them in one transaction, and the queue handlers below run in whichever process runs the core's
+ * queue (with KITSUDEN_WORKERS=only, the worker process).
+ *
+ * Written with its own shape so the kon still type-checks against a core without `schedules`.
+ */
+interface KonSchedule {
+  id: string;
+  cron: string;
+  description: string;
+  run(ctx: KonContext, tick: { scheduledAt: Date }): Promise<void>;
+}
+const schedules: KonSchedule[] = [
+  { id: "sweep", cron: "* * * * *", description: "koe sweep: snoozes, windows, SLAs, inactivity, campaigns, sequences", run: sweepTick },
+];
+
 export const kon: KonDefinition = defineKonSdk({
+  ...{ schedules },
   id: KON_ID,
   name: "koe",
   version: manifest.version,
@@ -142,7 +173,10 @@ export const kon: KonDefinition = defineKonSdk({
     onStartup: async (ctx) => {
       registerRealtime(ctx);
       registerKoeQueues(ctx);
-      startSweep(ctx);
+      // Every process listens (the event is emitted wherever a webhook is processed); the sweep itself
+      // is the `koe:sweep` schedule, or this process's interval on a core that does not run schedules.
+      registerAutomationListeners(ctx);
+      if (!hostSchedulesKons(ctx)) startSweep(ctx);
       ctx.logger.info(ctx.secrets ? "✅ koe ready" : "⚠️ koe mounted without a secrets key: Meta channels cannot be connected (web chat works)");
     },
   },

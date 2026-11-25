@@ -1,0 +1,59 @@
+{
+  "$schema": "../../schemas/kon-schema.json",
+  "id": "kon-site",
+  "name": "Sites",
+  "description": "Several public sites from one Kitsuden: each site's name, logo, colours and menu, and the domains that lead to it, resolved by Host",
+  "version": "0.1.0",
+  "sdk": 1,
+  "type": "kon",
+  "tier": "common",
+  "maturity": "beta",
+  "icon": "Globe",
+  "kitsuden": ">=0.9.0",
+  "tables": [
+    {
+      "name": "site_sites",
+      "label": "Sites",
+      "icon": "Globe"
+    },
+    {
+      "name": "site_domains",
+      "label": "Domains",
+      "icon": "Link"
+    }
+  ],
+  "admin": {
+    "category": "content",
+    "defaultView": "sites",
+    "views": [
+      {
+        "id": "sites",
+        "type": "grid",
+        "title": "Sites",
+        "table": "site_sites",
+        "icon": "Globe"
+      },
+      {
+        "id": "domains",
+        "type": "grid",
+        "title": "Domains",
+        "table": "site_domains",
+        "icon": "Link"
+      }
+    ]
+  },
+  "dependencies": {
+    "kons": [],
+    "core": [
+      "auth"
+    ]
+  },
+  "schema": {
+    "entry": null,
+    "strategy": "sql"
+  },
+  "mount": {
+    "path": "/api/site"
+  },
+  "category": "core"
+}

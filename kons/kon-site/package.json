@@ -1,0 +1,54 @@
+{
+  "name": "@kitsuden/kon-site",
+  "version": "0.1.0",
+  "description": "Several public sites from one Kitsuden: site configuration and the domain that leads to each, resolved by Host",
+  "type": "module",
+  "main": "./index.ts",
+  "files": [
+    "AGENTS.md",
+    "README.md",
+    "index.ts",
+    "kon.json",
+    "migrations",
+    "site.hosts.ts",
+    "site.policy.ts",
+    "site.schema.ts"
+  ],
+  "types": "./index.ts",
+  "scripts": {
+    "build": "pnpm exec tsc",
+    "dev": "pnpm exec tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "kitsuden",
+    "kon",
+    "site",
+    "domains",
+    "multisite"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "hono": "^4.7.0",
+    "drizzle-orm": "^0.45.0",
+    "zod": "^4.6.7"
+  },
+  "kitsuden": {
+    "type": "kon",
+    "id": "kon-site",
+    "core": false,
+    "defaultEnabled": false,
+    "host": "Provided by the Kitsuden host: @kitsuden/shared, @kitsuden/engine (compatibility = \"sdk\" in kon.json)"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Kitsuden/kitsuden-kons.git",
+    "directory": "kons/kon-site"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^3.3.0"
+  }
+}

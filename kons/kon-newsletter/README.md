@@ -7,7 +7,7 @@ newsletter service.
 
 | Maturity | Category | Version | Mounted at | Requires |
 | --- | --- | --- | --- | --- |
-| beta | content | 1.2.0 | `/api/newsletter` | core `auth`; optional: kon-blog, kon-payments |
+| beta | content | 1.2.1 | `/api/newsletter` | core `auth`; optional: kon-blog, kon-payments |
 
 ## Install
 
@@ -35,7 +35,7 @@ The optional kons are not installed with it:
 | Table | What it holds |
 | --- | --- |
 | `nl_newsletters` | The lists people subscribe to (`slug`, `name`, `public_signup`, `active`). |
-| `nl_members` | One row per email address: name, status (`pending`, `subscribed`, `unsubscribed`, `cleaned`), locale, attributes (`jsonb`), consent date and IP, confirmation and unsubscribe tokens. |
+| `nl_members` | One row per email address: name, status (`pending`, `subscribed`, `unsubscribed`, `cleaned`), locale, attributes (`jsonb`), consent date and IP (the address the core resolved with `clientIp()`, never a forwarding header as the client sent it; empty on a core that does not provide it), confirmation and unsubscribe tokens. |
 | `nl_subscriptions` | Which member is subscribed to which newsletter. |
 | `nl_suppressions` | Global list of addresses no campaign will ever write to (bounce, complaint, unsubscribe, manual). |
 | `nl_segments` | Saved member filters a campaign can target. |
