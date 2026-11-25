@@ -223,7 +223,8 @@ describe("dc gateway worker", () => {
     await new Promise((r) => setTimeout(r, 100));
     expect(h.sockets).toHaveLength(1);
     h.setConfig(config(1, ["GUILD_CREATE"]));
-    await until(() => h.sockets.length >= 2, 5000);
+    // The new socket exists before it has greeted and identified: wait for the IDENTIFY itself.
+    await until(() => h.sockets[1]?.sent.some((m) => m.op === 2) ?? false, 5000);
     expect(h.sockets[1]!.sent.find((m) => m.op === 2)!.d.intents).toBe(1);
     stop.abort();
     await running;
