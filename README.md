@@ -102,7 +102,6 @@ use a kon has had, not how many features it has:
 
 | Kon | Maturity | Version | SDK | Mounted at | What it does |
 | --- | --- | --- | --- | --- | --- |
-| `kon-analytics` | beta | 1.0.3 | 1 | `/api/analytics` | Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments. |
 | `kon-comments` | beta | 1.0.3 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
 | `kon-newsletter` | beta | 1.2.1 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
 | `kon-wiki` | beta | 1.3.0 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
