@@ -79,6 +79,7 @@ use a kon has had, not how many features it has:
 | --- | --- | --- | --- | --- | --- |
 | `kon-blog` | stable | 2.0.5 | 1 | `/api/blog` | Complete CMS publishing platform. Includes all content management features: rich text editing, SEO metadata… |
 | `kon-members` | stable | 1.0.3 | 1 | `/api/members` | Paid memberships: tiers, members and content access control |
+| `kon-site` | beta | 0.1.0 | 1 | `/api/site` | Several public sites from one Kitsuden: each site's name, logo, colours and menu, and the domains that lead… |
 
 ### Business
 
@@ -92,7 +93,7 @@ use a kon has had, not how many features it has:
 | `kon-directory` | beta | 1.1.0 | 1 | `/api/directory` | Employee profiles, departments, positions, and organizational hierarchy. |
 | `kon-dms` | beta | 2.1.0 | 1 | `/api/dms` | Versioned document management with hierarchical categories, approval workflows, semantic versioning, and… |
 | `kon-ecommerce` | beta | 1.3.0 | 1 | `/api/shop` | Sale of digital products and made-to-order items: online payment, downloads and license keys, discount codes… |
-| `kon-koe` | experimental | 0.2.1 | 1 | `/api/koe` | One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and… |
+| `kon-koe` | experimental | 0.3.0 | 1 | `/api/koe` | One inbox for WhatsApp Cloud API, Messenger, Instagram and web chat: bot and human handoff, Meta windows and… |
 | `kon-listings` | experimental | 0.2.0 | 1 | `/api/listings` | Listings of any kind (real estate, vehicles, jobs) with a public search for your own site, inquiries from… |
 | `kon-odoo` | experimental | 0.1.0 | 1 | `/api/odoo` | Odoo as the ERP behind a shop: a mirror of its catalog, stock and prices kept in step by signed notices… |
 | `kon-payments` | experimental | 1.3.0 | 1 | `/api/payments` | Payments and subscriptions with Stripe, Lemon Squeezy, Paddle and PayPal |
@@ -103,10 +104,10 @@ use a kon has had, not how many features it has:
 | --- | --- | --- | --- | --- | --- |
 | `kon-analytics` | beta | 1.0.3 | 1 | `/api/analytics` | Views per subject and day, without cookies or personal data: games, blog entries, wiki pages and tournaments. |
 | `kon-comments` | beta | 1.0.3 | 1 | `/api/comments` | Polymorphic comments with limited threads, one vote per user and moderation that hides without breaking the… |
-| `kon-newsletter` | beta | 1.2.0 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
+| `kon-newsletter` | beta | 1.2.1 | 1 | `/api/newsletter` | Members, double opt-in, segments and campaigns. Delivery delegated to Resend, Mailgun, Postal or any SMTP |
 | `kon-wiki` | beta | 1.3.0 | 1 | `/api/wiki` | Wikis with history, one per game (/<game>/wiki/): immutable revisions, diff, revert and [[wiki]] links with… |
 | `kon-chat` | experimental | 1.2.0 | 1 | `/api/chat` | Chatbots over the core's agents: for the team with tool groups, public on a website answering from what you… |
-| `kon-dc` | experimental | 0.4.0 | 1 | `/api/dc` | Discord bots built from declarative blueprints: modules you switch on per server, slash commands over HTTP… |
+| `kon-dc` | experimental | 0.5.0 | 1 | `/api/dc` | Discord bots built from declarative blueprints: modules you switch on per server, slash commands over HTTP… |
 
 ### Gaming
 
