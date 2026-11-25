@@ -84,6 +84,9 @@ its maturity in the table of the [README](README.md). This file records releases
   in the newsletter (`newsletter:address.suppressed|unsuppressed`, `crm:address.suppressed|unsuppressed`).
   Taking an address off one list lifts it from the other only if that is where it came from. A bounce is
   not mirrored, and neither is a domain excluded in the CRM (the newsletter's list is by address).
+- kon-analytics is part of Kitsuden now (`/api/analytics`, same routes, scopes and MCP tools; the core's
+  migration 0083 keeps its data), and leaves this repository. Remove it from an installation with
+  `kitsuden kon remove analytics` once the API runs a Kitsuden that has it.
 - Kons import Zod from `@kitsuden/engine/zod`, as Kitsuden's lint requires (73 files);
   `tests/guards/kons-import-zod-from-engine.test.ts` keeps it so. Patch versions for the kons whose only
   change is that import: kon-academy-lms 1.1.2, kon-agile 1.3.4, kon-analytics 1.0.3, kon-autobattler 1.0.2,
